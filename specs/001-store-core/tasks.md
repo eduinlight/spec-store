@@ -10,7 +10,7 @@ Each task < 30 minutes. Tests before implementation.
 - [x] T01 (FR: —) Create `Cargo.toml` (lib + bin `spec-store`, dependencies and features of plan §2, `rmcp = "=3.5.1"`), `src/lib.rs` with the module tree as empty modules, `src/main.rs` printing clap help, `.gitignore` for `target/` and `*.db*` — Done when: `cargo build`, `cargo test` (0 tests) and `cargo clippy --all-targets -- -D warnings` pass
 
 ## Phase 2 — Foundation (blocks the stories)
-- [ ] T02 [P] (FR-16, FR-21, FR-23) Write unit tests in `src/model.rs` for slug/handle validation, commit validation, `DocumentKind`/`Role`/`SpecStatus` parsing and the status transition table — Done when: tests written and red
+- [x] T02 [P] (FR-16, FR-21, FR-23) Write unit tests in `src/model.rs` for slug/handle validation, commit validation, `DocumentKind`/`Role`/`SpecStatus` parsing and the status transition table — Done when: tests written and red
 - [ ] T03 (FR-16, FR-21, FR-23) Implement `src/model.rs`: enums, `Caller`, `StoreError` (thiserror) and validators — Done when: T02 tests green
 - [ ] T04 [P] (FR: —) Write `tests/db.rs`: `db::open` on a temp path creates every table of plan §5, enables WAL and foreign keys, and is idempotent on a second open — Done when: tests written and red
 - [ ] T05 (FR: —) Implement `src/migrations/0001_init.sql` and `src/db.rs` (open, pragmas, migration runner with `schema_migrations`) — Done when: T04 tests green
