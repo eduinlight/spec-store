@@ -13,7 +13,7 @@ Each task < 30 minutes. Tests before implementation.
 - [x] T02 [P] (FR-16, FR-21, FR-23) Write unit tests in `src/model.rs` for slug/handle validation, commit validation, `DocumentKind`/`Role`/`SpecStatus` parsing and the status transition table — Done when: tests written and red
 - [x] T03 (FR-16, FR-21, FR-23) Implement `src/model.rs`: enums, `Caller`, `StoreError` (thiserror) and validators — Done when: T02 tests green
 - [x] T04 [P] (FR: —) Write `tests/db.rs`: `db::open` on a temp path creates every table of plan §5, enables WAL and foreign keys, and is idempotent on a second open — Done when: tests written and red
-- [ ] T05 (FR: —) Implement `src/migrations/0001_init.sql` and `src/db.rs` (open, pragmas, migration runner with `schema_migrations`) — Done when: T04 tests green
+- [x] T05 (FR: —) Implement `src/migrations/0001_init.sql` and `src/db.rs` (open, pragmas, migration runner with `schema_migrations`) — Done when: T04 tests green
 - [ ] T06 (FR-32) Write `tests/store_audit.rs`: `Store::new` wraps a connection, `with_tx` commits or rolls back, `audit` inserts actor/project/action/target/time and `list_audit` filters by project and limit — Done when: tests written and red
 - [ ] T07 (FR-32) Implement `src/store/mod.rs` (Store, transaction helper, audit insert and list) — Done when: T06 tests green
 
