@@ -7,7 +7,7 @@ Format: `- [ ] Tnn [P] (FR-x, FR-y) Description with path — Done when: verifia
 Each task < 30 minutes. Tests before implementation.
 
 ## Phase 1 — Setup
-- [ ] T01 (FR: —) Create `Cargo.toml` (lib + bin `spec-store`, dependencies and features of plan §2, `rmcp = "=3.5.1"`), `src/lib.rs` with the module tree as empty modules, `src/main.rs` printing clap help, `.gitignore` for `target/` and `*.db*` — Done when: `cargo build`, `cargo test` (0 tests) and `cargo clippy --all-targets -- -D warnings` pass
+- [x] T01 (FR: —) Create `Cargo.toml` (lib + bin `spec-store`, dependencies and features of plan §2, `rmcp = "=3.5.1"`), `src/lib.rs` with the module tree as empty modules, `src/main.rs` printing clap help, `.gitignore` for `target/` and `*.db*` — Done when: `cargo build`, `cargo test` (0 tests) and `cargo clippy --all-targets -- -D warnings` pass
 
 ## Phase 2 — Foundation (blocks the stories)
 - [ ] T02 [P] (FR-16, FR-21, FR-23) Write unit tests in `src/model.rs` for slug/handle validation, commit validation, `DocumentKind`/`Role`/`SpecStatus` parsing and the status transition table — Done when: tests written and red
