@@ -15,7 +15,7 @@ Each task < 30 minutes. Tests before implementation.
 - [x] T04 [P] (FR: —) Write `tests/db.rs`: `db::open` on a temp path creates every table of plan §5, enables WAL and foreign keys, and is idempotent on a second open — Done when: tests written and red
 - [x] T05 (FR: —) Implement `src/migrations/0001_init.sql` and `src/db.rs` (open, pragmas, migration runner with `schema_migrations`) — Done when: T04 tests green
 - [x] T06 (FR-32) Write `tests/store_audit.rs`: `Store::new` wraps a connection, `with_tx` commits or rolls back, `audit` inserts actor/project/action/target/time and `list_audit` filters by project and limit — Done when: tests written and red
-- [ ] T07 (FR-32) Implement `src/store/mod.rs` (Store, transaction helper, audit insert and list) — Done when: T06 tests green
+- [x] T07 (FR-32) Implement `src/store/mod.rs` (Store, transaction helper, audit insert and list) — Done when: T06 tests green
 
 ## Phase 3 — US-1 (P1) Administer users, tokens, projects and members
 - [ ] T08 [P] (FR-1, FR-2, FR-3, FR-7) Write `tests/store_users.rs`: create user and duplicate handle, first user is admin, token issued once with `sst_` prefix and listed without secret, revoke blocks that token only, `authenticate` resolves user and updates `last_used_at` — Done when: tests written and red
