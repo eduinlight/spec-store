@@ -1,3 +1,4 @@
+pub mod projects;
 pub mod users;
 
 use std::path::Path;
