@@ -23,7 +23,7 @@ Each task < 30 minutes. Tests before implementation.
 - [x] T10 [P] (FR-4, FR-5, FR-8, FR-9) Write `tests/store_projects.rs`: create project and duplicate slug, set_member replaces role, remove_member ends access, list_projects by membership and admin sees all, `require_role` returns Forbidden for non-members without existence leak — Done when: tests written and red
 - [x] T11 (FR-4, FR-5, FR-8, FR-9) Implement `src/store/projects.rs` (create_project, set_member, remove_member, list_projects, role_of, require_role) — Done when: T10 tests green
 - [x] T12 (FR-6, FR-32) Write `tests/cli.rs` running `CARGO_BIN_EXE_spec-store` with `--db` on a temp file: `user add` first user without `--as` becomes admin, second `user add` without `--as` fails, `--as` with a non-admin fails, `token issue` prints a token once, `project add`, `member set`, `audit list` shows the commands — Done when: tests written and red
-- [ ] T13 (FR-6, FR-32) Implement `src/cli.rs` admin subcommands (`user add`, `token issue|revoke|list`, `project add`, `member set|remove`, `audit list`) and `src/main.rs` dispatch with exit codes — Done when: T12 tests green
+- [x] T13 (FR-6, FR-32) Implement `src/cli.rs` admin subcommands (`user add`, `token issue|revoke|list`, `project add`, `member set|remove`, `audit list`) and `src/main.rs` dispatch with exit codes — Done when: T12 tests green
 
 ## Phase 4 — US-2 (P1) Read the documents of my projects
 - [ ] T14 [P] (FR-10, FR-11, FR-14) Write `tests/store_specs.rs` (list_specs with kinds ordered by number, active_spec skips archived and returns None) and unit tests in `src/templates.rs` (five kinds returned, `research` and unknown rejected with the list of valid kinds) — Done when: tests written and red
