@@ -27,7 +27,7 @@ Each task < 30 minutes. Tests before implementation.
 
 ## Phase 4 — US-2 (P1) Read the documents of my projects
 - [x] T14 [P] (FR-10, FR-11, FR-14) Write `tests/store_specs.rs` (list_specs with kinds ordered by number, active_spec skips archived and returns None) and unit tests in `src/templates.rs` (five kinds returned, `research` and unknown rejected with the list of valid kinds) — Done when: tests written and red
-- [ ] T15 (FR-14) Implement `src/templates.rs` with `include_str!` of `.sdd/templates/*.md` — Done when: templates tests of T14 green
+- [x] T15 (FR-14) Implement `src/templates.rs` with `include_str!` of `.sdd/templates/*.md` — Done when: templates tests of T14 green
 - [ ] T16 (FR-10, FR-11) Implement `list_specs` and `active_spec` in `src/store/specs.rs` (with a test-only insert helper until T23) — Done when: T14 tests green
 - [x] T17 [P] (FR-12, FR-13, FR-17) Write `tests/store_documents.rs` read part: get_document returns body and revision metadata, not-found distinguishes missing spec from missing kind, get_constitution body and version, not-found when absent; basic put creating document and revision — Done when: tests written and red
 - [ ] T18 (FR-12, FR-13, FR-17) Implement `get_document`, `get_constitution` and the basic `put_document`/`put_constitution` path in `src/store/documents.rs` (locking and roles come in T25) — Done when: T17 tests green
