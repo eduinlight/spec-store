@@ -61,7 +61,9 @@ fn open_is_idempotent() {
     .unwrap();
   assert_eq!(applied, 1);
   let version: i64 = conn
-    .query_row("SELECT max(version) FROM schema_migrations", [], |r| r.get(0))
+    .query_row("SELECT max(version) FROM schema_migrations", [], |r| {
+      r.get(0)
+    })
     .unwrap();
   assert_eq!(version, 1);
 }
