@@ -1,12 +1,12 @@
 # spec-store
 
-<Two or three sentences: what it is, architecture, technologies.>
+Remote, multi-project store for Spec Driven Development documents (constitution, spec, plan, tasks, research, validation) exposed to AI agents through an MCP server, so the documents no longer live in each project's repository. One Rust binary serves the Streamable HTTP MCP endpoint, a read-only web UI and a JSON API for the CLI, with a single SQLite file as the only state. Documents are markdown with append-only revisions; the server indexes FRs, tasks, status and markers for queries.
 
 ## Commands
 
-- Run: `<command>`
-- Tests: `<command>`
-- Lint: `<command>`
+- Run: `cargo run -- serve`
+- Tests: `cargo test`
+- Lint: `cargo clippy --all-targets -- -D warnings && cargo fmt --check`
 
 ## Methodology: Spec Driven Development
 
@@ -39,7 +39,10 @@ Mandatory rules for the agent:
 ## Style
 
 - Code, identifiers, commit messages, documentation and messages to the user in English.
-- <Project-specific conventions>
+- Rust stable toolchain, edition 2024, `rustfmt` defaults.
+- Errors are typed with `thiserror` in libraries and `anyhow` only in the binary entry point.
+- SQLite is the only persistent state; schema changes go through numbered migrations.
+- Every write to a document creates a revision and an audit entry; nothing is updated in place.
 
 ## Checklist before considering a task finished
 
