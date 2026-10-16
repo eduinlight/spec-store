@@ -1,3 +1,4 @@
+pub mod documents;
 pub mod projects;
 pub mod specs;
 pub mod users;
