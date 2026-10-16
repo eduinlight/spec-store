@@ -26,7 +26,7 @@ Each task < 30 minutes. Tests before implementation.
 - [x] T13 (FR-6, FR-32) Implement `src/cli.rs` admin subcommands (`user add`, `token issue|revoke|list`, `project add`, `member set|remove`, `audit list`) and `src/main.rs` dispatch with exit codes — Done when: T12 tests green
 
 ## Phase 4 — US-2 (P1) Read the documents of my projects
-- [ ] T14 [P] (FR-10, FR-11, FR-14) Write `tests/store_specs.rs` (list_specs with kinds ordered by number, active_spec skips archived and returns None) and unit tests in `src/templates.rs` (five kinds returned, `research` and unknown rejected with the list of valid kinds) — Done when: tests written and red
+- [x] T14 [P] (FR-10, FR-11, FR-14) Write `tests/store_specs.rs` (list_specs with kinds ordered by number, active_spec skips archived and returns None) and unit tests in `src/templates.rs` (five kinds returned, `research` and unknown rejected with the list of valid kinds) — Done when: tests written and red
 - [ ] T15 (FR-14) Implement `src/templates.rs` with `include_str!` of `.sdd/templates/*.md` — Done when: templates tests of T14 green
 - [ ] T16 (FR-10, FR-11) Implement `list_specs` and `active_spec` in `src/store/specs.rs` (with a test-only insert helper until T23) — Done when: T14 tests green
 - [ ] T17 [P] (FR-12, FR-13, FR-17) Write `tests/store_documents.rs` read part: get_document returns body and revision metadata, not-found distinguishes missing spec from missing kind, get_constitution body and version, not-found when absent; basic put creating document and revision — Done when: tests written and red
