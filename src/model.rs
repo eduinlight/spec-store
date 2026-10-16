@@ -1,3 +1,244 @@
+use std::fmt;
+use std::str::FromStr;
+
+pub const MAX_BODY_BYTES: usize = 1_048_576;
+
+#[derive(Debug, thiserror::Error)]
+pub enum StoreError {
+  #[error("authentication required")]
+  Unauthenticated,
+  #[error("not allowed")]
+  Forbidden,
+  #[error("{0} not found")]
+  NotFound(String),
+  #[error("revision conflict: current revision is {current_revision}")]
+  Conflict { current_revision: i64 },
+  #[error("{0}")]
+  Validation(String),
+  #[error("{0}")]
+  Malformed(String),
+  #[error("database error: {0}")]
+  Database(#[from] rusqlite::Error),
+}
+
+pub type StoreResult<T> = Result<T, StoreError>;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Caller {
+  pub user_id: i64,
+  pub handle: String,
+  pub is_admin: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Role {
+  Owner,
+  Editor,
+  Reader,
+}
+
+impl Role {
+  pub const ALL: [Role; 3] = [Role::Owner, Role::Editor, Role::Reader];
+
+  pub fn as_str(self) -> &'static str {
+    match self {
+      Role::Owner => "owner",
+      Role::Editor => "editor",
+      Role::Reader => "reader",
+    }
+  }
+
+  pub fn can_write(self) -> bool {
+    matches!(self, Role::Owner | Role::Editor)
+  }
+}
+
+impl FromStr for Role {
+  type Err = StoreError;
+
+  fn from_str(s: &str) -> Result<Self, Self::Err> {
+    Role::ALL
+      .into_iter()
+      .find(|r| r.as_str() == s)
+      .ok_or_else(|| {
+        StoreError::Validation(format!(
+          "unknown role {s:?}; valid roles: owner, editor, reader"
+        ))
+      })
+  }
+}
+
+impl fmt::Display for Role {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    f.write_str(self.as_str())
+  }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum SpecStatus {
+  Draft,
+  Clarified,
+  Approved,
+  Archived,
+}
+
+impl SpecStatus {
+  pub const ALL: [SpecStatus; 4] = [
+    SpecStatus::Draft,
+    SpecStatus::Clarified,
+    SpecStatus::Approved,
+    SpecStatus::Archived,
+  ];
+
+  pub fn as_str(self) -> &'static str {
+    match self {
+      SpecStatus::Draft => "draft",
+      SpecStatus::Clarified => "clarified",
+      SpecStatus::Approved => "approved",
+      SpecStatus::Archived => "archived",
+    }
+  }
+}
+
+impl FromStr for SpecStatus {
+  type Err = StoreError;
+
+  fn from_str(s: &str) -> Result<Self, Self::Err> {
+    SpecStatus::ALL
+      .into_iter()
+      .find(|v| v.as_str() == s)
+      .ok_or_else(|| {
+        StoreError::Validation(format!(
+          "unknown status {s:?}; valid statuses: draft, clarified, approved, archived"
+        ))
+      })
+  }
+}
+
+impl fmt::Display for SpecStatus {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    f.write_str(self.as_str())
+  }
+}
+
+pub fn transition_allowed(from: SpecStatus, to: SpecStatus, role: Role) -> bool {
+  use SpecStatus::*;
+  if !role.can_write() || from == Archived {
+    return false;
+  }
+  match (from, to) {
+    (_, Archived) => role == Role::Owner,
+    (Draft, Clarified) | (Clarified, Approved) | (Clarified, Draft) | (Approved, Draft) => true,
+    _ => false,
+  }
+}
+
+pub fn allowed_targets(from: SpecStatus, role: Role) -> Vec<SpecStatus> {
+  SpecStatus::ALL
+    .into_iter()
+    .filter(|to| transition_allowed(from, *to, role))
+    .collect()
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum DocumentKind {
+  Constitution,
+  Spec,
+  Plan,
+  Tasks,
+  Research,
+  Validation,
+}
+
+impl DocumentKind {
+  pub const ALL: [DocumentKind; 6] = [
+    DocumentKind::Constitution,
+    DocumentKind::Spec,
+    DocumentKind::Plan,
+    DocumentKind::Tasks,
+    DocumentKind::Research,
+    DocumentKind::Validation,
+  ];
+
+  pub const SPEC_KINDS: [DocumentKind; 5] = [
+    DocumentKind::Spec,
+    DocumentKind::Plan,
+    DocumentKind::Tasks,
+    DocumentKind::Research,
+    DocumentKind::Validation,
+  ];
+
+  pub fn as_str(self) -> &'static str {
+    match self {
+      DocumentKind::Constitution => "constitution",
+      DocumentKind::Spec => "spec",
+      DocumentKind::Plan => "plan",
+      DocumentKind::Tasks => "tasks",
+      DocumentKind::Research => "research",
+      DocumentKind::Validation => "validation",
+    }
+  }
+}
+
+impl FromStr for DocumentKind {
+  type Err = StoreError;
+
+  fn from_str(s: &str) -> Result<Self, Self::Err> {
+    DocumentKind::ALL
+      .into_iter()
+      .find(|k| k.as_str() == s)
+      .ok_or_else(|| {
+        StoreError::Validation(format!(
+          "unknown document kind {s:?}; valid kinds: constitution, spec, plan, tasks, research, validation"
+        ))
+      })
+  }
+}
+
+impl fmt::Display for DocumentKind {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    f.write_str(self.as_str())
+  }
+}
+
+pub fn validate_slug(slug: &str) -> StoreResult<()> {
+  let words: Vec<&str> = slug.split('-').collect();
+  let word_ok = |w: &&str| {
+    !w.is_empty()
+      && w
+        .bytes()
+        .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
+  };
+  if slug.is_empty() || words.len() > 4 || !words.iter().all(word_ok) {
+    return Err(StoreError::Validation(format!(
+      "invalid slug {slug:?}: one to four lowercase words of letters and digits joined by single hyphens"
+    )));
+  }
+  Ok(())
+}
+
+pub fn validate_commit(commit: &str) -> StoreResult<()> {
+  let hex = commit
+    .bytes()
+    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b));
+  if !(7..=40).contains(&commit.len()) || !hex {
+    return Err(StoreError::Validation(format!(
+      "invalid commit identifier {commit:?}: 7 to 40 lowercase hexadecimal characters"
+    )));
+  }
+  Ok(())
+}
+
+pub fn validate_body_size(body: &str) -> StoreResult<()> {
+  if body.len() > MAX_BODY_BYTES {
+    return Err(StoreError::Validation(format!(
+      "document body of {} bytes exceeds the limit of {MAX_BODY_BYTES} bytes",
+      body.len()
+    )));
+  }
+  Ok(())
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -50,11 +291,17 @@ mod tests {
     assert_eq!(Role::Editor.as_str(), "editor");
 
     assert_eq!("draft".parse::<SpecStatus>().unwrap(), SpecStatus::Draft);
-    assert_eq!("archived".parse::<SpecStatus>().unwrap(), SpecStatus::Archived);
+    assert_eq!(
+      "archived".parse::<SpecStatus>().unwrap(),
+      SpecStatus::Archived
+    );
     assert!("done".parse::<SpecStatus>().is_err());
     assert_eq!(SpecStatus::Clarified.as_str(), "clarified");
 
-    assert_eq!("tasks".parse::<DocumentKind>().unwrap(), DocumentKind::Tasks);
+    assert_eq!(
+      "tasks".parse::<DocumentKind>().unwrap(),
+      DocumentKind::Tasks
+    );
     assert_eq!(
       "constitution".parse::<DocumentKind>().unwrap(),
       DocumentKind::Constitution
@@ -68,7 +315,14 @@ mod tests {
   fn kind_parse_error_lists_valid_kinds() {
     let err = "notes".parse::<DocumentKind>().unwrap_err();
     let msg = err.to_string();
-    for k in ["spec", "plan", "tasks", "research", "validation", "constitution"] {
+    for k in [
+      "spec",
+      "plan",
+      "tasks",
+      "research",
+      "validation",
+      "constitution",
+    ] {
       assert!(msg.contains(k), "{msg} should list {k}");
     }
   }
@@ -98,7 +352,11 @@ mod tests {
     let targets = allowed_targets(SpecStatus::Clarified, Role::Owner);
     assert_eq!(
       targets,
-      vec![SpecStatus::Draft, SpecStatus::Approved, SpecStatus::Archived]
+      vec![
+        SpecStatus::Draft,
+        SpecStatus::Approved,
+        SpecStatus::Archived
+      ]
     );
     assert!(allowed_targets(SpecStatus::Archived, Role::Owner).is_empty());
   }
