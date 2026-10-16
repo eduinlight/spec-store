@@ -10,7 +10,10 @@ fn store() -> Store {
 fn insert_user(store: &Store, handle: &str) -> i64 {
   store
     .with_tx(|tx| {
-      tx.execute("INSERT INTO users (handle, is_admin) VALUES (?1, 1)", [handle])?;
+      tx.execute(
+        "INSERT INTO users (handle, is_admin) VALUES (?1, 1)",
+        [handle],
+      )?;
       Ok(tx.last_insert_rowid())
     })
     .unwrap()
@@ -19,10 +22,7 @@ fn insert_user(store: &Store, handle: &str) -> i64 {
 fn insert_project(store: &Store, slug: &str) -> i64 {
   store
     .with_tx(|tx| {
-      tx.execute(
-        "INSERT INTO projects (slug, name) VALUES (?1, ?1)",
-        [slug],
-      )?;
+      tx.execute("INSERT INTO projects (slug, name) VALUES (?1, ?1)", [slug])?;
       Ok(tx.last_insert_rowid())
     })
     .unwrap()
@@ -72,8 +72,15 @@ fn audit_records_actor_project_action_target_and_time() {
   assert_eq!(entries[0].project, None);
   assert_eq!(entries[1].action, "project.create");
   assert_eq!(entries[1].project.as_deref(), Some("demo"));
-  assert!(entries[1].created_at.ends_with('Z'), "{}", entries[1].created_at);
-  assert_eq!(entries[1].created_at.len(), "2026-10-17T00:00:00.000Z".len());
+  assert!(
+    entries[1].created_at.ends_with('Z'),
+    "{}",
+    entries[1].created_at
+  );
+  assert_eq!(
+    entries[1].created_at.len(),
+    "2026-10-17T00:00:00.000Z".len()
+  );
 }
 
 #[test]
@@ -93,7 +100,11 @@ fn list_audit_filters_by_project_and_limit() {
 
   let demo_entries = store.list_audit(Some("demo"), 10).unwrap();
   assert_eq!(demo_entries.len(), 3);
-  assert!(demo_entries.iter().all(|e| e.project.as_deref() == Some("demo")));
+  assert!(
+    demo_entries
+      .iter()
+      .all(|e| e.project.as_deref() == Some("demo"))
+  );
 
   let limited = store.list_audit(None, 2).unwrap();
   assert_eq!(limited.len(), 2);

@@ -108,7 +108,10 @@ fn authenticate_resolves_user_and_updates_last_used() {
     store.authenticate("sst_unknown"),
     Err(StoreError::Unauthenticated)
   ));
-  assert!(matches!(store.authenticate(""), Err(StoreError::Unauthenticated)));
+  assert!(matches!(
+    store.authenticate(""),
+    Err(StoreError::Unauthenticated)
+  ));
 }
 
 #[test]

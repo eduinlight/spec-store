@@ -19,10 +19,18 @@ fn fixture() -> Fixture {
   for h in ["owner", "editor", "reader", "outsider"] {
     store.create_user(Some(&admin), h, false).unwrap();
   }
-  store.create_project(&admin, "demo", "Demo project").unwrap();
-  store.set_member(&admin, "demo", "owner", Role::Owner).unwrap();
-  store.set_member(&admin, "demo", "editor", Role::Editor).unwrap();
-  store.set_member(&admin, "demo", "reader", Role::Reader).unwrap();
+  store
+    .create_project(&admin, "demo", "Demo project")
+    .unwrap();
+  store
+    .set_member(&admin, "demo", "owner", Role::Owner)
+    .unwrap();
+  store
+    .set_member(&admin, "demo", "editor", Role::Editor)
+    .unwrap();
+  store
+    .set_member(&admin, "demo", "reader", Role::Reader)
+    .unwrap();
   Fixture {
     owner: store.caller_by_handle("owner").unwrap(),
     editor: store.caller_by_handle("editor").unwrap(),
@@ -36,9 +44,16 @@ fn fixture() -> Fixture {
 #[test]
 fn creates_project_and_rejects_duplicate_slug() {
   let f = fixture();
-  let project = f.store.create_project(&f.admin, "second", "Second").unwrap();
+  let project = f
+    .store
+    .create_project(&f.admin, "second", "Second")
+    .unwrap();
   assert_eq!(project.slug, "second");
-  match f.store.create_project(&f.admin, "demo", "Again").unwrap_err() {
+  match f
+    .store
+    .create_project(&f.admin, "demo", "Again")
+    .unwrap_err()
+  {
     StoreError::Validation(msg) => assert!(msg.contains("demo"), "{msg}"),
     other => panic!("expected validation, got {other:?}"),
   }
@@ -65,7 +80,13 @@ fn set_member_replaces_role_and_remove_ends_access() {
   assert_eq!(access.role, Some(Role::Editor));
   let count: i64 = f
     .store
-    .with_conn(|c| Ok(c.query_row("SELECT count(*) FROM memberships WHERE user_id = ?1", [f.outsider.user_id], |r| r.get(0))?))
+    .with_conn(|c| {
+      Ok(c.query_row(
+        "SELECT count(*) FROM memberships WHERE user_id = ?1",
+        [f.outsider.user_id],
+        |r| r.get(0),
+      )?)
+    })
     .unwrap();
   assert_eq!(count, 1);
 
@@ -76,7 +97,8 @@ fn set_member_replaces_role_and_remove_ends_access() {
   ));
 
   assert!(matches!(
-    f.store.set_member(&f.editor, "demo", "outsider", Role::Reader),
+    f.store
+      .set_member(&f.editor, "demo", "outsider", Role::Reader),
     Err(StoreError::Forbidden)
   ));
   assert!(matches!(
@@ -88,7 +110,8 @@ fn set_member_replaces_role_and_remove_ends_access() {
     Err(StoreError::NotFound(_))
   ));
   assert!(matches!(
-    f.store.set_member(&f.admin, "missing", "outsider", Role::Reader),
+    f.store
+      .set_member(&f.admin, "missing", "outsider", Role::Reader),
     Err(StoreError::NotFound(_))
   ));
 }
@@ -115,7 +138,10 @@ fn list_projects_by_membership_and_admin_sees_all() {
     .set_member(&f.admin, "other", "root", Role::Reader)
     .unwrap();
   let all = f.store.list_projects(&f.admin).unwrap();
-  assert_eq!(all.iter().find(|p| p.slug == "other").unwrap().role, "reader");
+  assert_eq!(
+    all.iter().find(|p| p.slug == "other").unwrap().role,
+    "reader"
+  );
 }
 
 #[test]
