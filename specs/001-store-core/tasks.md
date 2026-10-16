@@ -19,7 +19,7 @@ Each task < 30 minutes. Tests before implementation.
 
 ## Phase 3 — US-1 (P1) Administer users, tokens, projects and members
 - [x] T08 [P] (FR-1, FR-2, FR-3, FR-7) Write `tests/store_users.rs`: create user and duplicate handle, first user is admin, token issued once with `sst_` prefix and listed without secret, revoke blocks that token only, `authenticate` resolves user and updates `last_used_at` — Done when: tests written and red
-- [ ] T09 (FR-1, FR-2, FR-3, FR-7) Implement `src/auth.rs` (generate_token, hash_token) and `src/store/users.rs` (create_user, issue_token, revoke_token, list_tokens, authenticate) — Done when: T08 tests green
+- [x] T09 (FR-1, FR-2, FR-3, FR-7) Implement `src/auth.rs` (generate_token, hash_token) and `src/store/users.rs` (create_user, issue_token, revoke_token, list_tokens, authenticate) — Done when: T08 tests green
 - [x] T10 [P] (FR-4, FR-5, FR-8, FR-9) Write `tests/store_projects.rs`: create project and duplicate slug, set_member replaces role, remove_member ends access, list_projects by membership and admin sees all, `require_role` returns Forbidden for non-members without existence leak — Done when: tests written and red
 - [ ] T11 (FR-4, FR-5, FR-8, FR-9) Implement `src/store/projects.rs` (create_project, set_member, remove_member, list_projects, role_of, require_role) — Done when: T10 tests green
 - [ ] T12 (FR-6, FR-32) Write `tests/cli.rs` running `CARGO_BIN_EXE_spec-store` with `--db` on a temp file: `user add` first user without `--as` becomes admin, second `user add` without `--as` fails, `--as` with a non-admin fails, `token issue` prints a token once, `project add`, `member set`, `audit list` shows the commands — Done when: tests written and red
