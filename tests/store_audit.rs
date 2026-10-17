@@ -113,3 +113,114 @@ fn list_audit_filters_by_project_and_limit() {
   let unknown = store.list_audit(Some("missing"), 10).unwrap();
   assert!(unknown.is_empty());
 }
+
+#[test]
+fn list_audit_page_is_authorized_and_paged() {
+  use spec_store::model::Role;
+  let store = store();
+  store.create_user(None, "root", false).unwrap();
+  let admin = store.caller_by_handle("root").unwrap();
+  for h in ["owner", "editor"] {
+    store.create_user(Some(&admin), h, false).unwrap();
+  }
+  store.create_project(&admin, "demo", "Demo").unwrap();
+  store.create_project(&admin, "other", "Other").unwrap();
+  store
+    .set_member(&admin, "demo", "owner", Role::Owner)
+    .unwrap();
+  store
+    .set_member(&admin, "demo", "editor", Role::Editor)
+    .unwrap();
+  let owner = store.caller_by_handle("owner").unwrap();
+  let editor = store.caller_by_handle("editor").unwrap();
+  for i in 0..5 {
+    store
+      .create_spec(&editor, "demo", &format!("spec-{i}"))
+      .unwrap();
+  }
+
+  let first = store
+    .list_audit_page(&owner, Some("demo"), None, 2)
+    .unwrap();
+  assert_eq!(first.entries.len(), 2);
+  assert!(first.has_more);
+  assert!(first.entries[0].id > first.entries[1].id, "newest first");
+  assert_eq!(first.entries[0].action, "spec.create");
+  assert_eq!(first.entries[0].target, "005-spec-4");
+  assert!(
+    first
+      .entries
+      .iter()
+      .all(|e| e.project.as_deref() == Some("demo"))
+  );
+
+  let mut seen = first.entries.len();
+  let mut cursor = first.entries.last().map(|e| e.id);
+  let mut has_more = first.has_more;
+  while has_more {
+    let page = store
+      .list_audit_page(&owner, Some("demo"), cursor, 2)
+      .unwrap();
+    assert!(!page.entries.is_empty());
+    assert!(page.entries.iter().all(|e| Some(e.id) < cursor));
+    seen += page.entries.len();
+    cursor = page.entries.last().map(|e| e.id);
+    has_more = page.has_more;
+  }
+  let total = store.list_audit(Some("demo"), 100).unwrap().len();
+  assert_eq!(seen, total, "pagination walks every entry exactly once");
+  assert!(
+    total >= 7,
+    "project.create, two member.set, five spec.create"
+  );
+
+  assert!(matches!(
+    store.list_audit_page(&owner, None, None, 10),
+    Err(StoreError::Forbidden)
+  ));
+  assert!(matches!(
+    store.list_audit_page(&owner, Some("other"), None, 10),
+    Err(StoreError::Forbidden)
+  ));
+  assert!(matches!(
+    store.list_audit_page(&editor, Some("demo"), None, 10),
+    Err(StoreError::Forbidden)
+  ));
+
+  let global = store.list_audit_page(&admin, None, None, 100).unwrap();
+  assert!(!global.has_more);
+  assert!(
+    global.entries.iter().any(|e| e.project.is_none()),
+    "user.create has no project"
+  );
+  assert!(
+    global
+      .entries
+      .iter()
+      .any(|e| e.project.as_deref() == Some("demo"))
+  );
+  assert!(
+    global
+      .entries
+      .iter()
+      .any(|e| e.project.as_deref() == Some("other"))
+  );
+  let other = store
+    .list_audit_page(&admin, Some("other"), None, 100)
+    .unwrap();
+  assert!(!other.entries.is_empty());
+  assert!(
+    other
+      .entries
+      .iter()
+      .all(|e| e.project.as_deref() == Some("other"))
+  );
+  assert!(matches!(
+    store.list_audit_page(&admin, Some("missing"), None, 10),
+    Err(StoreError::NotFound(_))
+  ));
+  assert!(matches!(
+    store.list_audit_page(&owner, Some("missing"), None, 10),
+    Err(StoreError::Forbidden)
+  ));
+}

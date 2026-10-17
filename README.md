@@ -2,8 +2,8 @@
 
 Remote, multi-project store for Spec Driven Development documents (constitution, spec, plan,
 tasks, research, validation) exposed to AI agents through an MCP server. One Rust binary serves
-the Streamable HTTP MCP endpoint and the administration commands, with a single SQLite file as
-the only state. Documents are markdown with append-only revisions; tasks, markers and project
+the Streamable HTTP MCP endpoint, a read-only browser view and the administration commands, with
+a single SQLite file as the only state. Documents are markdown with append-only revisions; tasks, markers and project
 status are derived from the current revision on every read.
 
 ## Run the server
@@ -20,7 +20,8 @@ cargo build --release
 - `--allowed-host` lists the `Host` header values the server accepts. Without it only loopback
   hosts are accepted, which protects against DNS rebinding; pass the public host name and port
   when serving a team.
-- The MCP endpoint is `POST /mcp`; `GET /healthz` answers `ok` without authentication.
+- The MCP endpoint is `POST /mcp`; the browser view is at `/ui/`; `GET /healthz` answers `ok`
+  without authentication.
 - Logs go to stderr; set `RUST_LOG=debug` for more detail.
 
 ## Bootstrap an admin, a project and a token
@@ -69,6 +70,27 @@ by Claude Code):
 }
 ```
 
+## Browser view
+
+The same server serves a read-only browser view at `/ui/` (the root `/` redirects there).
+People sign in with their own API token on `/ui/login`; the server exchanges it for a session
+cookie that lasts 30 days or until logout or revocation of the token. The browser can only read:
+projects, specs, documents rendered from markdown with a raw view, tasks with their commits, open
+markers, revision history with diffs, the project's members, and the audit trail (owners for their
+projects, admins for everything). Nothing is written from the browser.
+
+- Behind HTTPS, start the server with `--secure-cookies` so the session cookie is only sent over
+  TLS. Without the flag the cookie works over plain HTTP, which suits loopback testing.
+- To turn commit identifiers of done tasks into links, record the project's repository URL:
+
+```sh
+spec-store --db store.db project set-repo demo https://github.com/acme/demo --as alice
+spec-store --db store.db project set-repo demo --clear --as alice
+```
+
+Admins and owners of the project may set it. Links are built as `<repository URL>/commit/<id>`,
+which fits GitHub, GitLab and Gitea.
+
 ## Stdio mode
 
 On the server host, or for tests, the same tools are available over stdin and stdout acting for
@@ -96,4 +118,5 @@ Projects are addressed by slug and specs by number.
 cargo test
 cargo clippy --all-targets -- -D warnings && cargo fmt --check
 cargo test --release --test perf -- --ignored
+cargo test --release --test perf_ui -- --ignored
 ```

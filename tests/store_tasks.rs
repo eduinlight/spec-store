@@ -426,3 +426,67 @@ fn status_reflects_last_write() {
       .is_empty()
   );
 }
+
+#[test]
+fn project_overview_summarises_every_visible_project() {
+  let f = fixture();
+  let admin = f.store.caller_by_handle("root").unwrap();
+  put_tasks(&f, TASKS);
+  f.store
+    .mark_task_done(&f.editor, "demo", 1, "T01", "abc1234")
+    .unwrap();
+  f.store
+    .put_constitution(&f.owner, "demo", "# C", "1.2", "m", None)
+    .unwrap();
+  f.store.create_spec(&f.editor, "demo", "second").unwrap();
+  f.store
+    .put_document(
+      &f.editor,
+      "demo",
+      2,
+      DocumentKind::Spec,
+      "# S\n\n[NEEDS CLARIFICATION: a?]\n",
+      "m",
+      None,
+    )
+    .unwrap();
+  f.store.create_project(&admin, "other", "Other").unwrap();
+  f.store.create_project(&admin, "third", "Third").unwrap();
+  f.store
+    .set_member(&admin, "third", "reader", Role::Reader)
+    .unwrap();
+
+  let reader_view = f.store.project_overview(&f.reader).unwrap();
+  let slugs: Vec<&str> = reader_view.iter().map(|p| p.slug.as_str()).collect();
+  assert_eq!(slugs, vec!["demo", "third"]);
+  let demo = &reader_view[0];
+  assert_eq!(demo.name, "Demo");
+  assert_eq!(demo.role, Some(Role::Reader));
+  assert_eq!(demo.constitution_version.as_deref(), Some("1.2"));
+  assert_eq!(demo.spec_count, 2);
+  let active = demo.active.as_ref().expect("active spec");
+  assert_eq!(active.number, 2);
+  assert_eq!(active.slug, "second");
+  assert_eq!(active.tasks_done, 0);
+  assert_eq!(active.tasks_total, 0);
+  assert_eq!(active.markers, 1);
+  let third = &reader_view[1];
+  assert!(third.constitution_version.is_none());
+  assert_eq!(third.spec_count, 0);
+  assert!(third.active.is_none());
+
+  let admin_view = f.store.project_overview(&admin).unwrap();
+  let slugs: Vec<&str> = admin_view.iter().map(|p| p.slug.as_str()).collect();
+  assert_eq!(slugs, vec!["demo", "other", "third"]);
+  assert!(admin_view.iter().all(|p| p.role.is_none()));
+
+  f.store
+    .set_spec_status(&f.owner, "demo", 2, SpecStatus::Archived)
+    .unwrap();
+  let after = f.store.project_overview(&f.editor).unwrap();
+  let active = after[0].active.as_ref().unwrap();
+  assert_eq!(active.number, 1);
+  assert_eq!(active.tasks_done, 1);
+  assert_eq!(active.tasks_total, 3);
+  assert_eq!(after[0].role, Some(Role::Editor));
+}

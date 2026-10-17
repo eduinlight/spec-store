@@ -49,6 +49,8 @@ pub struct ServeArgs {
   pub bind: String,
   #[arg(long = "allowed-host")]
   pub allowed_hosts: Vec<String>,
+  #[arg(long)]
+  pub secure_cookies: bool,
 }
 
 #[derive(Args, Debug)]
@@ -102,6 +104,15 @@ pub enum ProjectCmd {
     #[arg(long = "as", value_name = "HANDLE")]
     as_handle: String,
   },
+  #[command(about = "Set or clear the repository URL used to link commits in the browser view")]
+  SetRepo {
+    slug: String,
+    url: Option<String>,
+    #[arg(long)]
+    clear: bool,
+    #[arg(long = "as", value_name = "HANDLE")]
+    as_handle: String,
+  },
 }
 
 #[derive(Subcommand, Debug)]
@@ -144,6 +155,7 @@ pub fn run(cli: Cli) -> anyhow::Result<()> {
       &args.bind,
       ServerConfig {
         allowed_hosts: args.allowed_hosts,
+        secure_cookies: args.secure_cookies,
       },
     )),
     Command::Stdio(args) => {
@@ -248,6 +260,26 @@ fn run_project(store: &Store, cmd: ProjectCmd) -> anyhow::Result<()> {
       let admin = require_admin_actor(store, &as_handle)?;
       let project = store.create_project(&admin, &slug, &name)?;
       println!("created project {} ({})", project.slug, project.name);
+      Ok(())
+    }
+    ProjectCmd::SetRepo {
+      slug,
+      url,
+      clear,
+      as_handle,
+    } => {
+      let acting = actor(store, &as_handle)?;
+      match (url, clear) {
+        (Some(url), false) => {
+          store.set_repository_url(&acting, &slug, Some(&url))?;
+          println!("set repository of {slug} to {url}");
+        }
+        (None, true) => {
+          store.set_repository_url(&acting, &slug, None)?;
+          println!("cleared repository of {slug}");
+        }
+        _ => bail!("pass a repository URL or --clear"),
+      }
       Ok(())
     }
   }
