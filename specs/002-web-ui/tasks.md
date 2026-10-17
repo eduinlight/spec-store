@@ -34,7 +34,7 @@ Each task < 30 minutes. Tests before implementation.
 - [x] T19 (FR-10, FR-11, FR-12, FR-13, FR-14, FR-15) Implement `src/ui/pages/specs.rs` (spec page, document page, constitution page, raw view) — Done when: T18 tests green
 
 ## Phase 5 — US-4 (P2) Follow the history of a document
-- [ ] T20 (FR-17, FR-18, FR-19, NFR-3) Write `tests/ui_history.rs`: history lists revisions newest first with author, time, message, current marked and constitution version; revision page labelled not current with link to current; unknown revision gives 404; diff page marks added and removed lines; first revision says it has no predecessor; links between pages present — Done when: tests written and red
+- [x] T20 (FR-17, FR-18, FR-19, NFR-3) Write `tests/ui_history.rs`: history lists revisions newest first with author, time, message, current marked and constitution version; revision page labelled not current with link to current; unknown revision gives 404; diff page marks added and removed lines; first revision says it has no predecessor; links between pages present — Done when: tests written and red
 - [ ] T21 (FR-17, FR-18, FR-19) Implement `src/ui/pages/history.rs` — Done when: T20 tests green
 
 ## Phase 6 — US-5 (P2) See who did what
