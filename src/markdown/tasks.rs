@@ -1,3 +1,178 @@
+use crate::model::{StoreError, StoreResult, validate_commit};
+
+const TODO_PREFIX: &str = "- [ ] ";
+const DONE_PREFIX: &str = "- [x] ";
+const DONE_WHEN: &str = " — Done when: ";
+const COMMIT_SUFFIX: &str = " · commit: ";
+const HEADING_PREFIX: &str = "## ";
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Task {
+  pub id: String,
+  pub phase: String,
+  pub parallel: bool,
+  pub frs: Vec<String>,
+  pub description: String,
+  pub done_when: String,
+  pub done: bool,
+  pub commit: Option<String>,
+  pub line: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Malformed {
+  pub line: usize,
+  pub text: String,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ParsedTasks {
+  pub tasks: Vec<Task>,
+  pub malformed: Vec<Malformed>,
+}
+
+fn strip_cr(line: &str) -> &str {
+  line.strip_suffix('\r').unwrap_or(line)
+}
+
+fn looks_like_task(line: &str) -> bool {
+  line.starts_with(TODO_PREFIX) || line.starts_with(DONE_PREFIX)
+}
+
+fn valid_task_id(id: &str) -> bool {
+  let digits = id.strip_prefix('T').unwrap_or("");
+  digits.len() >= 2 && digits.bytes().all(|b| b.is_ascii_digit())
+}
+
+fn parse_frs(group: &str) -> Option<Vec<String>> {
+  if let Some(none) = group.strip_prefix("FR:") {
+    return matches!(none.trim(), "—" | "-" | "–").then(Vec::new);
+  }
+  let frs: Vec<String> = group.split(',').map(|fr| fr.trim().to_string()).collect();
+  let valid = frs.iter().all(|fr| {
+    fr.strip_prefix("FR-")
+      .is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
+  });
+  valid.then_some(frs)
+}
+
+fn parse_task_line(line: &str, number: usize, phase: &str) -> Option<Task> {
+  let done = line.starts_with(DONE_PREFIX);
+  let rest = &line[TODO_PREFIX.len()..];
+  let (id, rest) = rest.split_once(' ')?;
+  if !valid_task_id(id) {
+    return None;
+  }
+  let (parallel, rest) = match rest.strip_prefix("[P] ") {
+    Some(rest) => (true, rest),
+    None => (false, rest),
+  };
+  let rest = rest.strip_prefix('(')?;
+  let close = rest.find(')')?;
+  let frs = parse_frs(&rest[..close])?;
+  let rest = rest[close + 1..].strip_prefix(' ')?;
+  let (description, tail) = rest.split_once(DONE_WHEN)?;
+  let (done_when, commit) = match tail.rsplit_once(COMMIT_SUFFIX) {
+    Some((done_when, commit)) => {
+      let commit = commit.trim();
+      validate_commit(commit).ok()?;
+      (done_when, Some(commit.to_string()))
+    }
+    None => (tail, None),
+  };
+  let description = description.trim();
+  let done_when = done_when.trim();
+  if description.is_empty() || done_when.is_empty() {
+    return None;
+  }
+  Some(Task {
+    id: id.to_string(),
+    phase: phase.to_string(),
+    parallel,
+    frs,
+    description: description.to_string(),
+    done_when: done_when.to_string(),
+    done,
+    commit,
+    line: number,
+  })
+}
+
+pub fn parse_tasks(body: &str) -> ParsedTasks {
+  let mut parsed = ParsedTasks::default();
+  let mut phase = String::new();
+  for (index, raw) in body.split('\n').enumerate() {
+    let line = strip_cr(raw);
+    if let Some(heading) = line.strip_prefix(HEADING_PREFIX) {
+      phase = heading.trim().to_string();
+      continue;
+    }
+    if !looks_like_task(line) {
+      continue;
+    }
+    match parse_task_line(line, index + 1, &phase) {
+      Some(task) => parsed.tasks.push(task),
+      None => parsed.malformed.push(Malformed {
+        line: index + 1,
+        text: line.to_string(),
+      }),
+    }
+  }
+  parsed
+}
+
+pub fn mark_done(body: &str, task_id: &str, commit: &str) -> StoreResult<String> {
+  let parsed = parse_tasks(body);
+  if !parsed.malformed.is_empty() {
+    let lines: Vec<String> = parsed
+      .malformed
+      .iter()
+      .map(|m| m.line.to_string())
+      .collect();
+    return Err(StoreError::Malformed(format!(
+      "tasks document has malformed task lines at line(s) {}",
+      lines.join(", ")
+    )));
+  }
+  let matching: Vec<&Task> = parsed.tasks.iter().filter(|t| t.id == task_id).collect();
+  let task = match matching.as_slice() {
+    [] => return Err(StoreError::NotFound(format!("task {task_id}"))),
+    [task] => *task,
+    many => {
+      return Err(StoreError::Malformed(format!(
+        "task id {task_id} appears {} times in the tasks document",
+        many.len()
+      )));
+    }
+  };
+  if task.done {
+    return Err(StoreError::Validation(format!(
+      "task {task_id} is already done"
+    )));
+  }
+  let lines: Vec<String> = body
+    .split('\n')
+    .enumerate()
+    .map(|(index, raw)| {
+      if index + 1 != task.line {
+        return raw.to_string();
+      }
+      let had_cr = raw.ends_with('\r');
+      let line = strip_cr(raw);
+      let rewritten = format!(
+        "{DONE_PREFIX}{}{COMMIT_SUFFIX}{commit}",
+        &line[TODO_PREFIX.len()..]
+      );
+      if had_cr {
+        format!("{rewritten}\r")
+      } else {
+        rewritten
+      }
+    })
+    .collect();
+  Ok(lines.join("\n"))
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
