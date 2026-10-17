@@ -1,3 +1,76 @@
+use similar::{ChangeTag, TextDiff};
+
+use crate::ui::html::escape;
+
+const CONTEXT_LINES: usize = 3;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DiffTag {
+  Equal,
+  Insert,
+  Delete,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DiffLine {
+  pub tag: DiffTag,
+  pub old_line: Option<usize>,
+  pub new_line: Option<usize>,
+  pub text: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Hunk {
+  pub lines: Vec<DiffLine>,
+}
+
+pub fn diff_lines(old: &str, new: &str) -> Vec<Hunk> {
+  let diff = TextDiff::from_lines(old, new);
+  diff
+    .grouped_ops(CONTEXT_LINES)
+    .into_iter()
+    .map(|ops| Hunk {
+      lines: ops
+        .iter()
+        .flat_map(|op| diff.iter_changes(op))
+        .map(|change| DiffLine {
+          tag: match change.tag() {
+            ChangeTag::Equal => DiffTag::Equal,
+            ChangeTag::Insert => DiffTag::Insert,
+            ChangeTag::Delete => DiffTag::Delete,
+          },
+          old_line: change.old_index().map(|i| i + 1),
+          new_line: change.new_index().map(|i| i + 1),
+          text: change.value().trim_end_matches(['\n', '\r']).to_string(),
+        })
+        .collect(),
+    })
+    .collect()
+}
+
+pub fn render_diff(hunks: &[Hunk]) -> String {
+  let mut out = String::new();
+  for (index, hunk) in hunks.iter().enumerate() {
+    if index > 0 {
+      out.push_str("<tr class=\"hunk-separator\"><td colspan=\"3\">…</td></tr>\n");
+    }
+    for line in &hunk.lines {
+      let (class, sign) = match line.tag {
+        DiffTag::Equal => ("ctx", " "),
+        DiffTag::Insert => ("ins", "+"),
+        DiffTag::Delete => ("del", "-"),
+      };
+      let old = line.old_line.map(|n| n.to_string()).unwrap_or_default();
+      let new = line.new_line.map(|n| n.to_string()).unwrap_or_default();
+      out.push_str(&format!(
+        "<tr class=\"{class}\"><td class=\"ln\">{old}</td><td class=\"ln\">{new}</td><td class=\"code\">{sign}{}</td></tr>\n",
+        escape(&line.text)
+      ));
+    }
+  }
+  out
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -35,7 +108,12 @@ mod tests {
     let new = "A\nb\nc\nd\ne\nf\ng\nh\ni\nJ\n";
     let hunks = diff_lines(OLD, new);
     assert_eq!(hunks.len(), 2);
-    assert_eq!(hunks[0].lines[0].text, "A");
+    assert!(
+      hunks[0]
+        .lines
+        .iter()
+        .any(|l| l.tag == DiffTag::Insert && l.text == "A")
+    );
     assert!(
       hunks[0]
         .lines

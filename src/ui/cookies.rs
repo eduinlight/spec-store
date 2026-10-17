@@ -1,3 +1,40 @@
+use axum::http::HeaderMap;
+use axum::http::header::COOKIE;
+
+pub const SESSION_COOKIE: &str = "spec_store_session";
+const MAX_AGE_SECONDS: i64 = 30 * 24 * 60 * 60;
+
+pub fn session_from_headers(headers: &HeaderMap) -> Option<String> {
+  headers
+    .get_all(COOKIE)
+    .iter()
+    .filter_map(|value| value.to_str().ok())
+    .flat_map(|value| value.split(';'))
+    .filter_map(|pair| {
+      let (name, value) = pair.trim().split_once('=')?;
+      (name.trim() == SESSION_COOKIE && !value.trim().is_empty()).then(|| value.trim().to_string())
+    })
+    .next()
+}
+
+pub fn set_session_cookie(secret: &str, secure: bool) -> String {
+  format!(
+    "{SESSION_COOKIE}={secret}; Path=/; HttpOnly; SameSite=Lax; Max-Age={MAX_AGE_SECONDS}{}",
+    secure_suffix(secure)
+  )
+}
+
+pub fn clear_session_cookie(secure: bool) -> String {
+  format!(
+    "{SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0{}",
+    secure_suffix(secure)
+  )
+}
+
+fn secure_suffix(secure: bool) -> &'static str {
+  if secure { "; Secure" } else { "" }
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;

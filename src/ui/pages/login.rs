@@ -1,3 +1,20 @@
+pub const UI_ROOT: &str = "/ui/";
+
+pub fn safe_next(next: Option<&str>) -> String {
+  match next {
+    Some(path)
+      if path.starts_with(UI_ROOT)
+        && !path.contains("//")
+        && !path.contains("..")
+        && !path.contains('\\')
+        && !path.chars().any(|c| c.is_control() || c.is_whitespace()) =>
+    {
+      path.to_string()
+    }
+    _ => UI_ROOT.to_string(),
+  }
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
