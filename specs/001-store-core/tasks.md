@@ -36,7 +36,7 @@ Each task < 30 minutes. Tests before implementation.
 - [x] T21 (FR-9, FR-10, FR-11, FR-12, FR-13, FR-14) Implement the six read tools (`list_specs`, `get_active_spec`, `get_document`, `get_constitution`, `get_template`, forbidden project handling) in `src/mcp.rs` — Done when: T19 tests green
 
 ## Phase 5 — US-3 (P1) Create specs and write documents
-- [ ] T22 [P] (FR-15, FR-16, FR-21) Extend `tests/store_specs.rs`: create_spec assigns next number counting archived, branch `NNN-slug`, rejects bad and duplicate slug, status transitions accepted/rejected per plan §5, archive by owner only, reader forbidden — Done when: tests written and red
+- [x] T22 [P] (FR-15, FR-16, FR-21) Extend `tests/store_specs.rs`: create_spec assigns next number counting archived, branch `NNN-slug`, rejects bad and duplicate slug, status transitions accepted/rejected per plan §5, archive by owner only, reader forbidden — Done when: tests written and red
 - [ ] T23 (FR-15, FR-16, FR-21) Implement `create_spec` and `set_status` in `src/store/specs.rs` and remove the test-only insert helper — Done when: T22 tests green
 - [ ] T24 [P] (FR-17, FR-18, FR-19, FR-20, FR-24) Extend `tests/store_documents.rs`: expected_revision missing or stale → Conflict with current id, reader and archived → Forbidden, constitution owner only and same version → Conflict, body over 1 MiB rejected and bytes kept exactly, two threads with a barrier → exactly one success — Done when: tests written and red
 - [ ] T25 (FR-17, FR-18, FR-19, FR-20, FR-24) Implement locking, role checks, archived check, size limit and version check in `src/store/documents.rs` — Done when: T24 tests green
