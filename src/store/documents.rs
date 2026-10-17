@@ -1,6 +1,6 @@
 use rusqlite::{Connection, OptionalExtension, params};
 
-use crate::model::{Caller, DocumentKind, StoreError, StoreResult, validate_body_size};
+use crate::model::{Caller, DocumentKind, SpecStatus, StoreError, StoreResult, validate_body_size};
 use crate::store::projects::access_in;
 use crate::store::specs::spec_by_number;
 use crate::store::{Store, audit};
@@ -81,6 +81,31 @@ pub fn current_revision(
       )
       .optional()?,
   )
+}
+
+fn current_revision_id(conn: &Connection, document_id: i64) -> StoreResult<Option<i64>> {
+  Ok(conn.query_row(
+    "SELECT current_revision_id FROM documents WHERE id = ?1",
+    [document_id],
+    |r| r.get(0),
+  )?)
+}
+
+fn check_expected_revision(
+  current: Option<i64>,
+  expected: Option<i64>,
+  what: &str,
+) -> StoreResult<()> {
+  match (current, expected) {
+    (Some(current), Some(expected)) if current == expected => Ok(()),
+    (Some(current), _) => Err(StoreError::Conflict {
+      current_revision: current,
+    }),
+    (None, Some(_)) => Err(StoreError::Validation(format!(
+      "{what} does not exist yet; omit expected_revision when creating it"
+    ))),
+    (None, None) => Ok(()),
+  }
 }
 
 fn ensure_document(
@@ -168,10 +193,25 @@ impl Store {
   ) -> StoreResult<i64> {
     reject_constitution_kind(kind)?;
     validate_body_size(body)?;
-    let _ = expected_revision;
     self.with_tx(|tx| {
       let access = access_in(tx, caller, project)?;
+      if !access.can_write() {
+        return Err(StoreError::Forbidden);
+      }
       let spec = spec_by_number(tx, access.project_id, project, number)?;
+      if spec.status == SpecStatus::Archived {
+        return Err(StoreError::Forbidden);
+      }
+      let existing = document_id(tx, access.project_id, Some(spec.id), kind)?;
+      let current = match existing {
+        Some(id) => current_revision_id(tx, id)?,
+        None => None,
+      };
+      check_expected_revision(
+        current,
+        expected_revision,
+        &format!("{kind} document of spec {number:03}"),
+      )?;
       let doc_id = ensure_document(tx, access.project_id, Some(spec.id), kind)?;
       let revision_id = append_revision(tx, doc_id, body, None, caller.user_id, message)?;
       audit(
@@ -195,9 +235,28 @@ impl Store {
     expected_revision: Option<i64>,
   ) -> StoreResult<i64> {
     validate_body_size(body)?;
-    let _ = expected_revision;
     self.with_tx(|tx| {
       let access = access_in(tx, caller, project)?;
+      if !access.is_owner() {
+        return Err(StoreError::Forbidden);
+      }
+      let existing = document_id(tx, access.project_id, None, DocumentKind::Constitution)?;
+      let current = match existing {
+        Some(id) => current_revision(tx, id)?.map(|(_, meta)| meta),
+        None => None,
+      };
+      if let Some(meta) = &current
+        && meta.version.as_deref() == Some(version)
+      {
+        return Err(StoreError::Conflict {
+          current_revision: meta.id,
+        });
+      }
+      check_expected_revision(
+        current.as_ref().map(|m| m.id),
+        expected_revision,
+        &format!("constitution of project {project:?}"),
+      )?;
       let doc_id = ensure_document(tx, access.project_id, None, DocumentKind::Constitution)?;
       let revision_id = append_revision(tx, doc_id, body, Some(version), caller.user_id, message)?;
       audit(
