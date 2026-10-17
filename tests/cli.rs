@@ -203,3 +203,99 @@ fn help_and_unknown_command() {
   let out = run(&db, &["frobnicate"]);
   assert_ne!(out.code, 0);
 }
+
+#[test]
+fn project_set_repo_sets_validates_and_clears() {
+  let db = common::temp_db_path("cli-repo");
+  ok(&db, &["user", "add", "alice"]);
+  for h in ["bob", "carol"] {
+    ok(&db, &["user", "add", h, "--as", "alice"]);
+  }
+  ok(&db, &["project", "add", "demo", "Demo", "--as", "alice"]);
+  ok(
+    &db,
+    &["member", "set", "demo", "bob", "owner", "--as", "alice"],
+  );
+  ok(
+    &db,
+    &["member", "set", "demo", "carol", "editor", "--as", "alice"],
+  );
+
+  let out = ok(
+    &db,
+    &[
+      "project",
+      "set-repo",
+      "demo",
+      "https://github.com/acme/demo",
+      "--as",
+      "alice",
+    ],
+  );
+  assert!(
+    out.stdout.contains("https://github.com/acme/demo"),
+    "{}",
+    out.stdout
+  );
+  assert!(out.stdout.contains("demo"));
+
+  let out = ok(
+    &db,
+    &[
+      "project",
+      "set-repo",
+      "demo",
+      "https://gitlab.com/acme/demo",
+      "--as",
+      "bob",
+    ],
+  );
+  assert!(out.stdout.contains("gitlab.com"), "owner may set the URL");
+
+  let out = fails(
+    &db,
+    &["project", "set-repo", "demo", "ftp://x/y", "--as", "alice"],
+  );
+  assert!(out.stderr.contains("http"), "{}", out.stderr);
+  fails(
+    &db,
+    &[
+      "project",
+      "set-repo",
+      "demo",
+      "https://example.com/r",
+      "--as",
+      "carol",
+    ],
+  );
+  fails(&db, &["project", "set-repo", "demo", "--as", "alice"]);
+  fails(
+    &db,
+    &[
+      "project",
+      "set-repo",
+      "demo",
+      "https://example.com/r",
+      "--clear",
+      "--as",
+      "alice",
+    ],
+  );
+
+  let out = ok(
+    &db,
+    &["project", "set-repo", "demo", "--clear", "--as", "bob"],
+  );
+  assert!(out.stdout.contains("cleared"), "{}", out.stdout);
+
+  let audit = ok(
+    &db,
+    &["audit", "list", "--project", "demo", "--as", "alice"],
+  );
+  assert_eq!(
+    audit.stdout.matches("project.repo").count(),
+    3,
+    "{}",
+    audit.stdout
+  );
+}
