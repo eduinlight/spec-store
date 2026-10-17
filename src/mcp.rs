@@ -352,6 +352,39 @@ pub struct ProjectStatusOutput {
   pub active: Option<ActiveStatusOutput>,
 }
 
+#[derive(Deserialize, schemars::JsonSchema)]
+pub struct ListRevisionsParams {
+  #[schemars(description = "Project slug")]
+  pub project: String,
+  #[schemars(description = "Spec number; omit it for the constitution")]
+  pub number: Option<i64>,
+  #[schemars(
+    description = "Document kind: constitution, spec, plan, tasks, research or validation"
+  )]
+  pub kind: String,
+}
+
+#[derive(Deserialize, schemars::JsonSchema)]
+pub struct GetRevisionParams {
+  #[schemars(description = "Project slug")]
+  pub project: String,
+  #[schemars(description = "Revision id as returned by the write tools or list_revisions")]
+  pub revision_id: i64,
+}
+
+#[derive(Serialize, schemars::JsonSchema)]
+pub struct RevisionsOutput {
+  pub revisions: Vec<RevisionOutput>,
+}
+
+#[derive(Serialize, schemars::JsonSchema)]
+pub struct RevisionBodyOutput {
+  pub body: String,
+  pub kind: String,
+  pub number: Option<i64>,
+  pub revision: RevisionOutput,
+}
+
 fn parse_kind(kind: &str) -> Result<DocumentKind, McpError> {
   kind.parse().map_err(to_mcp_error)
 }
@@ -697,6 +730,44 @@ impl SpecStoreMcp {
       constitution_version: status.constitution_version,
       specs: status.specs.into_iter().map(SpecOutput::from).collect(),
       active: status.active.map(ActiveStatusOutput::from),
+    }))
+  }
+
+  #[tool(
+    description = "List the revisions of a spec document or of the constitution, newest first"
+  )]
+  async fn list_revisions(
+    &self,
+    Parameters(p): Parameters<ListRevisionsParams>,
+    ctx: RequestContext<RoleServer>,
+  ) -> Result<Json<RevisionsOutput>, McpError> {
+    let caller = self.caller(&ctx)?;
+    let kind = parse_kind(&p.kind)?;
+    let revisions = self
+      .store
+      .list_revisions(&caller, &p.project, p.number, kind)
+      .map_err(to_mcp_error)?;
+    Ok(Json(RevisionsOutput {
+      revisions: revisions.into_iter().map(RevisionOutput::from).collect(),
+    }))
+  }
+
+  #[tool(description = "Read the body of a specific revision by id")]
+  async fn get_revision(
+    &self,
+    Parameters(p): Parameters<GetRevisionParams>,
+    ctx: RequestContext<RoleServer>,
+  ) -> Result<Json<RevisionBodyOutput>, McpError> {
+    let caller = self.caller(&ctx)?;
+    let revision = self
+      .store
+      .get_revision(&caller, &p.project, p.revision_id)
+      .map_err(to_mcp_error)?;
+    Ok(Json(RevisionBodyOutput {
+      body: revision.body,
+      kind: revision.kind.as_str().to_string(),
+      number: revision.number,
+      revision: revision.meta.into(),
     }))
   }
 }

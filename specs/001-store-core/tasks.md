@@ -58,7 +58,7 @@ Each task < 30 minutes. Tests before implementation.
 ## Phase 7 — US-5 (P2) Know who changed what
 - [x] T38 (FR-30, FR-31) Extend `tests/store_documents.rs` (list_revisions newest first with author and message, constitution revisions with version, get_revision body and not-found) and `tests/mcp_stdio.rs` (`list_revisions`, `get_revision`) — Done when: tests written and red
 - [x] T39 (FR-30, FR-31) Implement `list_revisions` and `get_revision` in `src/store/documents.rs` — Done when: store tests of T38 green
-- [ ] T40 (FR-30, FR-31) Implement the two history tools in `src/mcp.rs` — Done when: T38 tests green
+- [x] T40 (FR-30, FR-31) Implement the two history tools in `src/mcp.rs` — Done when: T38 tests green
 
 ## Final phase — Polish and cross-cutting
 - [ ] T41 (NFR-1) Write `tests/perf.rs` (ignored by default): 10 threads, 200 reads of a 200 KB spec through the store, assert p95 < 100 ms — Done when: `cargo test --release --test perf -- --ignored` passes
