@@ -45,7 +45,7 @@ Each task < 30 minutes. Tests before implementation.
 - [x] T28 (FR-22, FR-23) Write `tests/store_tasks.rs` mark part: mark_task_done stores a new revision with message naming the task, read back shows `[x]` and commit, rejects malformed commit, unknown task, already done, archived spec, reader — Done when: tests written and red
 - [x] T29 (FR-22, FR-23) Implement `mark_task_done` in `src/store/tasks.rs` — Done when: T28 tests green
 - [x] T30 (FR-15, FR-17, FR-18, FR-20, FR-21, FR-22) Extend `tests/mcp_stdio.rs`: `create_spec`, `put_document` (create, update with expected_revision, conflict error data), `put_constitution`, `set_spec_status`, `mark_task_done` — Done when: tests written and red
-- [ ] T31 (FR-15, FR-17, FR-18, FR-20, FR-21, FR-22) Implement the five write tools in `src/mcp.rs` — Done when: T30 tests green
+- [x] T31 (FR-15, FR-17, FR-18, FR-20, FR-21, FR-22) Implement the five write tools in `src/mcp.rs` — Done when: T30 tests green
 
 ## Phase 6 — US-4 (P2) See progress without parsing
 - [ ] T32 [P] (FR-27) Write unit tests in `src/markdown/markers.rs`: both marker kinds, nearest heading, several per line, none — Done when: tests written and red

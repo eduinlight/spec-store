@@ -9,7 +9,7 @@ use rmcp::{
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use crate::model::{Caller, DocumentKind, StoreError};
+use crate::model::{Caller, DocumentKind, SpecStatus, StoreError};
 use crate::store::Store;
 use crate::store::documents::RevisionMeta;
 use crate::store::specs::SpecSummary;
@@ -128,6 +128,95 @@ pub struct ConstitutionOutput {
 pub struct TemplateOutput {
   pub kind: String,
   pub body: String,
+}
+
+#[derive(Deserialize, schemars::JsonSchema)]
+pub struct CreateSpecParams {
+  #[schemars(description = "Project slug")]
+  pub project: String,
+  #[schemars(description = "Spec slug: one to four lowercase words joined by hyphens")]
+  pub slug: String,
+}
+
+#[derive(Deserialize, schemars::JsonSchema)]
+pub struct PutDocumentParams {
+  #[schemars(description = "Project slug")]
+  pub project: String,
+  #[schemars(description = "Spec number")]
+  pub number: i64,
+  #[schemars(description = "Document kind: spec, plan, tasks, research or validation")]
+  pub kind: String,
+  #[schemars(description = "Full markdown body of the document")]
+  pub body: String,
+  #[schemars(description = "Short message describing the change")]
+  pub message: String,
+  #[schemars(
+    description = "Revision id the write is based on; mandatory when the document already exists"
+  )]
+  pub expected_revision: Option<i64>,
+}
+
+#[derive(Deserialize, schemars::JsonSchema)]
+pub struct PutConstitutionParams {
+  #[schemars(description = "Project slug")]
+  pub project: String,
+  #[schemars(description = "Full markdown body of the constitution")]
+  pub body: String,
+  #[schemars(description = "New version, which must differ from the current one")]
+  pub version: String,
+  #[schemars(description = "Short message describing the change")]
+  pub message: String,
+  #[schemars(
+    description = "Revision id the write is based on; mandatory when a constitution already exists"
+  )]
+  pub expected_revision: Option<i64>,
+}
+
+#[derive(Deserialize, schemars::JsonSchema)]
+pub struct SetStatusParams {
+  #[schemars(description = "Project slug")]
+  pub project: String,
+  #[schemars(description = "Spec number")]
+  pub number: i64,
+  #[schemars(description = "Target status: draft, clarified, approved or archived")]
+  pub status: String,
+}
+
+#[derive(Deserialize, schemars::JsonSchema)]
+pub struct MarkTaskParams {
+  #[schemars(description = "Project slug")]
+  pub project: String,
+  #[schemars(description = "Spec number")]
+  pub number: i64,
+  #[schemars(description = "Task identifier such as T05")]
+  pub task_id: String,
+  #[schemars(description = "Commit identifier of 7 to 40 lowercase hexadecimal characters")]
+  pub commit: String,
+}
+
+#[derive(Serialize, schemars::JsonSchema)]
+pub struct CreatedSpecOutput {
+  pub number: i64,
+  pub slug: String,
+  pub branch: String,
+  pub status: String,
+}
+
+#[derive(Serialize, schemars::JsonSchema)]
+pub struct RevisionIdOutput {
+  pub revision_id: i64,
+}
+
+#[derive(Serialize, schemars::JsonSchema)]
+pub struct StatusOutput {
+  pub number: i64,
+  pub status: String,
+}
+
+#[derive(Serialize, schemars::JsonSchema)]
+pub struct MarkedTaskOutput {
+  pub revision_id: i64,
+  pub line: String,
 }
 
 fn parse_kind(kind: &str) -> Result<DocumentKind, McpError> {
@@ -306,6 +395,114 @@ impl SpecStoreMcp {
     Ok(Json(TemplateOutput {
       kind: kind.as_str().to_string(),
       body: body.to_string(),
+    }))
+  }
+
+  #[tool(
+    description = "Create a spec in a project: assigns the next number, status draft and the branch name NNN-slug"
+  )]
+  async fn create_spec(
+    &self,
+    Parameters(p): Parameters<CreateSpecParams>,
+    ctx: RequestContext<RoleServer>,
+  ) -> Result<Json<CreatedSpecOutput>, McpError> {
+    let caller = self.caller(&ctx)?;
+    let created = self
+      .store
+      .create_spec(&caller, &p.project, &p.slug)
+      .map_err(to_mcp_error)?;
+    Ok(Json(CreatedSpecOutput {
+      number: created.number,
+      slug: created.slug,
+      branch: created.branch,
+      status: created.status.as_str().to_string(),
+    }))
+  }
+
+  #[tool(
+    description = "Write the full body of a spec document as a new revision; pass expected_revision when the document exists"
+  )]
+  async fn put_document(
+    &self,
+    Parameters(p): Parameters<PutDocumentParams>,
+    ctx: RequestContext<RoleServer>,
+  ) -> Result<Json<RevisionIdOutput>, McpError> {
+    let caller = self.caller(&ctx)?;
+    let kind = parse_kind(&p.kind)?;
+    let revision_id = self
+      .store
+      .put_document(
+        &caller,
+        &p.project,
+        p.number,
+        kind,
+        &p.body,
+        &p.message,
+        p.expected_revision,
+      )
+      .map_err(to_mcp_error)?;
+    Ok(Json(RevisionIdOutput { revision_id }))
+  }
+
+  #[tool(
+    description = "Write the constitution of a project as a new revision with a new version; owners only"
+  )]
+  async fn put_constitution(
+    &self,
+    Parameters(p): Parameters<PutConstitutionParams>,
+    ctx: RequestContext<RoleServer>,
+  ) -> Result<Json<RevisionIdOutput>, McpError> {
+    let caller = self.caller(&ctx)?;
+    let revision_id = self
+      .store
+      .put_constitution(
+        &caller,
+        &p.project,
+        &p.body,
+        &p.version,
+        &p.message,
+        p.expected_revision,
+      )
+      .map_err(to_mcp_error)?;
+    Ok(Json(RevisionIdOutput { revision_id }))
+  }
+
+  #[tool(
+    description = "Change the status of a spec: draft→clarified, clarified→approved, back to draft, or archived (owners only)"
+  )]
+  async fn set_spec_status(
+    &self,
+    Parameters(p): Parameters<SetStatusParams>,
+    ctx: RequestContext<RoleServer>,
+  ) -> Result<Json<StatusOutput>, McpError> {
+    let caller = self.caller(&ctx)?;
+    let status: SpecStatus = p.status.parse().map_err(to_mcp_error)?;
+    let status = self
+      .store
+      .set_spec_status(&caller, &p.project, p.number, status)
+      .map_err(to_mcp_error)?;
+    Ok(Json(StatusOutput {
+      number: p.number,
+      status: status.as_str().to_string(),
+    }))
+  }
+
+  #[tool(
+    description = "Mark a task done in the tasks document, recording the commit on its line as a new revision"
+  )]
+  async fn mark_task_done(
+    &self,
+    Parameters(p): Parameters<MarkTaskParams>,
+    ctx: RequestContext<RoleServer>,
+  ) -> Result<Json<MarkedTaskOutput>, McpError> {
+    let caller = self.caller(&ctx)?;
+    let marked = self
+      .store
+      .mark_task_done(&caller, &p.project, p.number, &p.task_id, &p.commit)
+      .map_err(to_mcp_error)?;
+    Ok(Json(MarkedTaskOutput {
+      revision_id: marked.revision_id,
+      line: marked.line,
     }))
   }
 }
