@@ -1,6 +1,6 @@
 # Spec 001 — Store Core
 
-Status: clarified · Created: 2026-10-17 · Constitution: v1.0
+Status: approved · Created: 2026-10-17 · Constitution: v1.0
 
 ## 1. Context and goal
 
