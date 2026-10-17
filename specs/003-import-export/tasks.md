@@ -10,7 +10,7 @@ Each task < 30 minutes. Tests before implementation.
 - [x] T01 (FR: —) Create empty `src/tree.rs` and `src/store/transfer.rs`, register `pub mod tree` in `src/lib.rs` and `pub mod transfer` in `src/store/mod.rs` — Done when: `cargo build`, `cargo test` and `cargo clippy --all-targets -- -D warnings` pass
 
 ## Phase 2 — Foundation (blocks the stories)
-- [ ] T02 (FR-1, FR-3, FR-5, NFR-3) Write unit tests in `src/tree.rs`: `parse_spec_folder` accepts `001-store-core`, `042-a`, `1000-x` and rejects `0001-x`, `01-x`, `000-x`, `001-Name`, `001-a-b-c-d-e`, `001`, `abc-x`, `001-a/b`, `001-..`; `status_word` reads `approved` from `Status: approved · Created` and `draft` from the template line, `None` without a line; `version_line` reads `1.0` from `Version 1.0 · Ratified` and `None` without a line — Done when: tests written and red
+- [x] T02 (FR-1, FR-3, FR-5, NFR-3) Write unit tests in `src/tree.rs`: `parse_spec_folder` accepts `001-store-core`, `042-a`, `1000-x` and rejects `0001-x`, `01-x`, `000-x`, `001-Name`, `001-a-b-c-d-e`, `001`, `abc-x`, `001-a/b`, `001-..`; `status_word` reads `approved` from `Status: approved · Created` and `draft` from the template line, `None` without a line; `version_line` reads `1.0` from `Version 1.0 · Ratified` and `None` without a line — Done when: tests written and red
 - [ ] T03 (FR-1, FR-3, FR-5, NFR-3) Implement `parse_spec_folder`, `status_word` and `version_line` in `src/tree.rs` — Done when: T02 tests green
 
 ## Phase 3 — US-1 (P1) Import an existing tree
