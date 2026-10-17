@@ -270,3 +270,105 @@ impl Store {
     })
   }
 }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RevisionBody {
+  pub body: String,
+  pub meta: RevisionMeta,
+  pub kind: DocumentKind,
+  pub number: Option<i64>,
+}
+
+fn revision_meta(r: &rusqlite::Row<'_>) -> rusqlite::Result<RevisionMeta> {
+  Ok(RevisionMeta {
+    id: r.get(0)?,
+    author: r.get(1)?,
+    created_at: r.get(2)?,
+    message: r.get(3)?,
+    version: r.get(4)?,
+  })
+}
+
+impl Store {
+  pub fn list_revisions(
+    &self,
+    caller: &Caller,
+    project: &str,
+    number: Option<i64>,
+    kind: DocumentKind,
+  ) -> StoreResult<Vec<RevisionMeta>> {
+    match (number, kind) {
+      (Some(_), DocumentKind::Constitution) => {
+        return Err(StoreError::Validation(
+          "the constitution belongs to the project; omit the spec number".into(),
+        ));
+      }
+      (None, k) if k != DocumentKind::Constitution => {
+        return Err(StoreError::Validation(format!(
+          "a {k} document belongs to a spec; pass the spec number"
+        )));
+      }
+      _ => {}
+    }
+    self.with_conn(|conn| {
+      let access = access_in(conn, caller, project)?;
+      let doc_id = match number {
+        None => document_id(conn, access.project_id, None, DocumentKind::Constitution)?
+          .ok_or_else(|| StoreError::NotFound(format!("constitution of project {project:?}")))?,
+        Some(number) => {
+          let spec = spec_by_number(conn, access.project_id, project, number)?;
+          document_id(conn, access.project_id, Some(spec.id), kind)?
+            .ok_or_else(|| StoreError::NotFound(format!("{kind} document of spec {number:03}")))?
+        }
+      };
+      let mut stmt = conn.prepare(
+        "SELECT r.id, u.handle, r.created_at, r.message, r.version
+         FROM revisions r JOIN users u ON u.id = r.author_id
+         WHERE r.document_id = ?1 ORDER BY r.id DESC",
+      )?;
+      let rows = stmt.query_map([doc_id], revision_meta)?;
+      rows
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(StoreError::from)
+    })
+  }
+
+  pub fn get_revision(
+    &self,
+    caller: &Caller,
+    project: &str,
+    revision_id: i64,
+  ) -> StoreResult<RevisionBody> {
+    self.with_conn(|conn| {
+      let access = access_in(conn, caller, project)?;
+      conn
+        .query_row(
+          "SELECT r.id, u.handle, r.created_at, r.message, r.version, r.body, d.kind, s.number
+           FROM revisions r
+           JOIN documents d ON d.id = r.document_id
+           JOIN users u ON u.id = r.author_id
+           LEFT JOIN specs s ON s.id = d.spec_id
+           WHERE r.id = ?1 AND d.project_id = ?2",
+          params![revision_id, access.project_id],
+          |r| {
+            Ok((
+              revision_meta(r)?,
+              r.get::<_, String>(5)?,
+              r.get::<_, String>(6)?,
+              r.get::<_, Option<i64>>(7)?,
+            ))
+          },
+        )
+        .optional()?
+        .ok_or_else(|| StoreError::NotFound(format!("revision {revision_id}")))
+        .and_then(|(meta, body, kind, number)| {
+          Ok(RevisionBody {
+            body,
+            meta,
+            kind: kind.parse()?,
+            number,
+          })
+        })
+    })
+  }
+}
