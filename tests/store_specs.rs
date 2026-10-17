@@ -202,7 +202,7 @@ fn rejects_bad_or_duplicate_slug() {
 fn status_transitions_table() {
   let (f, owner, reader) = full_fixture();
   f.store.create_spec(&f.editor, "demo", "alpha").unwrap();
-  let status = |n| f.store.list_specs(&f.editor, "demo").unwrap()[n].status;
+  let status = |n: usize| f.store.list_specs(&f.editor, "demo").unwrap()[n].status;
 
   match f
     .store

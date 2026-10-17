@@ -1,8 +1,11 @@
 use rusqlite::{Connection, OptionalExtension, params};
 
-use crate::model::{Caller, DocumentKind, SpecStatus, StoreError, StoreResult};
-use crate::store::Store;
+use crate::model::{
+  Caller, DocumentKind, SpecStatus, StoreError, StoreResult, allowed_targets, transition_allowed,
+  validate_slug,
+};
 use crate::store::projects::access_in;
+use crate::store::{Store, audit};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SpecSummary {
@@ -116,6 +119,103 @@ impl Store {
       raw
         .map(|raw| summarize(conn, to_spec_row(raw)?))
         .transpose()
+    })
+  }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CreatedSpec {
+  pub number: i64,
+  pub slug: String,
+  pub branch: String,
+  pub status: SpecStatus,
+}
+
+impl Store {
+  pub fn create_spec(
+    &self,
+    caller: &Caller,
+    project: &str,
+    slug: &str,
+  ) -> StoreResult<CreatedSpec> {
+    self.with_tx(|tx| {
+      let access = access_in(tx, caller, project)?;
+      if !access.can_write() {
+        return Err(StoreError::Forbidden);
+      }
+      validate_slug(slug)?;
+      let duplicate: i64 = tx.query_row(
+        "SELECT count(*) FROM specs WHERE project_id = ?1 AND slug = ?2",
+        params![access.project_id, slug],
+        |r| r.get(0),
+      )?;
+      if duplicate > 0 {
+        return Err(StoreError::Validation(format!(
+          "spec slug {slug:?} already exists in project {project:?}"
+        )));
+      }
+      let highest: Option<i64> = tx.query_row(
+        "SELECT max(number) FROM specs WHERE project_id = ?1",
+        [access.project_id],
+        |r| r.get(0),
+      )?;
+      let number = highest.unwrap_or(0) + 1;
+      let branch = branch_name(number, slug);
+      tx.execute(
+        "INSERT INTO specs (project_id, number, slug, status, branch) VALUES (?1, ?2, ?3, 'draft', ?4)",
+        params![access.project_id, number, slug, branch],
+      )?;
+      audit(tx, caller.user_id, Some(access.project_id), "spec.create", &branch)?;
+      Ok(CreatedSpec {
+        number,
+        slug: slug.to_string(),
+        branch,
+        status: SpecStatus::Draft,
+      })
+    })
+  }
+
+  pub fn set_spec_status(
+    &self,
+    caller: &Caller,
+    project: &str,
+    number: i64,
+    to: SpecStatus,
+  ) -> StoreResult<SpecStatus> {
+    self.with_tx(|tx| {
+      let access = access_in(tx, caller, project)?;
+      let role = access
+        .role
+        .filter(|r| r.can_write())
+        .ok_or(StoreError::Forbidden)?;
+      let spec = spec_by_number(tx, access.project_id, project, number)?;
+      if !transition_allowed(spec.status, to, role) {
+        let targets: Vec<&str> = allowed_targets(spec.status, role)
+          .iter()
+          .map(|s| s.as_str())
+          .collect();
+        let allowed = if targets.is_empty() {
+          "none".to_string()
+        } else {
+          targets.join(", ")
+        };
+        return Err(StoreError::Validation(format!(
+          "cannot change spec {number:03} from {} to {to}; allowed targets for a {role}: {allowed}",
+          spec.status
+        )));
+      }
+      tx.execute(
+        "UPDATE specs SET status = ?1 WHERE id = ?2",
+        params![to.as_str(), spec.id],
+      )?;
+      audit(
+        tx,
+        caller.user_id,
+        Some(access.project_id),
+        "spec.status",
+        &format!("{number:03}:{}→{to}", spec.status),
+      )?;
+      Ok(to)
     })
   }
 }
