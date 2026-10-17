@@ -1,14 +1,152 @@
-use crate::markdown::tasks::{mark_done, parse_tasks};
+use rusqlite::Connection;
+
+use crate::markdown::markers::{MarkerKind, scan_markers};
+use crate::markdown::tasks::{ParsedTasks, Task, mark_done, parse_tasks};
 use crate::model::{Caller, DocumentKind, SpecStatus, StoreError, StoreResult, validate_commit};
 use crate::store::documents::{append_revision, current_revision, document_id};
 use crate::store::projects::access_in;
-use crate::store::specs::spec_by_number;
+use crate::store::specs::{SpecRow, SpecSummary, active_spec_in, list_specs_in, spec_by_number};
 use crate::store::{Store, audit};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MarkedTask {
   pub revision_id: i64,
   pub line: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SpecMarker {
+  pub document_kind: DocumentKind,
+  pub kind: MarkerKind,
+  pub heading: String,
+  pub text: String,
+  pub line: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ActiveStatus {
+  pub number: i64,
+  pub slug: String,
+  pub status: SpecStatus,
+  pub branch: String,
+  pub tasks_done: usize,
+  pub tasks_total: usize,
+  pub current_phase: Option<String>,
+  pub next_task: Option<Task>,
+  pub markers: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProjectStatus {
+  pub constitution_version: Option<String>,
+  pub specs: Vec<SpecSummary>,
+  pub active: Option<ActiveStatus>,
+}
+
+fn document_body(
+  conn: &Connection,
+  project_id: i64,
+  spec_id: i64,
+  kind: DocumentKind,
+) -> StoreResult<Option<String>> {
+  match document_id(conn, project_id, Some(spec_id), kind)? {
+    Some(doc_id) => Ok(current_revision(conn, doc_id)?.map(|(body, _)| body)),
+    None => Ok(None),
+  }
+}
+
+fn markers_of(conn: &Connection, project_id: i64, spec_id: i64) -> StoreResult<Vec<SpecMarker>> {
+  let mut markers = Vec::new();
+  for kind in DocumentKind::SPEC_KINDS {
+    if let Some(body) = document_body(conn, project_id, spec_id, kind)? {
+      markers.extend(scan_markers(&body).into_iter().map(|m| SpecMarker {
+        document_kind: kind,
+        kind: m.kind,
+        heading: m.heading,
+        text: m.text,
+        line: m.line,
+      }));
+    }
+  }
+  Ok(markers)
+}
+
+fn active_status(conn: &Connection, project_id: i64, spec: SpecRow) -> StoreResult<ActiveStatus> {
+  let parsed = document_body(conn, project_id, spec.id, DocumentKind::Tasks)?
+    .map(|body| parse_tasks(&body))
+    .unwrap_or_default();
+  let tasks_done = parsed.tasks.iter().filter(|t| t.done).count();
+  let next_task = parsed.tasks.iter().find(|t| !t.done).cloned();
+  let current_phase = next_task
+    .as_ref()
+    .map(|t| t.phase.clone())
+    .filter(|p| !p.is_empty());
+  Ok(ActiveStatus {
+    number: spec.number,
+    slug: spec.slug,
+    status: spec.status,
+    branch: spec.branch,
+    tasks_done,
+    tasks_total: parsed.tasks.len(),
+    current_phase,
+    next_task,
+    markers: markers_of(conn, project_id, spec.id)?.len(),
+  })
+}
+
+impl Store {
+  pub fn list_tasks(
+    &self,
+    caller: &Caller,
+    project: &str,
+    number: i64,
+    pending_only: bool,
+  ) -> StoreResult<ParsedTasks> {
+    self.with_conn(|conn| {
+      let access = access_in(conn, caller, project)?;
+      let spec = spec_by_number(conn, access.project_id, project, number)?;
+      let body = document_body(conn, access.project_id, spec.id, DocumentKind::Tasks)?
+        .ok_or_else(|| StoreError::NotFound(format!("tasks document of spec {number:03}")))?;
+      let mut parsed = parse_tasks(&body);
+      if pending_only {
+        parsed.tasks.retain(|t| !t.done);
+      }
+      Ok(parsed)
+    })
+  }
+
+  pub fn list_markers(
+    &self,
+    caller: &Caller,
+    project: &str,
+    number: i64,
+  ) -> StoreResult<Vec<SpecMarker>> {
+    self.with_conn(|conn| {
+      let access = access_in(conn, caller, project)?;
+      let spec = spec_by_number(conn, access.project_id, project, number)?;
+      markers_of(conn, access.project_id, spec.id)
+    })
+  }
+
+  pub fn project_status(&self, caller: &Caller, project: &str) -> StoreResult<ProjectStatus> {
+    self.with_conn(|conn| {
+      let access = access_in(conn, caller, project)?;
+      let constitution_version =
+        match document_id(conn, access.project_id, None, DocumentKind::Constitution)? {
+          Some(doc_id) => current_revision(conn, doc_id)?.and_then(|(_, meta)| meta.version),
+          None => None,
+        };
+      let specs = list_specs_in(conn, access.project_id)?;
+      let active = active_spec_in(conn, access.project_id)?
+        .map(|spec| active_status(conn, access.project_id, spec))
+        .transpose()?;
+      Ok(ProjectStatus {
+        constitution_version,
+        specs,
+        active,
+      })
+    })
+  }
 }
 
 impl Store {

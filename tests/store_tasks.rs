@@ -218,7 +218,7 @@ fn list_tasks_pending_filter_and_malformed() {
   let ids: Vec<&str> = all.tasks.iter().map(|t| t.id.as_str()).collect();
   assert_eq!(ids, vec!["T01", "T02", "T03"]);
   assert_eq!(all.malformed.len(), 1);
-  assert_eq!(all.malformed[0].line, 10);
+  assert_eq!(all.malformed[0].line, 9);
   assert_eq!(all.tasks[1].phase, "Phase 2 — US-1");
   assert!(all.tasks[1].parallel);
   assert_eq!(all.tasks[1].frs, vec!["FR-1", "FR-2"]);

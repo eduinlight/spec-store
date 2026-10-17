@@ -88,36 +88,44 @@ fn summarize(conn: &Connection, row: SpecRow) -> StoreResult<SpecSummary> {
   })
 }
 
+pub fn list_specs_in(conn: &Connection, project_id: i64) -> StoreResult<Vec<SpecSummary>> {
+  let mut stmt = conn.prepare(
+    "SELECT id, number, slug, status, branch FROM specs WHERE project_id = ?1 ORDER BY number",
+  )?;
+  let rows = stmt
+    .query_map([project_id], row_to_spec)?
+    .collect::<Result<Vec<_>, _>>()?;
+  rows
+    .into_iter()
+    .map(|raw| summarize(conn, to_spec_row(raw)?))
+    .collect()
+}
+
+pub fn active_spec_in(conn: &Connection, project_id: i64) -> StoreResult<Option<SpecRow>> {
+  let raw = conn
+    .query_row(
+      "SELECT id, number, slug, status, branch FROM specs
+       WHERE project_id = ?1 AND status != 'archived' ORDER BY number DESC LIMIT 1",
+      [project_id],
+      row_to_spec,
+    )
+    .optional()?;
+  raw.map(to_spec_row).transpose()
+}
+
 impl Store {
   pub fn list_specs(&self, caller: &Caller, project: &str) -> StoreResult<Vec<SpecSummary>> {
     self.with_conn(|conn| {
       let access = access_in(conn, caller, project)?;
-      let mut stmt = conn.prepare(
-        "SELECT id, number, slug, status, branch FROM specs WHERE project_id = ?1 ORDER BY number",
-      )?;
-      let rows = stmt
-        .query_map([access.project_id], row_to_spec)?
-        .collect::<Result<Vec<_>, _>>()?;
-      rows
-        .into_iter()
-        .map(|raw| summarize(conn, to_spec_row(raw)?))
-        .collect()
+      list_specs_in(conn, access.project_id)
     })
   }
 
   pub fn active_spec(&self, caller: &Caller, project: &str) -> StoreResult<Option<SpecSummary>> {
     self.with_conn(|conn| {
       let access = access_in(conn, caller, project)?;
-      let raw = conn
-        .query_row(
-          "SELECT id, number, slug, status, branch FROM specs
-           WHERE project_id = ?1 AND status != 'archived' ORDER BY number DESC LIMIT 1",
-          [access.project_id],
-          row_to_spec,
-        )
-        .optional()?;
-      raw
-        .map(|raw| summarize(conn, to_spec_row(raw)?))
+      active_spec_in(conn, access.project_id)?
+        .map(|row| summarize(conn, row))
         .transpose()
     })
   }
