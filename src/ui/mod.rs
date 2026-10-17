@@ -103,7 +103,9 @@ pub fn ui_router(store: Store, config: UiConfig) -> Router {
   let protected = Router::new()
     .route("/ui/", get(pages::projects::index))
     .route("/ui/profile", get(pages::profile::show))
+    .route("/ui/audit", get(pages::audit::global_audit))
     .route("/ui/p/{slug}", get(pages::projects::show))
+    .route("/ui/p/{slug}/audit", get(pages::audit::project_audit))
     .route("/ui/p/{slug}/constitution", get(pages::specs::constitution))
     .route("/ui/p/{slug}/specs/{number}", get(pages::specs::spec))
     .route(
