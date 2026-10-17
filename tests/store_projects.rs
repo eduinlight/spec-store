@@ -168,3 +168,132 @@ fn non_member_gets_forbidden_without_existence_leak() {
   assert!(f.store.access(&f.owner, "demo").unwrap().is_owner());
   assert!(!f.store.access(&f.editor, "demo").unwrap().is_owner());
 }
+
+#[test]
+fn list_members_orders_owners_first_and_handles_empty() {
+  let f = fixture();
+  let members = f.store.list_members(&f.reader, "demo").unwrap();
+  let listed: Vec<(String, Role)> = members.iter().map(|m| (m.handle.clone(), m.role)).collect();
+  assert_eq!(
+    listed,
+    vec![
+      ("owner".to_string(), Role::Owner),
+      ("editor".to_string(), Role::Editor),
+      ("reader".to_string(), Role::Reader),
+    ]
+  );
+  assert!(matches!(
+    f.store.list_members(&f.outsider, "demo"),
+    Err(StoreError::Forbidden)
+  ));
+  assert_eq!(f.store.list_members(&f.admin, "demo").unwrap().len(), 3);
+
+  f.store.create_project(&f.admin, "empty", "Empty").unwrap();
+  assert!(f.store.list_members(&f.admin, "empty").unwrap().is_empty());
+}
+
+#[test]
+fn repository_url_is_validated_audited_and_clearable() {
+  let f = fixture();
+  assert!(
+    f.store
+      .project(&f.reader, "demo")
+      .unwrap()
+      .repository_url
+      .is_none()
+  );
+
+  f.store
+    .set_repository_url(&f.owner, "demo", Some("https://github.com/acme/demo"))
+    .unwrap();
+  let project = f.store.project(&f.reader, "demo").unwrap();
+  assert_eq!(
+    project.repository_url.as_deref(),
+    Some("https://github.com/acme/demo")
+  );
+  assert_eq!(project.slug, "demo");
+  assert_eq!(project.name, "Demo project");
+
+  f.store
+    .set_repository_url(&f.admin, "demo", Some("http://git.internal/demo/"))
+    .unwrap();
+  assert_eq!(
+    f.store
+      .project(&f.admin, "demo")
+      .unwrap()
+      .repository_url
+      .as_deref(),
+    Some("http://git.internal/demo/")
+  );
+
+  for bad in [
+    "ftp://x/y",
+    "github.com/acme/demo",
+    "https://",
+    "https:// spaced.example/x",
+    "javascript:alert(1)",
+    "",
+  ] {
+    assert!(
+      matches!(
+        f.store.set_repository_url(&f.owner, "demo", Some(bad)),
+        Err(StoreError::Validation(_))
+      ),
+      "{bad:?} must be rejected"
+    );
+  }
+  assert_eq!(
+    f.store
+      .project(&f.admin, "demo")
+      .unwrap()
+      .repository_url
+      .as_deref(),
+    Some("http://git.internal/demo/"),
+    "rejected values change nothing"
+  );
+
+  assert!(matches!(
+    f.store
+      .set_repository_url(&f.editor, "demo", Some("https://example.com/r")),
+    Err(StoreError::Forbidden)
+  ));
+  assert!(matches!(
+    f.store.set_repository_url(&f.outsider, "demo", None),
+    Err(StoreError::Forbidden)
+  ));
+  assert!(matches!(
+    f.store.project(&f.outsider, "demo"),
+    Err(StoreError::Forbidden)
+  ));
+  assert!(matches!(
+    f.store.project(&f.outsider, "missing"),
+    Err(StoreError::Forbidden)
+  ));
+  assert!(matches!(
+    f.store.project(&f.admin, "missing"),
+    Err(StoreError::NotFound(_))
+  ));
+
+  f.store.set_repository_url(&f.owner, "demo", None).unwrap();
+  assert!(
+    f.store
+      .project(&f.reader, "demo")
+      .unwrap()
+      .repository_url
+      .is_none()
+  );
+
+  let audit = f.store.list_audit(Some("demo"), 20).unwrap();
+  let repo_entries: Vec<&spec_store::store::AuditEntry> = audit
+    .iter()
+    .filter(|e| e.action == "project.repo")
+    .collect();
+  assert_eq!(repo_entries.len(), 3);
+  assert!(
+    repo_entries[0].target.contains("cleared"),
+    "{:?}",
+    repo_entries[0]
+  );
+  assert_eq!(repo_entries[0].actor, "owner");
+  assert_eq!(repo_entries[1].actor, "root");
+}
