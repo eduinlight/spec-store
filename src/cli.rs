@@ -49,6 +49,8 @@ pub struct ServeArgs {
   pub bind: String,
   #[arg(long = "allowed-host")]
   pub allowed_hosts: Vec<String>,
+  #[arg(long)]
+  pub secure_cookies: bool,
 }
 
 #[derive(Args, Debug)]
@@ -144,6 +146,7 @@ pub fn run(cli: Cli) -> anyhow::Result<()> {
       &args.bind,
       ServerConfig {
         allowed_hosts: args.allowed_hosts,
+        secure_cookies: args.secure_cookies,
       },
     )),
     Command::Stdio(args) => {

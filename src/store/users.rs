@@ -174,6 +174,24 @@ impl Store {
     })
   }
 
+  pub fn list_own_tokens(&self, caller: &Caller) -> StoreResult<Vec<TokenInfo>> {
+    self.with_conn(|conn| {
+      let mut stmt = conn.prepare(
+        "SELECT id, label, created_at, last_used_at, revoked_at FROM api_tokens WHERE user_id = ?1 ORDER BY id",
+      )?;
+      let rows = stmt.query_map([caller.user_id], |r| {
+        Ok(TokenInfo {
+          id: r.get(0)?,
+          label: r.get(1)?,
+          created_at: r.get(2)?,
+          last_used_at: r.get(3)?,
+          revoked_at: r.get(4)?,
+        })
+      })?;
+      rows.collect::<Result<Vec<_>, _>>().map_err(StoreError::from)
+    })
+  }
+
   pub fn authenticate(&self, token: &str) -> StoreResult<Caller> {
     if token.is_empty() {
       return Err(StoreError::Unauthenticated);
