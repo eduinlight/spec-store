@@ -375,3 +375,78 @@ fn outsiders_cannot_export() {
   assert!(out.stderr.contains("member"), "{}", out.stderr);
   assert!(!out_dir.exists());
 }
+
+fn copy_tree(from: &Path, to: &Path) {
+  fs::create_dir_all(to).unwrap();
+  for entry in fs::read_dir(from).unwrap() {
+    let entry = entry.unwrap();
+    let target = to.join(entry.file_name());
+    if entry.path().is_dir() {
+      copy_tree(&entry.path(), &target);
+    } else {
+      fs::copy(entry.path(), target).unwrap();
+    }
+  }
+}
+
+fn imported_files(root: &Path) -> Vec<String> {
+  let mut files = vec!["docs/constitution.md".to_string()];
+  let mut folders: Vec<_> = fs::read_dir(root.join("specs"))
+    .unwrap()
+    .map(|e| e.unwrap())
+    .filter(|e| e.path().is_dir())
+    .collect();
+  folders.sort_by_key(|e| e.file_name());
+  for folder in folders {
+    let name = folder.file_name().to_string_lossy().into_owned();
+    for kind in ["spec", "plan", "tasks", "research", "validation"] {
+      if folder.path().join(format!("{kind}.md")).is_file() {
+        files.push(format!("specs/{name}/{kind}.md"));
+      }
+    }
+  }
+  files
+}
+
+#[test]
+fn this_repository_round_trips_byte_for_byte() {
+  let repo = Path::new(env!("CARGO_MANIFEST_DIR"));
+  let source = common::temp_dir("cli-round-trip-src");
+  fs::create_dir_all(source.join("docs")).unwrap();
+  fs::copy(
+    repo.join("docs/constitution.md"),
+    source.join("docs/constitution.md"),
+  )
+  .unwrap();
+  copy_tree(&repo.join("specs"), &source.join("specs"));
+
+  let db = setup("cli-round-trip");
+  let out = ok(
+    &db,
+    &["import", "demo", source.to_str().unwrap(), "--as", "olivia"],
+  );
+  let files = imported_files(&source);
+  assert!(files.len() > 10, "{files:?}");
+  assert!(out.stdout.ends_with(" documents\n"), "{}", out.stdout);
+
+  let target = common::temp_dir("cli-round-trip-out");
+  let out = ok(
+    &db,
+    &["export", "demo", target.to_str().unwrap(), "--as", "olivia"],
+  );
+  assert!(
+    out.stdout.ends_with(&format!(
+      "exported {n} files: {n} written, 0 unchanged\n",
+      n = files.len()
+    )),
+    "{}",
+    out.stdout
+  );
+  for file in &files {
+    assert_eq!(
+      fs::read(target.join(file)).unwrap(),
+      fs::read(source.join(file)).unwrap(),
+      "{file} differs after the round trip"
+    );
+  }
+}

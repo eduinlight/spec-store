@@ -30,7 +30,7 @@ Each task < 30 minutes. Tests before implementation.
 - [x] T15 (FR-14, FR-15, FR-16, FR-17, FR-18, FR-19, FR-20, NFR-2) Implement the `export` subcommand in `src/cli.rs` — Done when: T14 tests green
 
 ## Phase 5 — US-3 (P2) Round trip
-- [ ] T16 (FR-21) Extend `tests/cli_transfer.rs`: copy this repository's `docs/constitution.md` and `specs/` into a temp directory, import into a new project, export to an empty directory and compare every imported file byte for byte — Done when: test green
+- [x] T16 (FR-21) Extend `tests/cli_transfer.rs`: copy this repository's `docs/constitution.md` and `specs/` into a temp directory, import into a new project, export to an empty directory and compare every imported file byte for byte — Done when: test green
 
 ## Final phase — Polish and cross-cutting
 - [ ] T17 (NFR-1) Write `tests/perf_import.rs` (ignored): 100 specs with five 20 KB documents each imported through `scan` and `import_tree` under 10 s — Done when: `cargo test --release --test perf_import -- --ignored` passes
