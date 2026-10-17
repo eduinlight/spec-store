@@ -3,6 +3,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 static COUNTER: AtomicUsize = AtomicUsize::new(0);
 
+#[allow(dead_code)]
 pub fn temp_db_path(label: &str) -> PathBuf {
   let n = COUNTER.fetch_add(1, Ordering::SeqCst);
   let dir = std::env::temp_dir().join("spec-store-tests");

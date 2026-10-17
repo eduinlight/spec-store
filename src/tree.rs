@@ -1,7 +1,7 @@
 use std::io;
 use std::path::Path;
 
-use crate::model::{DocumentKind, validate_slug};
+use crate::model::{DocumentKind, MAX_BODY_BYTES, validate_slug};
 use crate::store::specs::branch_name;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -26,8 +26,135 @@ pub struct ProjectTree {
   pub problems: Vec<String>,
 }
 
-pub fn scan(_dir: &Path) -> io::Result<ProjectTree> {
-  Ok(ProjectTree::default())
+const CONSTITUTION_PATH: &str = "docs/constitution.md";
+
+fn sorted_entries(dir: &Path) -> io::Result<Vec<(String, bool)>> {
+  let mut entries = Vec::new();
+  for entry in std::fs::read_dir(dir)? {
+    let entry = entry?;
+    let is_dir = entry.path().is_dir();
+    entries.push((entry.file_name().to_string_lossy().into_owned(), is_dir));
+  }
+  entries.sort();
+  Ok(entries)
+}
+
+fn read_document(
+  root: &Path,
+  relative_path: &str,
+  problems: &mut Vec<String>,
+) -> io::Result<Option<TreeFile>> {
+  let bytes = std::fs::read(root.join(relative_path))?;
+  if bytes.len() > MAX_BODY_BYTES {
+    problems.push(format!(
+      "{relative_path}: {} bytes exceeds the limit of {MAX_BODY_BYTES} bytes",
+      bytes.len()
+    ));
+    return Ok(None);
+  }
+  match String::from_utf8(bytes) {
+    Ok(body) => Ok(Some(TreeFile {
+      relative_path: relative_path.to_string(),
+      body,
+    })),
+    Err(_) => {
+      problems.push(format!("{relative_path}: not valid UTF-8"));
+      Ok(None)
+    }
+  }
+}
+
+fn document_kind_of(file_name: &str) -> Option<DocumentKind> {
+  let stem = file_name.strip_suffix(".md")?;
+  DocumentKind::SPEC_KINDS
+    .into_iter()
+    .find(|kind| kind.as_str() == stem)
+}
+
+fn scan_spec(
+  root: &Path,
+  folder: &str,
+  number: i64,
+  slug: String,
+  tree: &mut ProjectTree,
+) -> io::Result<TreeSpec> {
+  let mut documents = Vec::new();
+  for (name, is_dir) in sorted_entries(&root.join("specs").join(folder))? {
+    let relative_path = format!("specs/{folder}/{name}");
+    match document_kind_of(&name).filter(|_| !is_dir) {
+      Some(kind) => {
+        if let Some(file) = read_document(root, &relative_path, &mut tree.problems)? {
+          documents.push((kind, file));
+        }
+      }
+      None if is_dir => tree.skipped.push(format!("{relative_path}/")),
+      None => tree.skipped.push(relative_path),
+    }
+  }
+  documents.sort_by_key(|(kind, _)| DocumentKind::SPEC_KINDS.iter().position(|k| k == kind));
+  Ok(TreeSpec {
+    folder: folder.to_string(),
+    number,
+    slug,
+    documents,
+  })
+}
+
+pub fn scan(dir: &Path) -> io::Result<ProjectTree> {
+  if !dir.is_dir() {
+    return Err(io::Error::new(
+      io::ErrorKind::NotFound,
+      format!("{} is not a directory", dir.display()),
+    ));
+  }
+  let mut tree = ProjectTree::default();
+  if dir.join(CONSTITUTION_PATH).is_file() {
+    tree.constitution = read_document(dir, CONSTITUTION_PATH, &mut tree.problems)?;
+  }
+  let specs_dir = dir.join("specs");
+  let entries = if specs_dir.is_dir() {
+    sorted_entries(&specs_dir)?
+  } else {
+    Vec::new()
+  };
+  let mut spec_folders = 0;
+  for (name, is_dir) in entries {
+    if !is_dir {
+      tree.skipped.push(format!("specs/{name}"));
+      continue;
+    }
+    spec_folders += 1;
+    let Some((number, slug)) = parse_spec_folder(&name) else {
+      tree.problems.push(format!(
+        "specs/{name}: folder name is not a spec branch name such as 001-name"
+      ));
+      continue;
+    };
+    if let Some(other) = tree.specs.iter().find(|s| s.number == number) {
+      tree.problems.push(format!(
+        "specs/{name}: number {number:03} is also used by specs/{}",
+        other.folder
+      ));
+      continue;
+    }
+    if let Some(other) = tree.specs.iter().find(|s| s.slug == slug) {
+      tree.problems.push(format!(
+        "specs/{name}: slug {slug:?} is also used by specs/{}",
+        other.folder
+      ));
+      continue;
+    }
+    let spec = scan_spec(dir, &name, number, slug, &mut tree)?;
+    tree.specs.push(spec);
+  }
+  if spec_folders == 0 && !dir.join(CONSTITUTION_PATH).is_file() {
+    tree.problems.push(format!(
+      "{}: no {CONSTITUTION_PATH} and no spec folder in specs/",
+      dir.display()
+    ));
+  }
+  tree.skipped.sort();
+  Ok(tree)
 }
 
 pub fn parse_spec_folder(name: &str) -> Option<(i64, String)> {
