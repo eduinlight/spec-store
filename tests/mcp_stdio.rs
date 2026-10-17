@@ -247,3 +247,180 @@ async fn outsider_is_forbidden_without_existence_leak() {
   assert_eq!(existing.code, missing.code);
   client.cancel().await.unwrap();
 }
+
+const TASKS_BODY: &str = "# Tasks — Spec 002\n\n## Phase 1 — Setup\n- [ ] T01 (FR: —) Create the crate — Done when: `cargo build` passes\n- [ ] T02 (FR-1) Implement — Done when: tests green\n";
+
+#[tokio::test]
+async fn writes_specs_documents_status_and_tasks() {
+  let db = common::temp_db_path("mcp-write");
+  seed(&db);
+  let client = connect(&db, "editor").await;
+
+  let tools = client.list_tools(None).await.unwrap();
+  let names: Vec<&str> = tools.tools.iter().map(|t| t.name.as_ref()).collect();
+  for expected in [
+    "create_spec",
+    "put_document",
+    "put_constitution",
+    "set_spec_status",
+    "mark_task_done",
+  ] {
+    assert!(
+      names.contains(&expected),
+      "missing tool {expected} in {names:?}"
+    );
+  }
+
+  let created = call(
+    &client,
+    "create_spec",
+    json!({"project": "demo", "slug": "second"}),
+  )
+  .await
+  .unwrap();
+  assert_eq!(
+    created,
+    json!({"number": 2, "slug": "second", "branch": "002-second", "status": "draft"})
+  );
+  let dup = call(
+    &client,
+    "create_spec",
+    json!({"project": "demo", "slug": "second"}),
+  )
+  .await;
+  assert_eq!(kind(&error_of(dup.unwrap_err())), "validation");
+
+  let put = call(
+    &client,
+    "put_document",
+    json!({"project": "demo", "number": 2, "kind": "tasks", "body": TASKS_BODY, "message": "tasks"}),
+  )
+  .await
+  .unwrap();
+  let first = put["revision_id"].as_i64().expect("revision id");
+
+  let conflict = call(
+    &client,
+    "put_document",
+    json!({"project": "demo", "number": 2, "kind": "tasks", "body": "x", "message": "again"}),
+  )
+  .await;
+  let err = error_of(conflict.unwrap_err());
+  assert_eq!(kind(&err), "conflict");
+  assert_eq!(err.data.as_ref().unwrap()["current_revision"], first);
+
+  let second = call(
+    &client,
+    "put_document",
+    json!({"project": "demo", "number": 2, "kind": "tasks", "body": TASKS_BODY, "message": "same", "expected_revision": first}),
+  )
+  .await
+  .unwrap();
+  let second_id = second["revision_id"].as_i64().unwrap();
+  assert!(second_id > first);
+
+  let marked = call(
+    &client,
+    "mark_task_done",
+    json!({"project": "demo", "number": 2, "task_id": "T01", "commit": "abc1234"}),
+  )
+  .await
+  .unwrap();
+  assert!(marked["revision_id"].as_i64().unwrap() > second_id);
+  assert!(
+    marked["line"].as_str().unwrap().starts_with("- [x] T01 "),
+    "{}",
+    marked["line"]
+  );
+  assert!(
+    marked["line"]
+      .as_str()
+      .unwrap()
+      .ends_with("· commit: abc1234")
+  );
+  let again = call(
+    &client,
+    "mark_task_done",
+    json!({"project": "demo", "number": 2, "task_id": "T01", "commit": "abc1234"}),
+  )
+  .await;
+  assert_eq!(kind(&error_of(again.unwrap_err())), "validation");
+  let doc = call(
+    &client,
+    "get_document",
+    json!({"project": "demo", "number": 2, "kind": "tasks"}),
+  )
+  .await
+  .unwrap();
+  assert!(doc["body"].as_str().unwrap().contains("- [x] T01"));
+
+  let bad = call(
+    &client,
+    "set_spec_status",
+    json!({"project": "demo", "number": 2, "status": "approved"}),
+  )
+  .await;
+  let err = error_of(bad.unwrap_err());
+  assert_eq!(kind(&err), "validation");
+  assert!(err.message.contains("clarified"), "{}", err.message);
+  let status = call(
+    &client,
+    "set_spec_status",
+    json!({"project": "demo", "number": 2, "status": "clarified"}),
+  )
+  .await
+  .unwrap();
+  assert_eq!(status, json!({"number": 2, "status": "clarified"}));
+  let archive = call(
+    &client,
+    "set_spec_status",
+    json!({"project": "demo", "number": 2, "status": "archived"}),
+  )
+  .await;
+  assert_eq!(kind(&error_of(archive.unwrap_err())), "validation");
+
+  let not_owner = call(
+    &client,
+    "put_constitution",
+    json!({"project": "demo", "body": "c", "version": "2.0", "message": "m"}),
+  )
+  .await;
+  assert_eq!(kind(&error_of(not_owner.unwrap_err())), "forbidden");
+  client.cancel().await.unwrap();
+
+  let owner = connect(&db, "root").await;
+  let current = call(&owner, "get_constitution", json!({"project": "demo"}))
+    .await
+    .unwrap();
+  let current_id = current["revision"]["id"].as_i64().unwrap();
+  let same_version = call(
+    &owner,
+    "put_constitution",
+    json!({"project": "demo", "body": "c", "version": "1.0", "message": "m", "expected_revision": current_id}),
+  )
+  .await;
+  assert_eq!(kind(&error_of(same_version.unwrap_err())), "conflict");
+  let amended = call(
+    &owner,
+    "put_constitution",
+    json!({"project": "demo", "body": "# Constitution v1.1\n", "version": "1.1", "message": "amended", "expected_revision": current_id}),
+  )
+  .await
+  .unwrap();
+  assert!(amended["revision_id"].as_i64().unwrap() > current_id);
+  let after = call(&owner, "get_constitution", json!({"project": "demo"}))
+    .await
+    .unwrap();
+  assert_eq!(after["version"], "1.1");
+  owner.cancel().await.unwrap();
+
+  let reader = connect(&db, "reader").await;
+  let forbidden = call(
+    &reader,
+    "put_document",
+    json!({"project": "demo", "number": 2, "kind": "plan", "body": "p", "message": "m"}),
+  )
+  .await;
+  assert_eq!(kind(&error_of(forbidden.unwrap_err())), "forbidden");
+  reader.cancel().await.unwrap();
+}
