@@ -34,7 +34,7 @@ Each task < 30 minutes. Tests before implementation.
 
 ## Final phase — Polish and cross-cutting
 - [x] T17 (NFR-1) Write `tests/perf_import.rs` (ignored): 100 specs with five 20 KB documents each imported through `scan` and `import_tree` under 10 s — Done when: `cargo test --release --test perf_import -- --ignored` passes
-- [ ] T18 (FR: —) Add the "Import and export" section to `README.md` and run the full lint — Done when: README has the section and `cargo clippy --all-targets -- -D warnings && cargo fmt --check` passes
+- [x] T18 (FR: —) Add the "Import and export" section to `README.md` and run the full lint — Done when: README has the section and `cargo clippy --all-targets -- -D warnings && cargo fmt --check` passes
 
 ## Dependencies
 - Phase 1 blocks everything; T03 needs T01.
