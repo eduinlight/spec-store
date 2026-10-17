@@ -9,10 +9,12 @@ use rmcp::{
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
+use crate::markdown::tasks::{Malformed, Task};
 use crate::model::{Caller, DocumentKind, SpecStatus, StoreError};
 use crate::store::Store;
 use crate::store::documents::RevisionMeta;
 use crate::store::specs::SpecSummary;
+use crate::store::tasks::{ActiveStatus, SpecMarker};
 use crate::templates;
 
 #[derive(Clone)]
@@ -217,6 +219,137 @@ pub struct StatusOutput {
 pub struct MarkedTaskOutput {
   pub revision_id: i64,
   pub line: String,
+}
+
+#[derive(Deserialize, schemars::JsonSchema)]
+pub struct SpecParams {
+  #[schemars(description = "Project slug")]
+  pub project: String,
+  #[schemars(description = "Spec number")]
+  pub number: i64,
+}
+
+#[derive(Deserialize, schemars::JsonSchema)]
+pub struct ListTasksParams {
+  #[schemars(description = "Project slug")]
+  pub project: String,
+  #[schemars(description = "Spec number")]
+  pub number: i64,
+  #[schemars(description = "Return only tasks that are not done")]
+  #[serde(default)]
+  pub pending_only: bool,
+}
+
+#[derive(Serialize, schemars::JsonSchema)]
+pub struct TaskOutput {
+  pub id: String,
+  pub phase: String,
+  pub parallel: bool,
+  pub frs: Vec<String>,
+  pub description: String,
+  pub done_when: String,
+  pub done: bool,
+  pub commit: Option<String>,
+  pub line: usize,
+}
+
+impl From<Task> for TaskOutput {
+  fn from(t: Task) -> Self {
+    TaskOutput {
+      id: t.id,
+      phase: t.phase,
+      parallel: t.parallel,
+      frs: t.frs,
+      description: t.description,
+      done_when: t.done_when,
+      done: t.done,
+      commit: t.commit,
+      line: t.line,
+    }
+  }
+}
+
+#[derive(Serialize, schemars::JsonSchema)]
+pub struct MalformedOutput {
+  pub line: usize,
+  pub text: String,
+}
+
+impl From<Malformed> for MalformedOutput {
+  fn from(m: Malformed) -> Self {
+    MalformedOutput {
+      line: m.line,
+      text: m.text,
+    }
+  }
+}
+
+#[derive(Serialize, schemars::JsonSchema)]
+pub struct TasksOutput {
+  pub tasks: Vec<TaskOutput>,
+  pub malformed: Vec<MalformedOutput>,
+}
+
+#[derive(Serialize, schemars::JsonSchema)]
+pub struct MarkerOutput {
+  pub document_kind: String,
+  pub kind: String,
+  pub heading: String,
+  pub text: String,
+  pub line: usize,
+}
+
+impl From<SpecMarker> for MarkerOutput {
+  fn from(m: SpecMarker) -> Self {
+    MarkerOutput {
+      document_kind: m.document_kind.as_str().to_string(),
+      kind: m.kind.as_str().to_string(),
+      heading: m.heading,
+      text: m.text,
+      line: m.line,
+    }
+  }
+}
+
+#[derive(Serialize, schemars::JsonSchema)]
+pub struct MarkersOutput {
+  pub markers: Vec<MarkerOutput>,
+}
+
+#[derive(Serialize, schemars::JsonSchema)]
+pub struct ActiveStatusOutput {
+  pub number: i64,
+  pub slug: String,
+  pub status: String,
+  pub branch: String,
+  pub tasks_done: usize,
+  pub tasks_total: usize,
+  pub current_phase: Option<String>,
+  pub next_task: Option<TaskOutput>,
+  pub markers: usize,
+}
+
+impl From<ActiveStatus> for ActiveStatusOutput {
+  fn from(a: ActiveStatus) -> Self {
+    ActiveStatusOutput {
+      number: a.number,
+      slug: a.slug,
+      status: a.status.as_str().to_string(),
+      branch: a.branch,
+      tasks_done: a.tasks_done,
+      tasks_total: a.tasks_total,
+      current_phase: a.current_phase,
+      next_task: a.next_task.map(TaskOutput::from),
+      markers: a.markers,
+    }
+  }
+}
+
+#[derive(Serialize, schemars::JsonSchema)]
+pub struct ProjectStatusOutput {
+  pub constitution_version: Option<String>,
+  pub specs: Vec<SpecOutput>,
+  pub active: Option<ActiveStatusOutput>,
 }
 
 fn parse_kind(kind: &str) -> Result<DocumentKind, McpError> {
@@ -503,6 +636,67 @@ impl SpecStoreMcp {
     Ok(Json(MarkedTaskOutput {
       revision_id: marked.revision_id,
       line: marked.line,
+    }))
+  }
+
+  #[tool(
+    description = "List the tasks of a spec parsed from its tasks document, with malformed lines reported separately"
+  )]
+  async fn list_tasks(
+    &self,
+    Parameters(p): Parameters<ListTasksParams>,
+    ctx: RequestContext<RoleServer>,
+  ) -> Result<Json<TasksOutput>, McpError> {
+    let caller = self.caller(&ctx)?;
+    let parsed = self
+      .store
+      .list_tasks(&caller, &p.project, p.number, p.pending_only)
+      .map_err(to_mcp_error)?;
+    Ok(Json(TasksOutput {
+      tasks: parsed.tasks.into_iter().map(TaskOutput::from).collect(),
+      malformed: parsed
+        .malformed
+        .into_iter()
+        .map(MalformedOutput::from)
+        .collect(),
+    }))
+  }
+
+  #[tool(
+    description = "List the NEEDS CLARIFICATION and NEEDS RESEARCH markers across the documents of a spec"
+  )]
+  async fn list_markers(
+    &self,
+    Parameters(p): Parameters<SpecParams>,
+    ctx: RequestContext<RoleServer>,
+  ) -> Result<Json<MarkersOutput>, McpError> {
+    let caller = self.caller(&ctx)?;
+    let markers = self
+      .store
+      .list_markers(&caller, &p.project, p.number)
+      .map_err(to_mcp_error)?;
+    Ok(Json(MarkersOutput {
+      markers: markers.into_iter().map(MarkerOutput::from).collect(),
+    }))
+  }
+
+  #[tool(
+    description = "Status of a project: constitution version, specs, and for the active spec its task progress, next task and markers"
+  )]
+  async fn project_status(
+    &self,
+    Parameters(p): Parameters<ProjectParams>,
+    ctx: RequestContext<RoleServer>,
+  ) -> Result<Json<ProjectStatusOutput>, McpError> {
+    let caller = self.caller(&ctx)?;
+    let status = self
+      .store
+      .project_status(&caller, &p.project)
+      .map_err(to_mcp_error)?;
+    Ok(Json(ProjectStatusOutput {
+      constitution_version: status.constitution_version,
+      specs: status.specs.into_iter().map(SpecOutput::from).collect(),
+      active: status.active.map(ActiveStatusOutput::from),
     }))
   }
 }
