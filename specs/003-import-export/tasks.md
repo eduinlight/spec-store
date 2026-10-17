@@ -27,7 +27,7 @@ Each task < 30 minutes. Tests before implementation.
 - [x] T12 [P] (FR-14, FR-15, FR-18, FR-19, FR-20, NFR-3) Extend `tests/store_transfer.rs` with export: reader and non-member admin get the constitution first then spec documents by number and kind with current bodies; every path is `docs/constitution.md` or `specs/<branch>/<kind>.md`; `Some(number)` filters and unknown number is `NotFound`; outsider `Forbidden`; status mismatch gives a notice; revision and audit counts unchanged — Done when: tests written and red
 - [x] T13 (FR-14, FR-15, FR-18, FR-19, FR-20, NFR-3) Implement `ProjectExport`, `StatusNotice` and `Store::export_documents` in `src/store/transfer.rs` — Done when: T12 tests green
 - [x] T14 (FR-14, FR-15, FR-16, FR-17, FR-18, FR-19, FR-20, NFR-2) Extend `tests/cli_transfer.rs` with export: files written and listed with the summary; second run reports unchanged; a modified file makes the export fail with the path listed and no file written; `--force` overwrites; `--spec` exports one spec; status notice on stderr; outsider fails — Done when: tests written and red
-- [ ] T15 (FR-14, FR-15, FR-16, FR-17, FR-18, FR-19, FR-20, NFR-2) Implement the `export` subcommand in `src/cli.rs` — Done when: T14 tests green
+- [x] T15 (FR-14, FR-15, FR-16, FR-17, FR-18, FR-19, FR-20, NFR-2) Implement the `export` subcommand in `src/cli.rs` — Done when: T14 tests green
 
 ## Phase 5 — US-3 (P2) Round trip
 - [ ] T16 (FR-21) Extend `tests/cli_transfer.rs`: copy this repository's `docs/constitution.md` and `specs/` into a temp directory, import into a new project, export to an empty directory and compare every imported file byte for byte — Done when: test green

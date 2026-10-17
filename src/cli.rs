@@ -7,7 +7,7 @@ use crate::model::{Caller, Role, StoreError};
 use crate::server::{self, ServerConfig};
 use crate::store::Store;
 use crate::store::transfer::{ImportOptions, ImportReport};
-use crate::tree;
+use crate::tree::{self, TargetState};
 
 #[derive(Parser, Debug)]
 #[command(
@@ -45,6 +45,20 @@ pub enum Command {
   Audit(AuditCmd),
   #[command(about = "Import docs/constitution.md and specs/ from a project directory")]
   Import(ImportArgs),
+  #[command(about = "Export the current documents of a project to a directory")]
+  Export(ExportArgs),
+}
+
+#[derive(Args, Debug)]
+pub struct ExportArgs {
+  pub project: String,
+  pub dir: PathBuf,
+  #[arg(long = "spec", value_name = "NUMBER")]
+  pub spec: Option<i64>,
+  #[arg(long)]
+  pub force: bool,
+  #[arg(long = "as", value_name = "HANDLE")]
+  pub as_handle: String,
 }
 
 #[derive(Args, Debug)]
@@ -184,6 +198,7 @@ pub fn run(cli: Cli) -> anyhow::Result<()> {
     Command::Member(cmd) => run_member(&store, cmd),
     Command::Audit(cmd) => run_audit(&store, cmd),
     Command::Import(args) => run_import(&store, args),
+    Command::Export(args) => run_export(&store, args),
   }
 }
 
@@ -412,5 +427,49 @@ fn run_import(store: &Store, args: ImportArgs) -> anyhow::Result<()> {
     other => other?,
   };
   print_import_report(&report, args.dry_run);
+  Ok(())
+}
+
+fn run_export(store: &Store, args: ExportArgs) -> anyhow::Result<()> {
+  let acting = actor(store, &args.as_handle)?;
+  let export = match store.export_documents(&acting, &args.project, args.spec) {
+    Err(StoreError::Forbidden) => bail!(
+      "acting user {:?} is not a member of project {:?}",
+      args.as_handle,
+      args.project
+    ),
+    other => other?,
+  };
+  let plan = tree::plan_export(&args.dir, export.files)
+    .with_context(|| format!("reading {}", args.dir.display()))?;
+  let different = plan.different();
+  if !different.is_empty() && !args.force {
+    return Err(problem_list(
+      "export refused, files differ (use --force to overwrite):",
+      &different.join("\n"),
+    ));
+  }
+  tree::write_export(&plan, args.force)
+    .with_context(|| format!("writing {}", args.dir.display()))?;
+  for notice in &export.notices {
+    eprintln!(
+      "notice: spec {} is {} in the store but its spec.md says {}",
+      notice.branch, notice.stored, notice.written
+    );
+  }
+  let mut written = 0;
+  for (file, state) in &plan.targets {
+    if *state == TargetState::Unchanged {
+      println!("unchanged {}", file.relative_path);
+    } else {
+      written += 1;
+      println!("written {}", file.relative_path);
+    }
+  }
+  println!(
+    "exported {} files: {written} written, {} unchanged",
+    plan.targets.len(),
+    plan.targets.len() - written
+  );
   Ok(())
 }
