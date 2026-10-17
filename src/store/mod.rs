@@ -11,11 +11,18 @@ use std::sync::{Arc, Mutex};
 use rusqlite::{Connection, OptionalExtension, Transaction, params};
 
 use crate::db;
-use crate::model::{StoreError, StoreResult};
+use crate::model::{Caller, StoreError, StoreResult};
+use crate::store::projects::access_in;
 
 #[derive(Clone)]
 pub struct Store {
   conn: Arc<Mutex<Connection>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct AuditPage {
+  pub entries: Vec<AuditEntry>,
+  pub has_more: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -97,6 +104,54 @@ impl Store {
       rows
         .collect::<Result<Vec<_>, _>>()
         .map_err(StoreError::from)
+    })
+  }
+}
+
+impl Store {
+  pub fn list_audit_page(
+    &self,
+    caller: &Caller,
+    project_slug: Option<&str>,
+    before: Option<i64>,
+    limit: usize,
+  ) -> StoreResult<AuditPage> {
+    self.with_conn(|conn| {
+      let project_id = match project_slug {
+        Some(slug) => {
+          let access = access_in(conn, caller, slug)?;
+          if !access.can_manage_members() {
+            return Err(StoreError::Forbidden);
+          }
+          Some(access.project_id)
+        }
+        None if caller.is_admin => None,
+        None => return Err(StoreError::Forbidden),
+      };
+      let mut stmt = conn.prepare(
+        "SELECT a.id, u.handle, p.slug, a.action, a.target, a.created_at
+         FROM audit_log a
+         JOIN users u ON u.id = a.actor_id
+         LEFT JOIN projects p ON p.id = a.project_id
+         WHERE (?1 IS NULL OR a.project_id = ?1)
+           AND (?2 IS NULL OR a.id < ?2)
+         ORDER BY a.id DESC
+         LIMIT ?3",
+      )?;
+      let rows = stmt.query_map(params![project_id, before, limit as i64 + 1], |row| {
+        Ok(AuditEntry {
+          id: row.get(0)?,
+          actor: row.get(1)?,
+          project: row.get(2)?,
+          action: row.get(3)?,
+          target: row.get(4)?,
+          created_at: row.get(5)?,
+        })
+      })?;
+      let mut entries = rows.collect::<Result<Vec<_>, _>>()?;
+      let has_more = entries.len() > limit;
+      entries.truncate(limit);
+      Ok(AuditPage { entries, has_more })
     })
   }
 }

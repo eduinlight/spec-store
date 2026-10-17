@@ -39,7 +39,7 @@ Each task < 30 minutes. Tests before implementation.
 
 ## Phase 6 — US-5 (P2) See who did what
 - [x] T22 [P] (FR-20, FR-21, FR-22) Extend `tests/store_audit.rs`: `list_audit_page` for an owner returns their project's entries newest first with `has_more` and cursor; owner on another project Forbidden; editor Forbidden; admin without filter sees every project and entries without project; filter by slug; page size respected — Done when: tests written and red
-- [ ] T23 (FR-20, FR-21, FR-22) Implement `AuditPage` and `list_audit_page` in `src/store/mod.rs` — Done when: T22 tests green
+- [x] T23 (FR-20, FR-21, FR-22) Implement `AuditPage` and `list_audit_page` in `src/store/mod.rs` — Done when: T22 tests green
 - [ ] T24 (FR-20, FR-21, FR-22) Write `tests/ui_audit.rs`: owner sees the project audit page with entries and older/newer links; editor gets a 403 page and no audit link on the project page; admin sees the global page with project filter — Done when: tests written and red
 - [ ] T25 (FR-20, FR-21, FR-22) Implement `src/ui/pages/audit.rs` and the audit links in the layout and project page — Done when: T24 tests green
 
