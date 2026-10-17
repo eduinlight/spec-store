@@ -11,7 +11,7 @@ Each task < 30 minutes. Tests before implementation.
 
 ## Phase 2 — Foundation (blocks the stories)
 - [x] T02 [P] (FR-2, FR-4, FR-16) Extend `tests/db.rs`: opening a store creates `sessions` with its columns and `projects.repository_url`, and a second open is idempotent — Done when: tests written and red
-- [ ] T03 (FR-2, FR-4, FR-16) Write `src/migrations/0002_web_ui.sql` (plan §5) and register it in `src/db.rs` — Done when: T02 tests green
+- [x] T03 (FR-2, FR-4, FR-16) Write `src/migrations/0002_web_ui.sql` (plan §5) and register it in `src/db.rs` — Done when: T02 tests green
 - [ ] T04 [P] (FR-2, FR-4, FR-5) Write `tests/store_sessions.rs`: `create_session` for a valid token returns an `sss_` secret stored only hashed; `session_caller` returns the caller and token id and updates `last_used_at`; unknown secret, ended session, revoked token and expired session (expiry moved to the past with SQL) give `Unauthenticated`; `end_session` is idempotent — Done when: tests written and red
 - [ ] T05 (FR-2, FR-4, FR-5) Implement `src/store/sessions.rs` (`create_session`, `session_caller`, `end_session`, `SESSION_LIFETIME_DAYS`) — Done when: T04 tests green
 - [ ] T06 [P] (FR-6, FR-11, FR-12) Write unit tests in `src/ui/html.rs` (escape of `& < > " '`, layout shows title, handle, admin mark, profile and logout controls) and `src/ui/render.rs` (headings, lists, table, checked and unchecked task boxes, `<script>` and inline tags rendered as text, `javascript:` link dropped, `https:` link kept, CRLF body) — Done when: tests written and red
