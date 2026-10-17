@@ -1,5 +1,34 @@
-use crate::model::validate_slug;
+use std::io;
+use std::path::Path;
+
+use crate::model::{DocumentKind, validate_slug};
 use crate::store::specs::branch_name;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TreeFile {
+  pub relative_path: String,
+  pub body: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TreeSpec {
+  pub folder: String,
+  pub number: i64,
+  pub slug: String,
+  pub documents: Vec<(DocumentKind, TreeFile)>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct ProjectTree {
+  pub constitution: Option<TreeFile>,
+  pub specs: Vec<TreeSpec>,
+  pub skipped: Vec<String>,
+  pub problems: Vec<String>,
+}
+
+pub fn scan(_dir: &Path) -> io::Result<ProjectTree> {
+  Ok(ProjectTree::default())
+}
 
 pub fn parse_spec_folder(name: &str) -> Option<(i64, String)> {
   let (digits, slug) = name.split_once('-')?;
