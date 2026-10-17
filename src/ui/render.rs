@@ -1,3 +1,60 @@
+use pulldown_cmark::{CowStr, Event, Options, Parser, Tag, html};
+
+pub fn render_markdown(body: &str) -> String {
+  let options = Options::ENABLE_TABLES | Options::ENABLE_TASKLISTS | Options::ENABLE_STRIKETHROUGH;
+  let events = Parser::new_ext(body, options).map(sanitize);
+  let mut out = String::with_capacity(body.len() * 2);
+  html::push_html(&mut out, events);
+  out
+}
+
+fn sanitize(event: Event<'_>) -> Event<'_> {
+  match event {
+    Event::Html(raw) | Event::InlineHtml(raw) => Event::Text(raw),
+    Event::Start(Tag::Link {
+      link_type,
+      dest_url,
+      title,
+      id,
+    }) => Event::Start(Tag::Link {
+      link_type,
+      dest_url: safe_url(dest_url),
+      title,
+      id,
+    }),
+    Event::Start(Tag::Image {
+      link_type,
+      dest_url,
+      title,
+      id,
+    }) => Event::Start(Tag::Image {
+      link_type,
+      dest_url: safe_url(dest_url),
+      title,
+      id,
+    }),
+    other => other,
+  }
+}
+
+fn safe_url(url: CowStr<'_>) -> CowStr<'_> {
+  if is_safe(&url) {
+    url
+  } else {
+    CowStr::Borrowed("")
+  }
+}
+
+fn is_safe(url: &str) -> bool {
+  let lower = url.trim().to_ascii_lowercase();
+  lower.starts_with("http://")
+    || lower.starts_with("https://")
+    || lower.starts_with("mailto:")
+    || lower.starts_with('#')
+    || lower.starts_with('/')
+    || !lower.contains(':')
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;

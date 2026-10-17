@@ -1,3 +1,52 @@
+use crate::model::Caller;
+
+pub fn escape(input: &str) -> String {
+  let mut out = String::with_capacity(input.len());
+  for c in input.chars() {
+    match c {
+      '&' => out.push_str("&amp;"),
+      '<' => out.push_str("&lt;"),
+      '>' => out.push_str("&gt;"),
+      '"' => out.push_str("&quot;"),
+      '\'' => out.push_str("&#39;"),
+      _ => out.push(c),
+    }
+  }
+  out
+}
+
+pub fn link(href: &str, text: &str) -> String {
+  format!("<a href=\"{}\">{}</a>", escape(href), escape(text))
+}
+
+pub fn badge(value: &str) -> String {
+  let safe = escape(value);
+  format!("<span class=\"badge badge-{safe}\">{safe}</span>")
+}
+
+pub fn layout(title: &str, viewer: Option<&Caller>, body: &str) -> String {
+  let mut nav = String::new();
+  if let Some(user) = viewer {
+    nav.push_str(&link("/ui/", "Projects"));
+    if user.is_admin {
+      nav.push_str(&link("/ui/audit", "Audit"));
+    }
+    nav.push_str("<span class=\"viewer\">");
+    nav.push_str(&link("/ui/profile", &user.handle));
+    if user.is_admin {
+      nav.push_str(" <span class=\"badge badge-admin\">admin</span>");
+    }
+    nav.push_str("</span>");
+    nav.push_str(
+      "<form method=\"post\" action=\"/ui/logout\" class=\"logout\"><button type=\"submit\">Log out</button></form>",
+    );
+  }
+  format!(
+    "<!doctype html>\n<html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>{} · spec-store</title><link rel=\"stylesheet\" href=\"/ui/style.css\"></head><body><header><a class=\"brand\" href=\"/ui/\">spec-store</a><nav>{nav}</nav></header><main>{body}</main></body></html>\n",
+    escape(title)
+  )
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
