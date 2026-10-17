@@ -2,7 +2,9 @@ use rusqlite::Connection;
 
 use crate::markdown::markers::{MarkerKind, scan_markers};
 use crate::markdown::tasks::{ParsedTasks, Task, mark_done, parse_tasks};
-use crate::model::{Caller, DocumentKind, SpecStatus, StoreError, StoreResult, validate_commit};
+use crate::model::{
+  Caller, DocumentKind, Role, SpecStatus, StoreError, StoreResult, validate_commit,
+};
 use crate::store::documents::{append_revision, current_revision, document_id};
 use crate::store::projects::access_in;
 use crate::store::specs::{SpecRow, SpecSummary, active_spec_in, list_specs_in, spec_by_number};
@@ -41,6 +43,23 @@ pub struct ProjectStatus {
   pub constitution_version: Option<String>,
   pub specs: Vec<SpecSummary>,
   pub active: Option<ActiveStatus>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProjectOverview {
+  pub slug: String,
+  pub name: String,
+  pub role: Option<Role>,
+  pub constitution_version: Option<String>,
+  pub spec_count: usize,
+  pub active: Option<ActiveStatus>,
+}
+
+fn constitution_version(conn: &Connection, project_id: i64) -> StoreResult<Option<String>> {
+  match document_id(conn, project_id, None, DocumentKind::Constitution)? {
+    Some(doc_id) => Ok(current_revision(conn, doc_id)?.and_then(|(_, meta)| meta.version)),
+    None => Ok(None),
+  }
 }
 
 fn document_body(
@@ -131,11 +150,7 @@ impl Store {
   pub fn project_status(&self, caller: &Caller, project: &str) -> StoreResult<ProjectStatus> {
     self.with_conn(|conn| {
       let access = access_in(conn, caller, project)?;
-      let constitution_version =
-        match document_id(conn, access.project_id, None, DocumentKind::Constitution)? {
-          Some(doc_id) => current_revision(conn, doc_id)?.and_then(|(_, meta)| meta.version),
-          None => None,
-        };
+      let constitution_version = constitution_version(conn, access.project_id)?;
       let specs = list_specs_in(conn, access.project_id)?;
       let active = active_spec_in(conn, access.project_id)?
         .map(|spec| active_status(conn, access.project_id, spec))
@@ -145,6 +160,50 @@ impl Store {
         specs,
         active,
       })
+    })
+  }
+
+  pub fn project_overview(&self, caller: &Caller) -> StoreResult<Vec<ProjectOverview>> {
+    self.with_conn(|conn| {
+      let sql = if caller.is_admin {
+        "SELECT p.id, p.slug, p.name, m.role FROM projects p
+         LEFT JOIN memberships m ON m.project_id = p.id AND m.user_id = ?1
+         ORDER BY p.slug"
+      } else {
+        "SELECT p.id, p.slug, p.name, m.role FROM projects p
+         JOIN memberships m ON m.project_id = p.id AND m.user_id = ?1
+         ORDER BY p.slug"
+      };
+      let mut stmt = conn.prepare(sql)?;
+      let rows = stmt.query_map([caller.user_id], |r| {
+        Ok((
+          r.get::<_, i64>(0)?,
+          r.get::<_, String>(1)?,
+          r.get::<_, String>(2)?,
+          r.get::<_, Option<String>>(3)?,
+        ))
+      })?;
+      let mut overview = Vec::new();
+      for row in rows {
+        let (project_id, slug, name, role) = row?;
+        let spec_count: i64 = conn.query_row(
+          "SELECT count(*) FROM specs WHERE project_id = ?1",
+          [project_id],
+          |r| r.get(0),
+        )?;
+        let active = active_spec_in(conn, project_id)?
+          .map(|spec| active_status(conn, project_id, spec))
+          .transpose()?;
+        overview.push(ProjectOverview {
+          slug,
+          name,
+          role: role.map(|r| r.parse()).transpose()?,
+          constitution_version: constitution_version(conn, project_id)?,
+          spec_count: spec_count as usize,
+          active,
+        });
+      }
+      Ok(overview)
     })
   }
 }
