@@ -235,3 +235,143 @@ fn only_an_owner_imports_and_the_version_can_be_given() {
     out.stdout
   );
 }
+
+fn imported(label: &str) -> std::path::PathBuf {
+  let db = setup(label);
+  let dir = sample_dir(&format!("{label}-src"));
+  ok(
+    &db,
+    &["import", "demo", dir.to_str().unwrap(), "--as", "olivia"],
+  );
+  db
+}
+
+#[test]
+fn export_writes_lists_and_then_reports_unchanged() {
+  let db = imported("cli-export");
+  let out_dir = common::temp_dir("cli-export-out").join("copy");
+  let target = out_dir.to_str().unwrap();
+  let out = ok(&db, &["export", "demo", target, "--as", "eddie"]);
+  assert_eq!(
+    out.stdout,
+    "written docs/constitution.md\n\
+     written specs/001-alpha/spec.md\n\
+     written specs/001-alpha/plan.md\n\
+     written specs/001-alpha/tasks.md\n\
+     written specs/002-beta/spec.md\n\
+     exported 5 files: 5 written, 0 unchanged\n"
+  );
+  assert_eq!(
+    fs::read_to_string(out_dir.join("specs/001-alpha/spec.md")).unwrap(),
+    "# Spec\n\nStatus: approved · Created\n"
+  );
+
+  let out = ok(&db, &["export", "demo", target, "--as", "alice"]);
+  assert!(
+    out
+      .stdout
+      .ends_with("exported 5 files: 0 written, 5 unchanged\n"),
+    "{}",
+    out.stdout
+  );
+  assert!(out.stdout.contains("unchanged specs/002-beta/spec.md\n"));
+
+  let audit = ok(
+    &db,
+    &["audit", "list", "--project", "demo", "--as", "alice"],
+  );
+  assert!(!audit.stdout.contains("export"), "{}", audit.stdout);
+}
+
+#[test]
+fn differing_files_block_the_export_unless_forced() {
+  let db = imported("cli-force");
+  let out_dir = common::temp_dir("cli-force-out");
+  let target = out_dir.to_str().unwrap();
+  put(&out_dir, "specs/001-alpha/plan.md", "local edit\n");
+  put(&out_dir, "specs/002-beta/spec.md", "another edit\n");
+
+  let out = fails(&db, &["export", "demo", target, "--as", "eddie"]);
+  assert!(out.stderr.contains("--force"), "{}", out.stderr);
+  assert!(
+    out.stderr.contains("  - specs/001-alpha/plan.md"),
+    "{}",
+    out.stderr
+  );
+  assert!(
+    out.stderr.contains("  - specs/002-beta/spec.md"),
+    "{}",
+    out.stderr
+  );
+  assert!(!out_dir.join("docs/constitution.md").exists());
+
+  let out = ok(&db, &["export", "demo", target, "--force", "--as", "eddie"]);
+  assert!(out.stdout.contains("written specs/001-alpha/plan.md\n"));
+  assert_eq!(
+    fs::read_to_string(out_dir.join("specs/001-alpha/plan.md")).unwrap(),
+    "# Plan\n"
+  );
+}
+
+#[test]
+fn export_of_one_spec_with_a_status_notice() {
+  let db = imported("cli-one");
+  {
+    let store = Store::open(&db).unwrap();
+    let owner = store.caller_by_handle("olivia").unwrap();
+    store
+      .set_spec_status(&owner, "demo", 1, spec_store::model::SpecStatus::Draft)
+      .unwrap();
+  }
+  let out_dir = common::temp_dir("cli-one-out");
+  let out = ok(
+    &db,
+    &[
+      "export",
+      "demo",
+      out_dir.to_str().unwrap(),
+      "--spec",
+      "1",
+      "--as",
+      "eddie",
+    ],
+  );
+  assert_eq!(
+    out.stdout,
+    "written specs/001-alpha/spec.md\n\
+     written specs/001-alpha/plan.md\n\
+     written specs/001-alpha/tasks.md\n\
+     exported 3 files: 3 written, 0 unchanged\n"
+  );
+  assert!(
+    out
+      .stderr
+      .contains("notice: spec 001-alpha is draft in the store but its spec.md says approved"),
+    "{}",
+    out.stderr
+  );
+  fails(
+    &db,
+    &[
+      "export",
+      "demo",
+      out_dir.to_str().unwrap(),
+      "--spec",
+      "9",
+      "--as",
+      "eddie",
+    ],
+  );
+}
+
+#[test]
+fn outsiders_cannot_export() {
+  let db = imported("cli-outsider");
+  let out_dir = common::temp_dir("cli-outsider-out").join("x");
+  let out = fails(
+    &db,
+    &["export", "demo", out_dir.to_str().unwrap(), "--as", "otto"],
+  );
+  assert!(out.stderr.contains("member"), "{}", out.stderr);
+  assert!(!out_dir.exists());
+}
