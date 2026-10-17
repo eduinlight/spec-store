@@ -124,7 +124,7 @@ fn ensure_document(
   Ok(conn.last_insert_rowid())
 }
 
-fn append_revision(
+pub(crate) fn append_revision(
   conn: &Connection,
   document_id: i64,
   body: &str,

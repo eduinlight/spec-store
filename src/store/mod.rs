@@ -1,6 +1,7 @@
 pub mod documents;
 pub mod projects;
 pub mod specs;
+pub mod tasks;
 pub mod users;
 
 use std::path::Path;
