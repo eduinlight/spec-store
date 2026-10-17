@@ -5,7 +5,7 @@ use crate::store::documents::{append_revision, document_id, ensure_document};
 use crate::store::projects::access_in;
 use crate::store::specs::branch_name;
 use crate::store::{Store, audit};
-use crate::tree::{ProjectTree, TreeSpec, status_word, version_line};
+use crate::tree::{ExportFile, ProjectTree, TreeSpec, status_word, version_line};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct ImportOptions {
@@ -191,5 +191,29 @@ impl Store {
       }
       Ok(report)
     })
+  }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StatusNotice {
+  pub branch: String,
+  pub stored: SpecStatus,
+  pub written: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct ProjectExport {
+  pub files: Vec<ExportFile>,
+  pub notices: Vec<StatusNotice>,
+}
+
+impl Store {
+  pub fn export_documents(
+    &self,
+    _caller: &Caller,
+    _project: &str,
+    _spec: Option<i64>,
+  ) -> StoreResult<ProjectExport> {
+    Ok(ProjectExport::default())
   }
 }

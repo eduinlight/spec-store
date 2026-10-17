@@ -5,7 +5,7 @@ use std::path::Path;
 
 use spec_store::model::{Caller, DocumentKind, Role, SpecStatus, StoreError};
 use spec_store::store::Store;
-use spec_store::store::transfer::{ImportOptions, ImportReport};
+use spec_store::store::transfer::{ImportOptions, ImportReport, StatusNotice};
 use spec_store::tree::{ProjectTree, scan};
 
 struct Fixture {
@@ -334,4 +334,136 @@ fn a_failure_in_the_middle_leaves_the_store_unchanged() {
   assert!(matches!(result, Err(StoreError::Database(_))), "{result:?}");
   assert_eq!(counts(&f.store), before);
   assert!(f.store.list_specs(&f.owner, "demo").unwrap().is_empty());
+}
+
+fn imported() -> Fixture {
+  let f = fixture();
+  import(&f, &sample_tree("transfer-export"));
+  f
+}
+
+#[test]
+fn export_returns_current_bodies_in_layout_order_for_readers_and_admins() {
+  let f = imported();
+  f.store
+    .put_document(
+      &f.editor,
+      "demo",
+      1,
+      DocumentKind::Plan,
+      "# Plan v2\n",
+      "edit",
+      Some(
+        f.store
+          .get_document(&f.editor, "demo", 1, DocumentKind::Plan)
+          .unwrap()
+          .revision
+          .id,
+      ),
+    )
+    .unwrap();
+  let before = counts(&f.store);
+
+  for caller in [&f.reader, &f.admin, &f.owner] {
+    let export = f.store.export_documents(caller, "demo", None).unwrap();
+    let files: Vec<(&str, &str)> = export
+      .files
+      .iter()
+      .map(|file| (file.relative_path.as_str(), file.body.as_str()))
+      .collect();
+    assert_eq!(
+      files,
+      vec![
+        ("docs/constitution.md", CONSTITUTION),
+        ("specs/001-alpha/spec.md", ALPHA_SPEC),
+        ("specs/001-alpha/plan.md", "# Plan v2\n"),
+        ("specs/001-alpha/tasks.md", ALPHA_TASKS),
+        ("specs/002-beta/spec.md", "# Spec 002\n\nno status line\n"),
+        ("specs/005-gamma/spec.md", "Status: archived\n"),
+      ],
+      "{}",
+      caller.handle
+    );
+    assert!(export.notices.is_empty(), "{:?}", export.notices);
+  }
+  assert_eq!(counts(&f.store), before);
+}
+
+#[test]
+fn export_paths_stay_inside_the_layout() {
+  let f = imported();
+  let export = f.store.export_documents(&f.reader, "demo", None).unwrap();
+  for file in &export.files {
+    let path = file.relative_path.as_str();
+    let inside = path == "docs/constitution.md"
+      || (path.starts_with("specs/")
+        && path.split('/').count() == 3
+        && !path.contains("..")
+        && !path.contains('\\'));
+    assert!(inside, "{path}");
+  }
+}
+
+#[test]
+fn export_of_one_spec_and_unknown_spec() {
+  let f = imported();
+  let export = f
+    .store
+    .export_documents(&f.reader, "demo", Some(1))
+    .unwrap();
+  let paths: Vec<&str> = export
+    .files
+    .iter()
+    .map(|file| file.relative_path.as_str())
+    .collect();
+  assert_eq!(
+    paths,
+    vec![
+      "specs/001-alpha/spec.md",
+      "specs/001-alpha/plan.md",
+      "specs/001-alpha/tasks.md",
+    ]
+  );
+  assert!(matches!(
+    f.store.export_documents(&f.reader, "demo", Some(9)),
+    Err(StoreError::NotFound(_))
+  ));
+}
+
+#[test]
+fn outsiders_cannot_export() {
+  let f = imported();
+  assert!(matches!(
+    f.store.export_documents(&f.outsider, "demo", None),
+    Err(StoreError::Forbidden)
+  ));
+}
+
+#[test]
+fn status_mismatch_produces_a_notice_and_keeps_the_bytes() {
+  let f = imported();
+  f.store
+    .set_spec_status(&f.owner, "demo", 1, SpecStatus::Draft)
+    .unwrap();
+  f.store
+    .set_spec_status(&f.owner, "demo", 2, SpecStatus::Clarified)
+    .unwrap();
+  let export = f.store.export_documents(&f.reader, "demo", None).unwrap();
+  assert_eq!(
+    export.notices,
+    vec![StatusNotice {
+      branch: "001-alpha".into(),
+      stored: SpecStatus::Draft,
+      written: "approved".into(),
+    }]
+  );
+  assert_eq!(export.files[1].body, ALPHA_SPEC);
+}
+
+#[test]
+fn empty_project_exports_nothing() {
+  let f = fixture();
+  let export = f.store.export_documents(&f.owner, "demo", None).unwrap();
+  assert!(export.files.is_empty());
+  assert!(export.notices.is_empty());
 }
