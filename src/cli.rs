@@ -6,6 +6,8 @@ use clap::{Args, Parser, Subcommand};
 use crate::model::{Caller, Role, StoreError};
 use crate::server::{self, ServerConfig};
 use crate::store::Store;
+use crate::store::transfer::{ImportOptions, ImportReport};
+use crate::tree;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -41,6 +43,20 @@ pub enum Command {
   Member(MemberCmd),
   #[command(subcommand, about = "Read the audit trail")]
   Audit(AuditCmd),
+  #[command(about = "Import docs/constitution.md and specs/ from a project directory")]
+  Import(ImportArgs),
+}
+
+#[derive(Args, Debug)]
+pub struct ImportArgs {
+  pub project: String,
+  pub dir: PathBuf,
+  #[arg(long)]
+  pub constitution_version: Option<String>,
+  #[arg(long)]
+  pub dry_run: bool,
+  #[arg(long = "as", value_name = "HANDLE")]
+  pub as_handle: String,
 }
 
 #[derive(Args, Debug)]
@@ -167,6 +183,7 @@ pub fn run(cli: Cli) -> anyhow::Result<()> {
     Command::Project(cmd) => run_project(&store, cmd),
     Command::Member(cmd) => run_member(&store, cmd),
     Command::Audit(cmd) => run_audit(&store, cmd),
+    Command::Import(args) => run_import(&store, args),
   }
 }
 
@@ -334,4 +351,66 @@ fn run_audit(store: &Store, cmd: AuditCmd) -> anyhow::Result<()> {
       Ok(())
     }
   }
+}
+
+fn problem_list(heading: &str, problems: &str) -> anyhow::Error {
+  let lines: Vec<String> = problems.lines().map(|p| format!("  - {p}")).collect();
+  anyhow!("{heading}\n{}", lines.join("\n"))
+}
+
+fn print_import_report(report: &ImportReport, dry_run: bool) {
+  for branch in &report.status_fallbacks {
+    eprintln!("notice: spec {branch} has no recognised Status line; imported as draft");
+  }
+  if let Some(version) = &report.constitution_version {
+    println!("constitution v{version} from docs/constitution.md");
+  }
+  for spec in &report.specs {
+    let kinds = if spec.kinds.is_empty() {
+      "no documents".to_string()
+    } else {
+      spec
+        .kinds
+        .iter()
+        .map(|k| k.as_str())
+        .collect::<Vec<_>>()
+        .join(", ")
+    };
+    println!("spec {} {}: {kinds}", spec.branch, spec.status);
+  }
+  let summary = format!(
+    "{} specs and {} documents",
+    report.specs.len(),
+    report.documents
+  );
+  if dry_run {
+    println!("dry run: would import {summary}");
+  } else {
+    println!("imported {summary}");
+  }
+}
+
+fn run_import(store: &Store, args: ImportArgs) -> anyhow::Result<()> {
+  let acting = actor(store, &args.as_handle)?;
+  let tree = tree::scan(&args.dir).with_context(|| format!("reading {}", args.dir.display()))?;
+  for path in &tree.skipped {
+    eprintln!("skipped {path}");
+  }
+  let options = ImportOptions {
+    constitution_version: args.constitution_version,
+    dry_run: args.dry_run,
+  };
+  let report = match store.import_tree(&acting, &args.project, &tree, &options) {
+    Err(StoreError::Forbidden) => bail!(
+      "acting user {:?} is not an owner of project {:?}",
+      args.as_handle,
+      args.project
+    ),
+    Err(StoreError::Validation(problems)) => {
+      return Err(problem_list("import refused:", &problems));
+    }
+    other => other?,
+  };
+  print_import_report(&report, args.dry_run);
+  Ok(())
 }
