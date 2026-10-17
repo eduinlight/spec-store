@@ -7,7 +7,7 @@ Format: `- [ ] Tnn [P] (FR-x, FR-y) Description with path — Done when: verifia
 Each task < 30 minutes. Tests before implementation.
 
 ## Phase 1 — Setup
-- [ ] T01 (FR: —) Add `pulldown-cmark` (html feature only) and `similar` (text feature) to `Cargo.toml`; create `src/ui/mod.rs` with empty modules `cookies`, `html`, `render`, `diff`, `pages` (`login`, `profile`, `projects`, `specs`, `history`, `audit`) and `pub mod ui` in `src/lib.rs` — Done when: `cargo build`, `cargo test` and `cargo clippy --all-targets -- -D warnings` pass
+- [x] T01 (FR: —) Add `pulldown-cmark` (html feature only) and `similar` (text feature) to `Cargo.toml`; create `src/ui/mod.rs` with empty modules `cookies`, `html`, `render`, `diff`, `pages` (`login`, `profile`, `projects`, `specs`, `history`, `audit`) and `pub mod ui` in `src/lib.rs` — Done when: `cargo build`, `cargo test` and `cargo clippy --all-targets -- -D warnings` pass
 
 ## Phase 2 — Foundation (blocks the stories)
 - [ ] T02 [P] (FR-2, FR-4, FR-16) Extend `tests/db.rs`: opening a store creates `sessions` with its columns and `projects.repository_url`, and a second open is idempotent — Done when: tests written and red

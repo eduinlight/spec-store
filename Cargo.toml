@@ -30,6 +30,8 @@ thiserror = "2"
 anyhow = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
+similar = { version = "3", default-features = false, features = ["text"] }
 
 [dev-dependencies]
 rmcp = { version = "=3.5.1", features = ["client", "transport-child-process"] }
