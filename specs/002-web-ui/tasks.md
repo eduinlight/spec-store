@@ -35,7 +35,7 @@ Each task < 30 minutes. Tests before implementation.
 
 ## Phase 5 — US-4 (P2) Follow the history of a document
 - [x] T20 (FR-17, FR-18, FR-19, NFR-3) Write `tests/ui_history.rs`: history lists revisions newest first with author, time, message, current marked and constitution version; revision page labelled not current with link to current; unknown revision gives 404; diff page marks added and removed lines; first revision says it has no predecessor; links between pages present — Done when: tests written and red
-- [ ] T21 (FR-17, FR-18, FR-19) Implement `src/ui/pages/history.rs` — Done when: T20 tests green
+- [x] T21 (FR-17, FR-18, FR-19) Implement `src/ui/pages/history.rs` — Done when: T20 tests green
 
 ## Phase 6 — US-5 (P2) See who did what
 - [ ] T22 [P] (FR-20, FR-21, FR-22) Extend `tests/store_audit.rs`: `list_audit_page` for an owner returns their project's entries newest first with `has_more` and cursor; owner on another project Forbidden; editor Forbidden; admin without filter sees every project and entries without project; filter by slug; page size respected — Done when: tests written and red

@@ -110,6 +110,16 @@ pub fn ui_router(store: Store, config: UiConfig) -> Router {
       "/ui/p/{slug}/specs/{number}/{kind}",
       get(pages::specs::document),
     )
+    .route(
+      "/ui/p/{slug}/constitution/history",
+      get(pages::history::constitution_history),
+    )
+    .route(
+      "/ui/p/{slug}/specs/{number}/{kind}/history",
+      get(pages::history::document_history),
+    )
+    .route("/ui/p/{slug}/r/{revision}", get(pages::history::revision))
+    .route("/ui/p/{slug}/r/{revision}/diff", get(pages::history::diff))
     .route("/ui/{*rest}", get(not_found))
     .route_layer(middleware::from_fn_with_state(
       state.clone(),
