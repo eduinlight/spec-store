@@ -64,6 +64,7 @@ Each task < 30 minutes. Tests before implementation.
 - [x] T41 (NFR-1) Write `tests/perf.rs` (ignored by default): 10 threads, 200 reads of a 200 KB spec through the store, assert p95 < 100 ms — Done when: `cargo test --release --test perf -- --ignored` passes
 - [x] T42 (NFR-3) Extend `tests/http_auth.rs`: with a capturing tracing subscriber, the issued token never appears in logs, audit rows, error bodies or `token list` output; fix any leak found — Done when: test green
 - [x] T43 (NFR-4, NFR-5, FR: —) Write `README.md` (run `serve`, bootstrap admin and token, `claude mcp add --transport http ... --header`, `.mcp.json` with `${SPEC_STORE_TOKEN}`, stdio mode) and run the full lint — Done when: README has those sections and `cargo clippy --all-targets -- -D warnings && cargo fmt --check` passes
+- [x] T44 (FR-11, FR-15) Extend `tests/store_specs.rs` with the edge cases found by `/sdd-validate`: eight threads creating specs at once get dense unique numbers, and archiving the active spec makes the next highest non-archived spec active, then none — Done when: tests green
 
 ## Dependencies
 - Phase 1 blocks everything. Phase 2 blocks all stories: T03 needs T01; T05 needs T01; T07 needs T03 and T05.
@@ -72,7 +73,7 @@ Each task < 30 minutes. Tests before implementation.
 - US-3: T23 needs T16; T25 needs T18 and T23; T27 needs T03; T29 needs T25 and T27; T31 needs T23, T25, T29 and T21.
 - US-4: T33 needs T03; T35 needs T27, T29 and T33; T37 needs T35 and T31.
 - US-5: T39 needs T25; T40 needs T39 and T37.
-- Polish: T41 needs T35; T42 needs T20 and T13; T43 needs T40.
+- Polish: T41 needs T35; T42 needs T20 and T13; T43 needs T40; T44 needs T23.
 - Stories US-3, US-4 and US-5 each build on US-2's read path; US-4 and US-5 are independent of each other.
 
 ## Coverage
@@ -88,11 +89,11 @@ Each task < 30 minutes. Tests before implementation.
 | FR-8 | T10, T11, T19, T20 |
 | FR-9 | T10, T11, T19, T21 |
 | FR-10 | T14, T16, T19, T21 |
-| FR-11 | T14, T16, T19, T21 |
+| FR-11 | T14, T16, T19, T21, T44 |
 | FR-12 | T17, T18, T19, T21 |
 | FR-13 | T17, T18, T19, T21 |
 | FR-14 | T14, T15, T19, T21 |
-| FR-15 | T22, T23, T30, T31 |
+| FR-15 | T22, T23, T30, T31, T44 |
 | FR-16 | T02, T03, T22, T23 |
 | FR-17 | T17, T18, T24, T25, T30, T31 |
 | FR-18 | T24, T25, T30, T31 |

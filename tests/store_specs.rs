@@ -257,3 +257,69 @@ fn status_transitions_table() {
       .any(|e| e.action == "spec.status" && e.target.contains("archived"))
   );
 }
+
+#[test]
+fn concurrent_spec_creation_never_collides_or_skips() {
+  let (f, owner, _) = full_fixture();
+  let threads = 8;
+  let barrier = std::sync::Arc::new(std::sync::Barrier::new(threads));
+  let handles: Vec<_> = (0..threads)
+    .map(|i| {
+      let store = f.store.clone();
+      let caller = if i % 2 == 0 {
+        f.editor.clone()
+      } else {
+        owner.clone()
+      };
+      let barrier = barrier.clone();
+      std::thread::spawn(move || {
+        barrier.wait();
+        store
+          .create_spec(&caller, "demo", &format!("spec-{i}"))
+          .unwrap()
+      })
+    })
+    .collect();
+  let mut numbers: Vec<i64> = handles
+    .into_iter()
+    .map(|h| h.join().unwrap().number)
+    .collect();
+  numbers.sort_unstable();
+  let expected: Vec<i64> = (1..=threads as i64).collect();
+  assert_eq!(numbers, expected, "numbers must be dense and unique");
+  let listed = f.store.list_specs(&f.editor, "demo").unwrap();
+  assert_eq!(listed.len(), threads);
+  assert!(
+    listed
+      .iter()
+      .all(|s| s.branch == format!("{:03}-{}", s.number, s.slug))
+  );
+}
+
+#[test]
+fn archiving_the_active_spec_moves_to_the_next_highest() {
+  let (f, owner, reader) = full_fixture();
+  f.store.create_spec(&f.editor, "demo", "alpha").unwrap();
+  f.store.create_spec(&f.editor, "demo", "beta").unwrap();
+  assert_eq!(
+    f.store
+      .active_spec(&reader, "demo")
+      .unwrap()
+      .unwrap()
+      .number,
+    2
+  );
+
+  f.store
+    .set_spec_status(&owner, "demo", 2, SpecStatus::Archived)
+    .unwrap();
+  let active = f.store.active_spec(&reader, "demo").unwrap().unwrap();
+  assert_eq!(active.number, 1);
+  assert_eq!(active.slug, "alpha");
+
+  f.store
+    .set_spec_status(&owner, "demo", 1, SpecStatus::Archived)
+    .unwrap();
+  assert!(f.store.active_spec(&reader, "demo").unwrap().is_none());
+  assert_eq!(f.store.list_specs(&reader, "demo").unwrap().len(), 2);
+}
