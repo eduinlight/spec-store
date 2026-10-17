@@ -104,6 +104,12 @@ pub fn ui_router(store: Store, config: UiConfig) -> Router {
     .route("/ui/", get(pages::projects::index))
     .route("/ui/profile", get(pages::profile::show))
     .route("/ui/p/{slug}", get(pages::projects::show))
+    .route("/ui/p/{slug}/constitution", get(pages::specs::constitution))
+    .route("/ui/p/{slug}/specs/{number}", get(pages::specs::spec))
+    .route(
+      "/ui/p/{slug}/specs/{number}/{kind}",
+      get(pages::specs::document),
+    )
     .route("/ui/{*rest}", get(not_found))
     .route_layer(middleware::from_fn_with_state(
       state.clone(),

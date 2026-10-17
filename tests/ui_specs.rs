@@ -33,7 +33,6 @@ const TASKS: &str = "# Tasks — Spec 001
 ## Phase 2 — US-1
 - [ ] T02 [P] (FR-1, FR-2) Write tests — Done when: tests written and red
 - [ ] T03 (FR-1, FR-2) Implement — Done when: T02 green
-- [ ] T04 broken line
 ";
 
 const CRLF: &str = "# Spec 002 — Second\r\n\r\nLine one\r\nLine two\r\n";
@@ -84,8 +83,22 @@ fn fixture() -> Fixture {
   store
     .put_document(&bob, "demo", 1, DocumentKind::Tasks, TASKS, "tasks", None)
     .unwrap();
-  store
+  let marked = store
     .mark_task_done(&bob, "demo", 1, "T01", "abc1234")
+    .unwrap();
+  let current = store
+    .get_document(&bob, "demo", 1, DocumentKind::Tasks)
+    .unwrap();
+  store
+    .put_document(
+      &bob,
+      "demo",
+      1,
+      DocumentKind::Tasks,
+      &format!("{}- [ ] T04 broken line\n", current.body),
+      "add a broken line",
+      Some(marked.revision_id),
+    )
     .unwrap();
   store.create_spec(&bob, "demo", "second").unwrap();
   store
@@ -178,15 +191,17 @@ async fn spec_page_groups_tasks_by_phase_and_lists_markers() {
   let bob = session(&f, "bob");
   let (_, html) = page(&f, "/ui/p/demo/specs/1", &bob).await;
 
-  let phase1 = html.find("Phase 1 — Setup").expect("phase 1 heading");
-  let phase2 = html.find("Phase 2 — US-1").expect("phase 2 heading");
+  let table_at = html.find("id=\"task-table\"").expect("tasks section");
+  let tasks = &html[table_at..];
+  let phase1 = tasks.find("Phase 1 — Setup").expect("phase 1 heading");
+  let phase2 = tasks.find("Phase 2 — US-1").expect("phase 2 heading");
   assert!(phase1 < phase2);
-  let between = &html[phase1..phase2];
+  let between = &tasks[phase1..phase2];
   assert!(between.contains("1/1"), "{between}");
-  let after = &html[phase2..];
+  let after = &tasks[phase2..];
   assert!(after.contains("0/2"), "{after}");
 
-  let t01 = row_containing(&html, "T01");
+  let t01 = row_containing(tasks, "T01");
   assert!(t01.contains("class=\"done\""), "{t01}");
   assert!(t01.contains("abc1234"));
   assert!(
@@ -194,7 +209,7 @@ async fn spec_page_groups_tasks_by_phase_and_lists_markers() {
     "no repository, plain text"
   );
   assert!(t01.contains("`cargo build` passes") || t01.contains("<code>cargo build</code> passes"));
-  let t02 = row_containing(&html, "T02");
+  let t02 = row_containing(tasks, "T02");
   assert!(t02.contains("FR-1, FR-2") || t02.contains("FR-1</li>") || t02.contains("FR-1 FR-2"));
   assert!(t02.contains("[P]") || t02.contains("parallel"));
   assert!(!t02.contains("class=\"done\""));
