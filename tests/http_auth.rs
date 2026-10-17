@@ -106,7 +106,7 @@ async fn missing_unknown_and_revoked_tokens_get_401() {
       !text.contains("protocolVersion"),
       "{label}: no MCP data on 401"
     );
-    if let Some(t) = token {
+    if let Some(t) = token.filter(|t| !t.is_empty()) {
       assert!(!text.contains(t), "{label}: token echoed in body");
     }
   }

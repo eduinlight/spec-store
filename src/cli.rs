@@ -4,6 +4,7 @@ use anyhow::{Context, anyhow, bail};
 use clap::{Args, Parser, Subcommand};
 
 use crate::model::{Caller, Role, StoreError};
+use crate::server::{self, ServerConfig};
 use crate::store::Store;
 
 #[derive(Parser, Debug)]
@@ -138,13 +139,27 @@ pub enum AuditCmd {
 pub fn run(cli: Cli) -> anyhow::Result<()> {
   let store = Store::open(&cli.db).with_context(|| format!("opening {}", cli.db.display()))?;
   match cli.command {
-    Command::Serve(_) | Command::Stdio(_) => bail!("this command is not available in this build"),
+    Command::Serve(args) => runtime()?.block_on(server::serve(
+      store,
+      &args.bind,
+      ServerConfig {
+        allowed_hosts: args.allowed_hosts,
+      },
+    )),
+    Command::Stdio(args) => {
+      let caller = actor(&store, &args.as_handle)?;
+      runtime()?.block_on(server::run_stdio(store, caller))
+    }
     Command::User(cmd) => run_user(&store, cmd),
     Command::Token(cmd) => run_token(&store, cmd),
     Command::Project(cmd) => run_project(&store, cmd),
     Command::Member(cmd) => run_member(&store, cmd),
     Command::Audit(cmd) => run_audit(&store, cmd),
   }
+}
+
+fn runtime() -> anyhow::Result<tokio::runtime::Runtime> {
+  tokio::runtime::Runtime::new().context("starting the async runtime")
 }
 
 fn actor(store: &Store, handle: &str) -> anyhow::Result<Caller> {

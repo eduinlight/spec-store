@@ -120,19 +120,7 @@ async fn lists_tools_and_projects_for_the_acting_user() {
 
   let tools = client.list_tools(None).await.unwrap();
   let names: Vec<&str> = tools.tools.iter().map(|t| t.name.as_ref()).collect();
-  for expected in [
-    "list_projects",
-    "list_specs",
-    "get_active_spec",
-    "get_document",
-    "get_constitution",
-    "get_template",
-  ] {
-    assert!(
-      names.contains(&expected),
-      "missing tool {expected} in {names:?}"
-    );
-  }
+  assert!(names.contains(&"list_projects"), "{names:?}");
 
   let projects = call(&client, "list_projects", json!({})).await.unwrap();
   assert_eq!(
@@ -158,6 +146,21 @@ async fn reads_specs_documents_constitution_and_templates() {
   let db = common::temp_db_path("mcp-read-docs");
   seed(&db);
   let client = connect(&db, "reader").await;
+
+  let tools = client.list_tools(None).await.unwrap();
+  let names: Vec<&str> = tools.tools.iter().map(|t| t.name.as_ref()).collect();
+  for expected in [
+    "list_specs",
+    "get_active_spec",
+    "get_document",
+    "get_constitution",
+    "get_template",
+  ] {
+    assert!(
+      names.contains(&expected),
+      "missing tool {expected} in {names:?}"
+    );
+  }
 
   let specs = call(&client, "list_specs", json!({"project": "demo"}))
     .await
