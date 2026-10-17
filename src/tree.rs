@@ -1,13 +1,31 @@
-pub fn parse_spec_folder(_name: &str) -> Option<(i64, String)> {
-  None
+use crate::model::validate_slug;
+use crate::store::specs::branch_name;
+
+pub fn parse_spec_folder(name: &str) -> Option<(i64, String)> {
+  let (digits, slug) = name.split_once('-')?;
+  if digits.is_empty() || !digits.bytes().all(|b| b.is_ascii_digit()) {
+    return None;
+  }
+  let number: i64 = digits.parse().ok()?;
+  if number < 1 || validate_slug(slug).is_err() || branch_name(number, slug) != name {
+    return None;
+  }
+  Some((number, slug.to_string()))
 }
 
-pub fn status_word(_body: &str) -> Option<&str> {
-  None
+fn first_line_after<'a>(body: &'a str, prefix: &str) -> Option<&'a str> {
+  body
+    .lines()
+    .find_map(|line| line.strip_prefix(prefix))
+    .and_then(|rest| rest.split_whitespace().next())
 }
 
-pub fn version_line(_body: &str) -> Option<&str> {
-  None
+pub fn status_word(body: &str) -> Option<&str> {
+  first_line_after(body, "Status:")
+}
+
+pub fn version_line(body: &str) -> Option<&str> {
+  first_line_after(body, "Version ")
 }
 
 #[cfg(test)]

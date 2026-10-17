@@ -11,7 +11,7 @@ Each task < 30 minutes. Tests before implementation.
 
 ## Phase 2 — Foundation (blocks the stories)
 - [x] T02 (FR-1, FR-3, FR-5, NFR-3) Write unit tests in `src/tree.rs`: `parse_spec_folder` accepts `001-store-core`, `042-a`, `1000-x` and rejects `0001-x`, `01-x`, `000-x`, `001-Name`, `001-a-b-c-d-e`, `001`, `abc-x`, `001-a/b`, `001-..`; `status_word` reads `approved` from `Status: approved · Created` and `draft` from the template line, `None` without a line; `version_line` reads `1.0` from `Version 1.0 · Ratified` and `None` without a line — Done when: tests written and red
-- [ ] T03 (FR-1, FR-3, FR-5, NFR-3) Implement `parse_spec_folder`, `status_word` and `version_line` in `src/tree.rs` — Done when: T02 tests green
+- [x] T03 (FR-1, FR-3, FR-5, NFR-3) Implement `parse_spec_folder`, `status_word` and `version_line` in `src/tree.rs` — Done when: T02 tests green
 
 ## Phase 3 — US-1 (P1) Import an existing tree
 - [ ] T04 (FR-1, FR-2, FR-6, FR-8) Write `tests/tree.rs` scan tests over temp directories: constitution and two spec folders read with documents in kind order and exact bytes (BOM, CRLF, no final newline); `specs/README.md` and `specs/001-x/notes.md` and `specs/001-x/contracts/` skipped; invalid folder name, duplicate number, duplicate slug, non-UTF-8 file and a file of `MAX_BODY_BYTES + 1` each add a problem while a file of exactly `MAX_BODY_BYTES` does not; empty directory adds a problem; missing directory is an `io::Error` — Done when: tests written and red
