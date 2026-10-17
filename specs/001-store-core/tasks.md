@@ -61,7 +61,7 @@ Each task < 30 minutes. Tests before implementation.
 - [x] T40 (FR-30, FR-31) Implement the two history tools in `src/mcp.rs` — Done when: T38 tests green
 
 ## Final phase — Polish and cross-cutting
-- [ ] T41 (NFR-1) Write `tests/perf.rs` (ignored by default): 10 threads, 200 reads of a 200 KB spec through the store, assert p95 < 100 ms — Done when: `cargo test --release --test perf -- --ignored` passes
+- [x] T41 (NFR-1) Write `tests/perf.rs` (ignored by default): 10 threads, 200 reads of a 200 KB spec through the store, assert p95 < 100 ms — Done when: `cargo test --release --test perf -- --ignored` passes
 - [ ] T42 (NFR-3) Extend `tests/http_auth.rs`: with a capturing tracing subscriber, the issued token never appears in logs, audit rows, error bodies or `token list` output; fix any leak found — Done when: test green
 - [ ] T43 (NFR-4, NFR-5, FR: —) Write `README.md` (run `serve`, bootstrap admin and token, `claude mcp add --transport http ... --header`, `.mcp.json` with `${SPEC_STORE_TOKEN}`, stdio mode) and run the full lint — Done when: README has those sections and `cargo clippy --all-targets -- -D warnings && cargo fmt --check` passes
 
