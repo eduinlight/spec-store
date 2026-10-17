@@ -33,7 +33,7 @@ Each task < 30 minutes. Tests before implementation.
 - [x] T16 (FR-21) Extend `tests/cli_transfer.rs`: copy this repository's `docs/constitution.md` and `specs/` into a temp directory, import into a new project, export to an empty directory and compare every imported file byte for byte — Done when: test green
 
 ## Final phase — Polish and cross-cutting
-- [ ] T17 (NFR-1) Write `tests/perf_import.rs` (ignored): 100 specs with five 20 KB documents each imported through `scan` and `import_tree` under 10 s — Done when: `cargo test --release --test perf_import -- --ignored` passes
+- [x] T17 (NFR-1) Write `tests/perf_import.rs` (ignored): 100 specs with five 20 KB documents each imported through `scan` and `import_tree` under 10 s — Done when: `cargo test --release --test perf_import -- --ignored` passes
 - [ ] T18 (FR: —) Add the "Import and export" section to `README.md` and run the full lint — Done when: README has the section and `cargo clippy --all-targets -- -D warnings && cargo fmt --check` passes
 
 ## Dependencies
