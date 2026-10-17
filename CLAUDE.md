@@ -39,7 +39,7 @@ Mandatory rules for the agent:
 ## Style
 
 - Code, identifiers, commit messages, documentation and messages to the user in English.
-- Rust stable toolchain, edition 2024, `rustfmt` defaults.
+- Rust stable toolchain, edition 2024, `rustfmt` with `tab_spaces = 2` (two-space indentation everywhere).
 - Errors are typed with `thiserror` in libraries and `anyhow` only in the binary entry point.
 - SQLite is the only persistent state; schema changes go through numbered migrations.
 - Every write to a document creates a revision and an audit entry; nothing is updated in place.
