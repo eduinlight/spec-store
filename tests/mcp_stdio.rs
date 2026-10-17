@@ -545,3 +545,84 @@ async fn derived_reads_tasks_markers_and_status() {
   assert!(empty["active"].is_null());
   admin.cancel().await.unwrap();
 }
+
+#[tokio::test]
+async fn history_tools_list_and_read_revisions() {
+  let db = common::temp_db_path("mcp-history");
+  seed(&db);
+  let client = connect(&db, "editor").await;
+
+  let tools = client.list_tools(None).await.unwrap();
+  let names: Vec<&str> = tools.tools.iter().map(|t| t.name.as_ref()).collect();
+  for expected in ["list_revisions", "get_revision"] {
+    assert!(
+      names.contains(&expected),
+      "missing tool {expected} in {names:?}"
+    );
+  }
+  assert_eq!(names.len(), 16, "{names:?}");
+
+  let current = call(
+    &client,
+    "get_document",
+    json!({"project": "demo", "number": 1, "kind": "spec"}),
+  )
+  .await
+  .unwrap();
+  let first = current["revision"]["id"].as_i64().unwrap();
+  let second = call(
+    &client,
+    "put_document",
+    json!({"project": "demo", "number": 1, "kind": "spec", "body": "# Spec 001 v2\n", "message": "second", "expected_revision": first}),
+  )
+  .await
+  .unwrap()["revision_id"]
+    .as_i64()
+    .unwrap();
+
+  let revisions = call(
+    &client,
+    "list_revisions",
+    json!({"project": "demo", "number": 1, "kind": "spec"}),
+  )
+  .await
+  .unwrap();
+  let list = revisions["revisions"].as_array().unwrap();
+  assert_eq!(list.len(), 2);
+  assert_eq!(list[0]["id"], second);
+  assert_eq!(list[0]["message"], "second");
+  assert_eq!(list[0]["author"], "editor");
+  assert_eq!(list[1]["id"], first);
+  assert!(list[0]["created_at"].as_str().unwrap().ends_with('Z'));
+
+  let constitution = call(
+    &client,
+    "list_revisions",
+    json!({"project": "demo", "kind": "constitution"}),
+  )
+  .await
+  .unwrap();
+  assert_eq!(constitution["revisions"][0]["version"], "1.0");
+
+  let old = call(
+    &client,
+    "get_revision",
+    json!({"project": "demo", "revision_id": first}),
+  )
+  .await
+  .unwrap();
+  assert_eq!(old["body"], "# Spec 001 — First\n");
+  assert_eq!(old["kind"], "spec");
+  assert_eq!(old["number"], 1);
+  assert_eq!(old["revision"]["id"], first);
+  assert_eq!(old["revision"]["message"], "initial");
+
+  let missing = call(
+    &client,
+    "get_revision",
+    json!({"project": "demo", "revision_id": 9999}),
+  )
+  .await;
+  assert_eq!(kind(&error_of(missing.unwrap_err())), "not_found");
+  client.cancel().await.unwrap();
+}

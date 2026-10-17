@@ -56,7 +56,7 @@ Each task < 30 minutes. Tests before implementation.
 - [x] T37 (FR-25, FR-27, FR-28) Implement the three derived tools in `src/mcp.rs` — Done when: T36 tests green
 
 ## Phase 7 — US-5 (P2) Know who changed what
-- [ ] T38 (FR-30, FR-31) Extend `tests/store_documents.rs` (list_revisions newest first with author and message, constitution revisions with version, get_revision body and not-found) and `tests/mcp_stdio.rs` (`list_revisions`, `get_revision`) — Done when: tests written and red
+- [x] T38 (FR-30, FR-31) Extend `tests/store_documents.rs` (list_revisions newest first with author and message, constitution revisions with version, get_revision body and not-found) and `tests/mcp_stdio.rs` (`list_revisions`, `get_revision`) — Done when: tests written and red
 - [ ] T39 (FR-30, FR-31) Implement `list_revisions` and `get_revision` in `src/store/documents.rs` — Done when: store tests of T38 green
 - [ ] T40 (FR-30, FR-31) Implement the two history tools in `src/mcp.rs` — Done when: T38 tests green
 

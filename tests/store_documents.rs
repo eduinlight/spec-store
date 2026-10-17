@@ -471,3 +471,148 @@ fn concurrent_puts_exactly_one_wins() {
     .unwrap();
   assert_eq!(revisions, 2);
 }
+
+#[test]
+fn list_revisions_newest_first() {
+  let f = fixture();
+  let first = f
+    .store
+    .put_document(
+      &f.editor,
+      "demo",
+      1,
+      DocumentKind::Spec,
+      "v1",
+      "first",
+      None,
+    )
+    .unwrap();
+  let second = f
+    .store
+    .put_document(
+      &f.owner,
+      "demo",
+      1,
+      DocumentKind::Spec,
+      "v2",
+      "second",
+      Some(first),
+    )
+    .unwrap();
+
+  let revisions = f
+    .store
+    .list_revisions(&f.reader, "demo", Some(1), DocumentKind::Spec)
+    .unwrap();
+  assert_eq!(revisions.len(), 2);
+  assert_eq!(revisions[0].id, second);
+  assert_eq!(revisions[0].author, "owner");
+  assert_eq!(revisions[0].message, "second");
+  assert_eq!(revisions[0].version, None);
+  assert_eq!(revisions[1].id, first);
+  assert_eq!(revisions[1].author, "editor");
+  assert!(revisions[1].created_at <= revisions[0].created_at);
+
+  let c1 = f
+    .store
+    .put_constitution(&f.owner, "demo", "c1", "1.0", "ratified", None)
+    .unwrap();
+  f.store
+    .put_constitution(&f.owner, "demo", "c2", "1.1", "amended", Some(c1))
+    .unwrap();
+  let constitution = f
+    .store
+    .list_revisions(&f.reader, "demo", None, DocumentKind::Constitution)
+    .unwrap();
+  assert_eq!(constitution.len(), 2);
+  assert_eq!(constitution[0].version.as_deref(), Some("1.1"));
+  assert_eq!(constitution[1].version.as_deref(), Some("1.0"));
+
+  assert!(matches!(
+    f.store
+      .list_revisions(&f.reader, "demo", Some(1), DocumentKind::Plan),
+    Err(StoreError::NotFound(_))
+  ));
+  assert!(matches!(
+    f.store
+      .list_revisions(&f.reader, "demo", Some(1), DocumentKind::Constitution),
+    Err(StoreError::Validation(_))
+  ));
+  assert!(matches!(
+    f.store
+      .list_revisions(&f.reader, "demo", None, DocumentKind::Spec),
+    Err(StoreError::Validation(_))
+  ));
+  assert!(matches!(
+    f.store
+      .list_revisions(&f.outsider, "demo", Some(1), DocumentKind::Spec),
+    Err(StoreError::Forbidden)
+  ));
+}
+
+#[test]
+fn get_revision_body_and_not_found() {
+  let f = fixture();
+  let first = f
+    .store
+    .put_document(
+      &f.editor,
+      "demo",
+      1,
+      DocumentKind::Tasks,
+      "v1",
+      "first",
+      None,
+    )
+    .unwrap();
+  f.store
+    .put_document(
+      &f.editor,
+      "demo",
+      1,
+      DocumentKind::Tasks,
+      "v2",
+      "second",
+      Some(first),
+    )
+    .unwrap();
+
+  let revision = f.store.get_revision(&f.reader, "demo", first).unwrap();
+  assert_eq!(revision.body, "v1");
+  assert_eq!(revision.meta.id, first);
+  assert_eq!(revision.meta.author, "editor");
+  assert_eq!(revision.meta.message, "first");
+  assert_eq!(revision.kind, DocumentKind::Tasks);
+  assert_eq!(revision.number, Some(1));
+
+  let c1 = f
+    .store
+    .put_constitution(&f.owner, "demo", "c1", "1.0", "ratified", None)
+    .unwrap();
+  let constitution = f.store.get_revision(&f.reader, "demo", c1).unwrap();
+  assert_eq!(constitution.kind, DocumentKind::Constitution);
+  assert_eq!(constitution.number, None);
+  assert_eq!(constitution.meta.version.as_deref(), Some("1.0"));
+
+  assert!(matches!(
+    f.store.get_revision(&f.reader, "demo", 999),
+    Err(StoreError::NotFound(_))
+  ));
+  assert!(matches!(
+    f.store.get_revision(&f.outsider, "demo", first),
+    Err(StoreError::Forbidden)
+  ));
+
+  let admin = f.store.caller_by_handle("root").unwrap();
+  f.store.create_project(&admin, "other", "Other").unwrap();
+  f.store
+    .set_member(&admin, "other", "reader", Role::Reader)
+    .unwrap();
+  assert!(
+    matches!(
+      f.store.get_revision(&f.reader, "other", first),
+      Err(StoreError::NotFound(_))
+    ),
+    "revisions are scoped to the project they belong to"
+  );
+}
