@@ -2,7 +2,7 @@ mod common;
 
 use spec_store::db;
 
-const EXPECTED_TABLES: [&str; 9] = [
+const EXPECTED_TABLES: [&str; 10] = [
   "schema_migrations",
   "users",
   "api_tokens",
@@ -12,6 +12,7 @@ const EXPECTED_TABLES: [&str; 9] = [
   "documents",
   "revisions",
   "audit_log",
+  "sessions",
 ];
 
 fn table_names(conn: &rusqlite::Connection) -> Vec<String> {
@@ -59,13 +60,49 @@ fn open_is_idempotent() {
   let applied: i64 = conn
     .query_row("SELECT count(*) FROM schema_migrations", [], |r| r.get(0))
     .unwrap();
-  assert_eq!(applied, 1);
+  assert_eq!(applied, 2);
   let version: i64 = conn
     .query_row("SELECT max(version) FROM schema_migrations", [], |r| {
       r.get(0)
     })
     .unwrap();
-  assert_eq!(version, 1);
+  assert_eq!(version, 2);
+}
+
+fn column_names(conn: &rusqlite::Connection, table: &str) -> Vec<String> {
+  let mut stmt = conn
+    .prepare(&format!("PRAGMA table_info({table})"))
+    .unwrap();
+  stmt
+    .query_map([], |row| row.get::<_, String>(1))
+    .unwrap()
+    .map(Result::unwrap)
+    .collect()
+}
+
+#[test]
+fn second_migration_adds_sessions_and_repository_url() {
+  let conn = db::open_in_memory().expect("memory");
+  let sessions = column_names(&conn, "sessions");
+  for column in [
+    "id",
+    "secret_hash",
+    "token_id",
+    "user_id",
+    "created_at",
+    "expires_at",
+    "ended_at",
+  ] {
+    assert!(
+      sessions.iter().any(|c| c == column),
+      "sessions lacks {column}: {sessions:?}"
+    );
+  }
+  let projects = column_names(&conn, "projects");
+  assert!(
+    projects.iter().any(|c| c == "repository_url"),
+    "{projects:?}"
+  );
 }
 
 #[test]

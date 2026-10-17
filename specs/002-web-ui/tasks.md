@@ -10,7 +10,7 @@ Each task < 30 minutes. Tests before implementation.
 - [x] T01 (FR: —) Add `pulldown-cmark` (html feature only) and `similar` (text feature) to `Cargo.toml`; create `src/ui/mod.rs` with empty modules `cookies`, `html`, `render`, `diff`, `pages` (`login`, `profile`, `projects`, `specs`, `history`, `audit`) and `pub mod ui` in `src/lib.rs` — Done when: `cargo build`, `cargo test` and `cargo clippy --all-targets -- -D warnings` pass
 
 ## Phase 2 — Foundation (blocks the stories)
-- [ ] T02 [P] (FR-2, FR-4, FR-16) Extend `tests/db.rs`: opening a store creates `sessions` with its columns and `projects.repository_url`, and a second open is idempotent — Done when: tests written and red
+- [x] T02 [P] (FR-2, FR-4, FR-16) Extend `tests/db.rs`: opening a store creates `sessions` with its columns and `projects.repository_url`, and a second open is idempotent — Done when: tests written and red
 - [ ] T03 (FR-2, FR-4, FR-16) Write `src/migrations/0002_web_ui.sql` (plan §5) and register it in `src/db.rs` — Done when: T02 tests green
 - [ ] T04 [P] (FR-2, FR-4, FR-5) Write `tests/store_sessions.rs`: `create_session` for a valid token returns an `sss_` secret stored only hashed; `session_caller` returns the caller and token id and updates `last_used_at`; unknown secret, ended session, revoked token and expired session (expiry moved to the past with SQL) give `Unauthenticated`; `end_session` is idempotent — Done when: tests written and red
 - [ ] T05 (FR-2, FR-4, FR-5) Implement `src/store/sessions.rs` (`create_session`, `session_caller`, `end_session`, `SESSION_LIFETIME_DAYS`) — Done when: T04 tests green
