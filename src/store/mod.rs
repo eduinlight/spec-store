@@ -3,6 +3,7 @@ pub mod projects;
 pub mod sessions;
 pub mod specs;
 pub mod tasks;
+pub mod transfer;
 pub mod users;
 
 use std::path::Path;

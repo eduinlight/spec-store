@@ -91,6 +91,29 @@ spec-store --db store.db project set-repo demo --clear --as alice
 Admins and owners of the project may set it. Links are built as `<repository URL>/commit/<id>`,
 which fits GitHub, GitLab and Gitea.
 
+## Import and export
+
+Bring an existing SDD tree into a project, or write a project back to files. Both commands run on
+the host that holds the database file. Spec numbers, slugs and the bytes of every document are kept,
+so an import followed by an export reproduces the files.
+
+```sh
+spec-store --db store.db import demo ../my-repo --dry-run --as bob
+spec-store --db store.db import demo ../my-repo --as bob
+spec-store --db store.db export demo ./backup --as bob
+spec-store --db store.db export demo ./backup --spec 3 --force --as bob
+```
+
+- Import reads `docs/constitution.md` and every `specs/NNN-name/` folder with its `spec.md`,
+  `plan.md`, `tasks.md`, `research.md` and `validation.md`. Other entries are skipped and named.
+- Only an owner of the project imports. The import is refused as a whole, with every problem
+  listed, when a folder name is not a spec branch name, a number or slug already exists, a file is
+  not UTF-8 or exceeds 1 MiB, or the project already has a constitution.
+- The spec status comes from the `Status:` line of `spec.md`, falling back to `draft` with a
+  notice. The constitution version comes from its `Version` line or `--constitution-version`.
+- Any member, or an admin, exports. Existing files with the same bytes are left untouched; files
+  that differ stop the export unless `--force` is given. Export never deletes a file.
+
 ## Stdio mode
 
 On the server host, or for tests, the same tools are available over stdin and stdout acting for
@@ -119,4 +142,5 @@ cargo test
 cargo clippy --all-targets -- -D warnings && cargo fmt --check
 cargo test --release --test perf -- --ignored
 cargo test --release --test perf_ui -- --ignored
+cargo test --release --test perf_import -- --ignored
 ```

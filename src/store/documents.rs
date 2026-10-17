@@ -108,7 +108,7 @@ fn check_expected_revision(
   }
 }
 
-fn ensure_document(
+pub(crate) fn ensure_document(
   conn: &Connection,
   project_id: i64,
   spec_id: Option<i64>,
