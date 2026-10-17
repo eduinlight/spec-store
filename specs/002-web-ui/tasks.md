@@ -46,7 +46,7 @@ Each task < 30 minutes. Tests before implementation.
 ## Final phase — Polish and cross-cutting
 - [x] T26 (FR-23) Write `tests/ui_readonly.rs`: `POST`, `PUT` and `DELETE` to every UI path except login and logout answer 405 or 404; after a browsing session over every page the counts of projects, specs, documents, revisions, memberships, users and tokens are unchanged — Done when: tests green (fix any route that lets a write through)
 - [x] T27 (NFR-1) Write `tests/perf_ui.rs` (ignored by default): 10 threads, 200 spec-page requests for a 200 KB spec through the router, assert p95 < 300 ms — Done when: `cargo test --release --test perf_ui -- --ignored` passes
-- [ ] T28 (NFR-4, NFR-6, FR: —) Add the "Browser view" section to `README.md` (login, `--secure-cookies`, `project set-repo`) and run the full lint — Done when: README has the section and `cargo clippy --all-targets -- -D warnings && cargo fmt --check` passes
+- [x] T28 (NFR-4, NFR-6, FR: —) Add the "Browser view" section to `README.md` (login, `--secure-cookies`, `project set-repo`) and run the full lint — Done when: README has the section and `cargo clippy --all-targets -- -D warnings && cargo fmt --check` passes
 
 ## Dependencies
 - Phase 1 blocks everything. Phase 2 blocks all stories: T03 needs T01; T05 needs T03; T07 needs T01; T09 needs T01.
