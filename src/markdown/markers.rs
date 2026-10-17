@@ -1,3 +1,81 @@
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MarkerKind {
+  Clarification,
+  Research,
+}
+
+impl MarkerKind {
+  pub fn as_str(self) -> &'static str {
+    match self {
+      MarkerKind::Clarification => "clarification",
+      MarkerKind::Research => "research",
+    }
+  }
+
+  fn keyword(self) -> &'static str {
+    match self {
+      MarkerKind::Clarification => "NEEDS CLARIFICATION",
+      MarkerKind::Research => "NEEDS RESEARCH",
+    }
+  }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Marker {
+  pub kind: MarkerKind,
+  pub heading: String,
+  pub text: String,
+  pub line: usize,
+}
+
+fn heading_of(line: &str) -> Option<&str> {
+  let hashes = line.bytes().take_while(|b| *b == b'#').count();
+  if hashes == 0 {
+    return None;
+  }
+  let rest = &line[hashes..];
+  (rest.is_empty() || rest.starts_with(' ')).then(|| rest.trim())
+}
+
+fn classify(inner: &str) -> Option<(MarkerKind, String)> {
+  for kind in [MarkerKind::Clarification, MarkerKind::Research] {
+    if let Some(rest) = inner.strip_prefix(kind.keyword()) {
+      let text = rest.trim_start().strip_prefix(':').unwrap_or(rest).trim();
+      return Some((kind, text.to_string()));
+    }
+  }
+  None
+}
+
+pub fn scan_markers(body: &str) -> Vec<Marker> {
+  let mut markers = Vec::new();
+  let mut heading = String::new();
+  for (index, raw) in body.split('\n').enumerate() {
+    let line = raw.strip_suffix('\r').unwrap_or(raw);
+    if let Some(h) = heading_of(line) {
+      heading = h.to_string();
+      continue;
+    }
+    let mut rest = line;
+    while let Some(open) = rest.find("[NEEDS ") {
+      let after_open = &rest[open + 1..];
+      let Some(close) = after_open.find(']') else {
+        break;
+      };
+      if let Some((kind, text)) = classify(&after_open[..close]) {
+        markers.push(Marker {
+          kind,
+          heading: heading.clone(),
+          text,
+          line: index + 1,
+        });
+      }
+      rest = &after_open[close + 1..];
+    }
+  }
+  markers
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
