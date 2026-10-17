@@ -148,3 +148,29 @@ fn token_helpers_are_deterministic_and_prefixed() {
   assert_eq!(hash, spec_store::auth::hash_token(&token));
   assert!(hash.bytes().all(|b| b.is_ascii_hexdigit()));
 }
+
+#[test]
+fn list_own_tokens_needs_no_admin_and_shows_only_the_callers() {
+  let store = store();
+  store.create_user(None, "alice", false).unwrap();
+  let admin = caller(&store, "alice");
+  store.create_user(Some(&admin), "bob", false).unwrap();
+  store
+    .issue_token(Some(&admin), "alice", "admin-cli")
+    .unwrap();
+  let laptop = store.issue_token(Some(&admin), "bob", "laptop").unwrap();
+  let phone = store.issue_token(Some(&admin), "bob", "phone").unwrap();
+  store.revoke_token(Some(&admin), phone.id).unwrap();
+
+  let bob = caller(&store, "bob");
+  let own = store.list_own_tokens(&bob).unwrap();
+  assert_eq!(own.len(), 2);
+  assert_eq!(own[0].id, laptop.id);
+  assert_eq!(own[0].label, "laptop");
+  assert!(own[0].revoked_at.is_none());
+  assert_eq!(own[1].label, "phone");
+  assert!(own[1].revoked_at.is_some());
+  assert!(own.iter().all(|t| t.label != "admin-cli"));
+  let dump = format!("{own:?}");
+  assert!(!dump.contains(&laptop.token));
+}
