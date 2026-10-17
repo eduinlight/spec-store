@@ -52,7 +52,7 @@ Each task < 30 minutes. Tests before implementation.
 - [x] T33 (FR-27) Implement `src/markdown/markers.rs` (`scan_markers`) — Done when: T32 tests green
 - [x] T34 [P] (FR-25, FR-26, FR-27, FR-28, FR-29) Extend `tests/store_tasks.rs`: list_tasks with pending filter and malformed list, list_markers across the spec's documents, project_status (constitution version or absence, specs, done/total, current phase, next task with done-when, marker count, no active spec), status reflects the last write — Done when: tests written and red
 - [x] T35 (FR-25, FR-26, FR-27, FR-28, FR-29) Implement `list_tasks`, `list_markers`, `project_status` in `src/store/tasks.rs` — Done when: T34 tests green
-- [ ] T36 (FR-25, FR-27, FR-28) Extend `tests/mcp_stdio.rs`: `list_tasks`, `list_markers`, `project_status` JSON shapes — Done when: tests written and red
+- [x] T36 (FR-25, FR-27, FR-28) Extend `tests/mcp_stdio.rs`: `list_tasks`, `list_markers`, `project_status` JSON shapes — Done when: tests written and red
 - [ ] T37 (FR-25, FR-27, FR-28) Implement the three derived tools in `src/mcp.rs` — Done when: T36 tests green
 
 ## Phase 7 — US-5 (P2) Know who changed what

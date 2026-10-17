@@ -424,3 +424,124 @@ async fn writes_specs_documents_status_and_tasks() {
   assert_eq!(kind(&error_of(forbidden.unwrap_err())), "forbidden");
   reader.cancel().await.unwrap();
 }
+
+#[tokio::test]
+async fn derived_reads_tasks_markers_and_status() {
+  let db = common::temp_db_path("mcp-derived");
+  seed(&db);
+  let client = connect(&db, "editor").await;
+
+  let tools = client.list_tools(None).await.unwrap();
+  let names: Vec<&str> = tools.tools.iter().map(|t| t.name.as_ref()).collect();
+  for expected in ["list_tasks", "list_markers", "project_status"] {
+    assert!(
+      names.contains(&expected),
+      "missing tool {expected} in {names:?}"
+    );
+  }
+
+  call(
+    &client,
+    "create_spec",
+    json!({"project": "demo", "slug": "second"}),
+  )
+  .await
+  .unwrap();
+  call(
+    &client,
+    "put_document",
+    json!({"project": "demo", "number": 2, "kind": "tasks", "body": TASKS_BODY, "message": "tasks"}),
+  )
+  .await
+  .unwrap();
+  call(
+    &client,
+    "put_document",
+    json!({"project": "demo", "number": 2, "kind": "spec", "body": "# Spec 002\n\n## 12. Open questions\n- [NEEDS CLARIFICATION: who approves?]\n", "message": "spec"}),
+  )
+  .await
+  .unwrap();
+  call(
+    &client,
+    "mark_task_done",
+    json!({"project": "demo", "number": 2, "task_id": "T01", "commit": "abc1234"}),
+  )
+  .await
+  .unwrap();
+
+  let tasks = call(
+    &client,
+    "list_tasks",
+    json!({"project": "demo", "number": 2}),
+  )
+  .await
+  .unwrap();
+  assert_eq!(tasks["malformed"], json!([]));
+  let list = tasks["tasks"].as_array().unwrap();
+  assert_eq!(list.len(), 2);
+  assert_eq!(
+    list[0],
+    json!({
+      "id": "T01", "phase": "Phase 1 — Setup", "parallel": false, "frs": [],
+      "description": "Create the crate", "done_when": "`cargo build` passes",
+      "done": true, "commit": "abc1234", "line": 4
+    })
+  );
+  assert_eq!(list[1]["id"], "T02");
+  assert_eq!(list[1]["frs"], json!(["FR-1"]));
+  assert_eq!(list[1]["done"], false);
+  assert!(list[1]["commit"].is_null());
+
+  let pending = call(
+    &client,
+    "list_tasks",
+    json!({"project": "demo", "number": 2, "pending_only": true}),
+  )
+  .await
+  .unwrap();
+  assert_eq!(pending["tasks"].as_array().unwrap().len(), 1);
+  assert_eq!(pending["tasks"][0]["id"], "T02");
+
+  let markers = call(
+    &client,
+    "list_markers",
+    json!({"project": "demo", "number": 2}),
+  )
+  .await
+  .unwrap();
+  assert_eq!(
+    markers,
+    json!({"markers": [{
+      "document_kind": "spec", "kind": "clarification",
+      "heading": "12. Open questions", "text": "who approves?", "line": 4
+    }]})
+  );
+
+  let status = call(&client, "project_status", json!({"project": "demo"}))
+    .await
+    .unwrap();
+  assert_eq!(status["constitution_version"], "1.0");
+  assert_eq!(status["specs"].as_array().unwrap().len(), 2);
+  assert_eq!(status["specs"][1]["kinds"], json!(["spec", "tasks"]));
+  let active = &status["active"];
+  assert_eq!(active["number"], 2);
+  assert_eq!(active["slug"], "second");
+  assert_eq!(active["status"], "draft");
+  assert_eq!(active["branch"], "002-second");
+  assert_eq!(active["tasks_done"], 1);
+  assert_eq!(active["tasks_total"], 2);
+  assert_eq!(active["current_phase"], "Phase 1 — Setup");
+  assert_eq!(active["next_task"]["id"], "T02");
+  assert_eq!(active["next_task"]["done_when"], "tests green");
+  assert_eq!(active["markers"], 1);
+  client.cancel().await.unwrap();
+
+  let admin = connect(&db, "root").await;
+  let empty = call(&admin, "project_status", json!({"project": "other"}))
+    .await
+    .unwrap();
+  assert!(empty["constitution_version"].is_null());
+  assert_eq!(empty["specs"], json!([]));
+  assert!(empty["active"].is_null());
+  admin.cancel().await.unwrap();
+}
