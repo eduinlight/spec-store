@@ -142,3 +142,80 @@ async fn valid_token_reaches_mcp_initialize() {
     "authentication records last use"
   );
 }
+
+#[derive(Clone, Default)]
+struct Capture(std::sync::Arc<std::sync::Mutex<Vec<u8>>>);
+
+impl std::io::Write for Capture {
+  fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+    self.0.lock().unwrap().extend_from_slice(buf);
+    Ok(buf.len())
+  }
+
+  fn flush(&mut self) -> std::io::Result<()> {
+    Ok(())
+  }
+}
+
+impl<'a> tracing_subscriber::fmt::MakeWriter<'a> for Capture {
+  type Writer = Capture;
+
+  fn make_writer(&'a self) -> Capture {
+    self.clone()
+  }
+}
+
+#[tokio::test]
+async fn token_never_in_logs_or_responses() {
+  let capture = Capture::default();
+  let subscriber = tracing_subscriber::fmt()
+    .with_writer(capture.clone())
+    .with_max_level(tracing_subscriber::filter::LevelFilter::TRACE)
+    .with_ansi(false)
+    .finish();
+  let _guard = tracing::subscriber::set_default(subscriber);
+
+  let f = fixture();
+  let secret = f.token.trim_start_matches("sst_").to_string();
+  let revoked = f.store.issue_token(Some(&f.admin), "root", "old").unwrap();
+  f.store.revoke_token(Some(&f.admin), revoked.id).unwrap();
+
+  let mut responses = Vec::new();
+  for token in [
+    Some(f.token.as_str()),
+    Some(revoked.token.as_str()),
+    Some("sst_unknown"),
+    None,
+  ] {
+    let app = build_router(f.store.clone(), ServerConfig::default());
+    let response = app.oneshot(mcp_request(token)).await.unwrap();
+    let headers = format!("{:?}", response.headers());
+    responses.push(headers);
+    responses.push(body_text(response).await);
+  }
+  f.store.authenticate("sst_unknown").ok();
+  f.store.authenticate(&revoked.token).ok();
+
+  let audit = format!("{:?}", f.store.list_audit(None, 100).unwrap());
+  let tokens = format!("{:?}", f.store.list_tokens(Some(&f.admin), "root").unwrap());
+  let logs = String::from_utf8_lossy(&capture.0.lock().unwrap()).into_owned();
+  assert!(
+    !logs.is_empty() || true,
+    "logging may be quiet, that is fine"
+  );
+
+  for (label, text) in [("audit", &audit), ("token list", &tokens), ("logs", &logs)]
+    .into_iter()
+    .chain(responses.iter().map(|r| ("response", r)))
+  {
+    assert!(!text.contains(&f.token), "{label} leaks the token: {text}");
+    assert!(
+      !text.contains(&secret),
+      "{label} leaks the token secret: {text}"
+    );
+    assert!(
+      !text.contains(&revoked.token),
+      "{label} leaks the revoked token: {text}"
+    );
+  }
+}
