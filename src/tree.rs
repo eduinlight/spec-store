@@ -205,18 +205,55 @@ pub struct ExportPlan {
 
 impl ExportPlan {
   pub fn different(&self) -> Vec<&str> {
-    Vec::new()
+    self
+      .targets
+      .iter()
+      .filter(|(_, state)| *state == TargetState::Different)
+      .map(|(file, _)| file.relative_path.as_str())
+      .collect()
   }
 }
 
-pub fn plan_export(dir: &Path, _files: Vec<ExportFile>) -> io::Result<ExportPlan> {
+fn target_state(path: &Path, body: &str) -> io::Result<TargetState> {
+  if !path.exists() {
+    return Ok(TargetState::New);
+  }
+  if std::fs::read(path)? == body.as_bytes() {
+    Ok(TargetState::Unchanged)
+  } else {
+    Ok(TargetState::Different)
+  }
+}
+
+pub fn plan_export(dir: &Path, files: Vec<ExportFile>) -> io::Result<ExportPlan> {
+  let mut targets = Vec::with_capacity(files.len());
+  for file in files {
+    let state = target_state(&dir.join(&file.relative_path), &file.body)?;
+    targets.push((file, state));
+  }
   Ok(ExportPlan {
     root: dir.to_path_buf(),
-    targets: Vec::new(),
+    targets,
   })
 }
 
-pub fn write_export(_plan: &ExportPlan, _force: bool) -> io::Result<()> {
+pub fn write_export(plan: &ExportPlan, force: bool) -> io::Result<()> {
+  std::fs::create_dir_all(&plan.root)?;
+  for (file, state) in &plan.targets {
+    let write = match state {
+      TargetState::New => true,
+      TargetState::Different => force,
+      TargetState::Unchanged => false,
+    };
+    if !write {
+      continue;
+    }
+    let path = plan.root.join(&file.relative_path);
+    if let Some(parent) = path.parent() {
+      std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(path, &file.body)?;
+  }
   Ok(())
 }
 
