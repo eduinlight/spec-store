@@ -4,7 +4,7 @@ use std::fs;
 use std::path::Path;
 
 use spec_store::model::{DocumentKind, MAX_BODY_BYTES};
-use spec_store::tree::{ProjectTree, scan};
+use spec_store::tree::{ExportFile, ProjectTree, TargetState, plan_export, scan, write_export};
 
 fn put(root: &Path, relative: &str, bytes: &[u8]) {
   let path = root.join(relative);
@@ -171,4 +171,92 @@ fn an_empty_directory_is_a_problem_and_a_missing_one_an_error() {
   );
 
   assert!(scan(&root.join("missing")).is_err());
+}
+
+fn file(relative_path: &str, body: &str) -> ExportFile {
+  ExportFile {
+    relative_path: relative_path.to_string(),
+    body: body.to_string(),
+  }
+}
+
+fn export_files() -> Vec<ExportFile> {
+  vec![
+    file("docs/constitution.md", "# C\r\n"),
+    file("specs/001-alpha/spec.md", "\u{feff}# Spec\n"),
+    file("specs/001-alpha/tasks.md", "# Tasks"),
+  ]
+}
+
+#[test]
+fn export_into_a_missing_directory_writes_every_file() {
+  let root = common::temp_dir("export-new").join("out");
+  let plan = plan_export(&root, export_files()).unwrap();
+  let states: Vec<TargetState> = plan.targets.iter().map(|(_, s)| *s).collect();
+  assert_eq!(states, vec![TargetState::New; 3]);
+  assert!(plan.different().is_empty());
+
+  write_export(&plan, false).unwrap();
+  assert_eq!(
+    fs::read(root.join("docs/constitution.md")).unwrap(),
+    b"# C\r\n"
+  );
+  assert_eq!(
+    fs::read(root.join("specs/001-alpha/spec.md")).unwrap(),
+    "\u{feff}# Spec\n".as_bytes()
+  );
+  assert_eq!(
+    fs::read(root.join("specs/001-alpha/tasks.md")).unwrap(),
+    b"# Tasks"
+  );
+}
+
+#[test]
+fn unchanged_files_are_left_alone_and_different_ones_need_force() {
+  let root = common::temp_dir("export-existing");
+  put(&root, "docs/constitution.md", b"# C\r\n");
+  put(&root, "specs/001-alpha/spec.md", b"locally edited\n");
+  put(&root, "specs/001-alpha/notes.md", b"keep me\n");
+  let unchanged_path = root.join("docs/constitution.md");
+  let modified_before = fs::metadata(&unchanged_path).unwrap().modified().unwrap();
+
+  let plan = plan_export(&root, export_files()).unwrap();
+  let states: Vec<(&str, TargetState)> = plan
+    .targets
+    .iter()
+    .map(|(f, s)| (f.relative_path.as_str(), *s))
+    .collect();
+  assert_eq!(
+    states,
+    vec![
+      ("docs/constitution.md", TargetState::Unchanged),
+      ("specs/001-alpha/spec.md", TargetState::Different),
+      ("specs/001-alpha/tasks.md", TargetState::New),
+    ]
+  );
+  assert_eq!(plan.different(), vec!["specs/001-alpha/spec.md"]);
+
+  write_export(&plan, false).unwrap();
+  assert_eq!(
+    fs::read(root.join("specs/001-alpha/spec.md")).unwrap(),
+    b"locally edited\n"
+  );
+  assert_eq!(
+    fs::read(root.join("specs/001-alpha/tasks.md")).unwrap(),
+    b"# Tasks"
+  );
+
+  write_export(&plan, true).unwrap();
+  assert_eq!(
+    fs::read(root.join("specs/001-alpha/spec.md")).unwrap(),
+    "\u{feff}# Spec\n".as_bytes()
+  );
+  assert_eq!(
+    fs::metadata(&unchanged_path).unwrap().modified().unwrap(),
+    modified_before
+  );
+  assert_eq!(
+    fs::read(root.join("specs/001-alpha/notes.md")).unwrap(),
+    b"keep me\n"
+  );
 }

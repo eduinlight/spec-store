@@ -184,6 +184,42 @@ pub fn version_line(body: &str) -> Option<&str> {
   first_line_after(body, "Version ")
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExportFile {
+  pub relative_path: String,
+  pub body: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TargetState {
+  New,
+  Unchanged,
+  Different,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExportPlan {
+  pub root: std::path::PathBuf,
+  pub targets: Vec<(ExportFile, TargetState)>,
+}
+
+impl ExportPlan {
+  pub fn different(&self) -> Vec<&str> {
+    Vec::new()
+  }
+}
+
+pub fn plan_export(dir: &Path, _files: Vec<ExportFile>) -> io::Result<ExportPlan> {
+  Ok(ExportPlan {
+    root: dir.to_path_buf(),
+    targets: Vec::new(),
+  })
+}
+
+pub fn write_export(_plan: &ExportPlan, _force: bool) -> io::Result<()> {
+  Ok(())
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
