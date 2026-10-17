@@ -26,7 +26,7 @@ pub struct ProjectTree {
   pub problems: Vec<String>,
 }
 
-const CONSTITUTION_PATH: &str = "docs/constitution.md";
+pub const CONSTITUTION_PATH: &str = "docs/constitution.md";
 
 fn sorted_entries(dir: &Path) -> io::Result<Vec<(String, bool)>> {
   let mut entries = Vec::new();

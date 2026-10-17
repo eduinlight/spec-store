@@ -89,16 +89,20 @@ fn summarize(conn: &Connection, row: SpecRow) -> StoreResult<SpecSummary> {
 }
 
 pub fn list_specs_in(conn: &Connection, project_id: i64) -> StoreResult<Vec<SpecSummary>> {
+  spec_rows_in(conn, project_id)?
+    .into_iter()
+    .map(|row| summarize(conn, row))
+    .collect()
+}
+
+pub fn spec_rows_in(conn: &Connection, project_id: i64) -> StoreResult<Vec<SpecRow>> {
   let mut stmt = conn.prepare(
     "SELECT id, number, slug, status, branch FROM specs WHERE project_id = ?1 ORDER BY number",
   )?;
   let rows = stmt
     .query_map([project_id], row_to_spec)?
     .collect::<Result<Vec<_>, _>>()?;
-  rows
-    .into_iter()
-    .map(|raw| summarize(conn, to_spec_row(raw)?))
-    .collect()
+  rows.into_iter().map(to_spec_row).collect()
 }
 
 pub fn active_spec_in(conn: &Connection, project_id: i64) -> StoreResult<Option<SpecRow>> {

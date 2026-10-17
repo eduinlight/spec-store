@@ -1,11 +1,13 @@
 use rusqlite::{Connection, params};
 
 use crate::model::{Caller, DocumentKind, SpecStatus, StoreError, StoreResult};
-use crate::store::documents::{append_revision, document_id, ensure_document};
+use crate::store::documents::{append_revision, current_revision, document_id, ensure_document};
 use crate::store::projects::access_in;
-use crate::store::specs::branch_name;
+use crate::store::specs::{branch_name, spec_by_number, spec_rows_in};
 use crate::store::{Store, audit};
-use crate::tree::{ExportFile, ProjectTree, TreeSpec, status_word, version_line};
+use crate::tree::{
+  CONSTITUTION_PATH, ExportFile, ProjectTree, TreeSpec, status_word, version_line,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct ImportOptions {
@@ -26,6 +28,18 @@ pub struct ImportReport {
   pub specs: Vec<ImportedSpec>,
   pub status_fallbacks: Vec<String>,
   pub documents: usize,
+}
+
+fn current_body(
+  conn: &Connection,
+  project_id: i64,
+  spec_id: Option<i64>,
+  kind: DocumentKind,
+) -> StoreResult<Option<String>> {
+  match document_id(conn, project_id, spec_id, kind)? {
+    Some(doc_id) => Ok(current_revision(conn, doc_id)?.map(|(body, _)| body)),
+    None => Ok(None),
+  }
 }
 
 fn spec_status(spec: &TreeSpec) -> Option<SpecStatus> {
@@ -210,10 +224,49 @@ pub struct ProjectExport {
 impl Store {
   pub fn export_documents(
     &self,
-    _caller: &Caller,
-    _project: &str,
-    _spec: Option<i64>,
+    caller: &Caller,
+    project: &str,
+    spec: Option<i64>,
   ) -> StoreResult<ProjectExport> {
-    Ok(ProjectExport::default())
+    self.with_conn(|conn| {
+      let access = access_in(conn, caller, project)?;
+      let mut export = ProjectExport::default();
+      let specs = match spec {
+        Some(number) => vec![spec_by_number(conn, access.project_id, project, number)?],
+        None => {
+          if let Some(body) =
+            current_body(conn, access.project_id, None, DocumentKind::Constitution)?
+          {
+            export.files.push(ExportFile {
+              relative_path: CONSTITUTION_PATH.to_string(),
+              body,
+            });
+          }
+          spec_rows_in(conn, access.project_id)?
+        }
+      };
+      for row in specs {
+        for kind in DocumentKind::SPEC_KINDS {
+          let Some(body) = current_body(conn, access.project_id, Some(row.id), kind)? else {
+            continue;
+          };
+          if kind == DocumentKind::Spec
+            && let Some(written) = status_word(&body)
+            && written != row.status.as_str()
+          {
+            export.notices.push(StatusNotice {
+              branch: row.branch.clone(),
+              stored: row.status,
+              written: written.to_string(),
+            });
+          }
+          export.files.push(ExportFile {
+            relative_path: format!("specs/{}/{kind}.md", row.branch),
+            body,
+          });
+        }
+      }
+      Ok(export)
+    })
   }
 }

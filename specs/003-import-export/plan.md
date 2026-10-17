@@ -35,8 +35,9 @@ A new module `src/tree.rs` reads a project directory into an in-memory tree (con
 
 | File | Responsibility |
 |---|---|
-| `src/tree.rs` (new) | `ProjectTree`, `TreeFile`, `TreeSpec`, `scan(dir)`, `parse_spec_folder`, `status_word`, `version_line`, `ExportFile`, `plan_export(dir, files)`, `write_export(plan, force)` |
-| `src/store/transfer.rs` (new) | `ImportOptions`, `ImportReport`, `ImportedSpec`, `Store::import_tree`, `ExportedDocument`, `StatusNotice`, `Store::export_documents` |
+| `src/tree.rs` (new) | `ProjectTree`, `TreeFile`, `TreeSpec`, `scan(dir)`, `parse_spec_folder`, `status_word`, `version_line`, `ExportFile`, `TargetState`, `ExportPlan`, `plan_export(dir, files)`, `write_export(plan, force)` |
+| `src/store/transfer.rs` (new) | `ImportOptions`, `ImportReport`, `ImportedSpec`, `Store::import_tree`, `ProjectExport`, `StatusNotice`, `Store::export_documents` |
+| `src/store/specs.rs` | `spec_rows_in` lists a project's spec rows by number, shared by `list_specs_in` and the export |
 | `src/store/mod.rs` | `pub mod transfer` |
 | `src/lib.rs` | `pub mod tree` |
 | `src/cli.rs` | `Import` and `Export` subcommands and their output |
@@ -61,7 +62,7 @@ In-memory types:
 - `ProjectTree { constitution: Option<TreeFile>, specs: Vec<TreeSpec>, skipped: Vec<String>, problems: Vec<String> }`.
 - `ImportOptions { constitution_version: Option<String>, dry_run: bool }`.
 - `ImportReport { constitution_version: Option<String>, specs: Vec<ImportedSpec>, status_fallbacks: Vec<String>, documents: usize }`, `ImportedSpec { branch, status, kinds }`.
-- `ExportedDocument { relative_path, body }`, `StatusNotice { branch, stored: SpecStatus, written: String }`.
+- `ExportFile { relative_path, body }` (shared by the store and the writer), `StatusNotice { branch, stored: SpecStatus, written: String }`, `ProjectExport { files: Vec<ExportFile>, notices: Vec<StatusNotice> }`.
 
 ## 6. Contracts / interfaces
 
@@ -71,7 +72,7 @@ In-memory types:
 
 `Store::import_tree(caller, project, tree, options) -> StoreResult<ImportReport>` (FR-1..FR-13): inside one transaction, `access_in` then owner check (`Forbidden` otherwise); collects store problems (number or slug already in the project, project already has a constitution, constitution without version) after `tree.problems`; any problem gives `StoreError::Validation` with one problem per line. With `dry_run` it returns the report before writing. Otherwise it inserts specs with their status, documents, revisions and audit entries in folder order.
 
-`Store::export_documents(caller, project, spec: Option<i64>) -> StoreResult<(Vec<ExportedDocument>, Vec<StatusNotice>)>` (FR-14, FR-15, FR-18, FR-19): `access_in` (members and admins), constitution first then specs by number and documents in kind order; `NotFound` for an unknown spec number.
+`Store::export_documents(caller, project, spec: Option<i64>) -> StoreResult<ProjectExport>` (FR-14, FR-15, FR-18, FR-19): `access_in` (members and admins), constitution first then specs by number and documents in kind order; `NotFound` for an unknown spec number.
 
 `tree::plan_export(dir, files) -> io::Result<ExportPlan>` classifies each target as `New`, `Unchanged` or `Different`; `tree::write_export(&plan, force) -> io::Result<()>` creates folders and writes `New` and, with `force`, `Different` targets. The CLI refuses before writing when `Different` targets exist without `--force` (FR-16, FR-17).
 
