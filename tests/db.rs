@@ -127,3 +127,24 @@ fn file_store_keeps_its_data_across_opens() {
   let store = Store::open(&path).expect("second open");
   assert!(store.caller_by_handle("root").unwrap().is_admin);
 }
+
+#[test]
+fn new_file_and_memory_stores_record_both_migrations() {
+  let path = common::temp_db_path("db-new-store");
+  for store in [
+    Store::open(&path).expect("file"),
+    Store::in_memory().expect("memory"),
+  ] {
+    let (versions, tables) = store
+      .with_conn(|conn| Ok((common::diesel_versions(conn), common::table_names(conn))))
+      .unwrap();
+    assert_eq!(versions, vec!["0001", "0002"]);
+    assert!(
+      !tables.iter().any(|t| t == "schema_migrations"),
+      "{tables:?}"
+    );
+    for table in EXPECTED_TABLES {
+      assert!(tables.iter().any(|t| t == table), "missing {table}");
+    }
+  }
+}
