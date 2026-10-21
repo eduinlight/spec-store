@@ -26,7 +26,7 @@ Switch group (plan section 8): T03–T12 change the shared connection type, so t
 
 ## Phase 3 — US-1 (P1) Upgrade without losing anything
 - [x] T13 (FR-1, FR-2, FR-3, FR-4, FR-5, FR-6) Write `tests/db_upgrade.rs` with the previous-release fixture (old runner DDL, fixed `applied_at`, rows in every table): `previous_release_opens_unchanged`, `carry_over_keeps_apply_times`, `release_with_only_first_migration_gets_second`, `previous_history_table_is_kept`, `second_open_changes_no_history`, `failing_migration_leaves_database_untouched`, `empty_previous_history_is_refused`, `unknown_previous_version_is_ignored`; add `tests/cli.rs::open_failure_names_migration_step` — Done when: tests written and red
-- [ ] T14 (FR-1, FR-2, FR-3, FR-4, FR-5, FR-6) Implement `carry_over_history` and the empty-history refusal in `src/db.rs` `migrate`, with one info log line per carried-over migration — Done when: T13 tests green
+- [x] T14 (FR-1, FR-2, FR-3, FR-4, FR-5, FR-6) Implement `carry_over_history` and the empty-history refusal in `src/db.rs` `migrate`, with one info log line per carried-over migration — Done when: T13 tests green
 
 ## Phase 4 — US-2 (P1) Unchanged behaviour
 - [ ] T15 (FR-8, FR-9, FR-10, FR-11) Write `tests/db_pool.rs` on a file database: `file_pool_puts_exactly_one_wins` (20 rounds), `failed_write_leaves_no_rows`, `every_pooled_connection_enforces_foreign_keys` and `every_pooled_connection_waits_and_uses_wal` with 8 connections held at once, and `exhausted_pool_fails_after_timeout` (all connections held, a store call fails with `StoreError::Pool` after 4.5–10 s) — Done when: tests green (any red is a defect fixed in `src/db.rs` or `src/store/mod.rs` in this task, with its test)
