@@ -10,7 +10,7 @@ Switch group (plan section 8): T03–T12 change the shared connection type, so t
 
 ## Phase 1 — Setup
 - [x] T01 (FR: —) Add `diesel` (sqlite, r2d2, returning_clauses_for_sqlite_3_35), `diesel_migrations` (sqlite) and `libsqlite3-sys` (bundled) to `Cargo.toml` next to `rusqlite`; move `src/migrations/0001_init.sql` → `migrations/0001_init/up.sql` and `src/migrations/0002_web_ui.sql` → `migrations/0002_web_ui/up.sql` byte-identical, and point `src/db.rs` `include_str!` at the new paths — Done when: `cargo tree -i libsqlite3-sys` shows one version and the full gate passes
-- [ ] T02 (FR: —) Write `src/schema.rs` (`table!` for the 9 tables, `joinable!`, `allow_tables_to_appear_in_same_query!`), register it in `src/lib.rs`, and add `tests/schema.rs` comparing each table's declared columns with `PRAGMA table_info` on a database created by `db::open` — Done when: `tests/schema.rs` green and the full gate passes
+- [x] T02 (FR: —) Write `src/schema.rs` (`table!` for the 9 tables, `joinable!`, `allow_tables_to_appear_in_same_query!`), register it in `src/lib.rs`, and add `tests/schema.rs` comparing each table's declared columns with `PRAGMA table_info` on a database created by `db::open` — Done when: `tests/schema.rs` green and the full gate passes
 
 ## Phase 2 — Foundation: switch to Diesel (blocks the stories; switch group)
 - [ ] T03 (FR-7, FR-12, FR-13) Rewrite `tests/db.rs` on Diesel: table list without `schema_migrations`, `open_records_diesel_history_only` (versions `0001`, `0002`, no `schema_migrations` table), WAL and foreign keys, `memory_store_has_connection_settings` (foreign keys 1, busy timeout 5000) — Done when: tests written (red: the crate does not build yet)
