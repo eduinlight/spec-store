@@ -316,3 +316,23 @@ fn open_failure_names_migration_step() {
     out.stderr
   );
 }
+
+#[test]
+fn binary_needs_no_migration_files() {
+  let dir = common::temp_dir("cli-no-migrations");
+  let out = Command::new(env!("CARGO_BIN_EXE_spec-store"))
+    .current_dir(&dir)
+    .arg("--db")
+    .arg(dir.join("store.db"))
+    .args(["user", "add", "root"])
+    .output()
+    .expect("run binary");
+  assert!(
+    out.status.success(),
+    "{}",
+    String::from_utf8_lossy(&out.stderr)
+  );
+  assert!(!dir.join("migrations").exists());
+  let mut conn = common::raw_connection(&dir.join("store.db"));
+  assert_eq!(common::diesel_versions(&mut conn), vec!["0001", "0002"]);
+}

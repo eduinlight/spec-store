@@ -37,7 +37,7 @@ Switch group (plan section 8): T03–T12 change the shared connection type, so t
 ## Final phase — Polish and cross-cutting
 - [x] T17 (NFR-4) Write `tests/perf_open.rs` (ignored): a database with the full schema, history and 100 specs opens in under 1 s — Done when: `cargo test --release --test perf_open -- --ignored` passes
 - [x] T18 (NFR-1, NFR-2) Run `tests/perf.rs`, `tests/perf_ui.rs` and `tests/perf_import.rs` ignored tests in release — Done when: all three pass
-- [ ] T19 (NFR-3) Add `tests/cli.rs::binary_needs_no_migration_files`: run the built binary from an empty temporary directory against a new database — Done when: test green
+- [x] T19 (NFR-3) Add `tests/cli.rs::binary_needs_no_migration_files`: run the built binary from an empty temporary directory against a new database — Done when: test green
 - [ ] T20 (FR: —) Remove `rusqlite` from `Cargo.toml`, add the upgrade note to `README.md` — Done when: `cargo tree -i rusqlite` fails with "did not match" and the full gate passes
 
 ## Dependencies
