@@ -29,7 +29,7 @@ Switch group (plan section 8): T03–T12 change the shared connection type, so t
 - [x] T14 (FR-1, FR-2, FR-3, FR-4, FR-5, FR-6) Implement `carry_over_history` and the empty-history refusal in `src/db.rs` `migrate`, with one info log line per carried-over migration — Done when: T13 tests green
 
 ## Phase 4 — US-2 (P1) Unchanged behaviour
-- [ ] T15 (FR-8, FR-9, FR-10, FR-11) Write `tests/db_pool.rs` on a file database: `file_pool_puts_exactly_one_wins` (20 rounds), `failed_write_leaves_no_rows`, `every_pooled_connection_enforces_foreign_keys` and `every_pooled_connection_waits_and_uses_wal` with 8 connections held at once, and `exhausted_pool_fails_after_timeout` (all connections held, a store call fails with `StoreError::Pool` after 4.5–10 s) — Done when: tests green (any red is a defect fixed in `src/db.rs` or `src/store/mod.rs` in this task, with its test)
+- [x] T15 (FR-8, FR-9, FR-10, FR-11) Write `tests/db_pool.rs` on a file database: `file_pool_puts_exactly_one_wins` (20 rounds), `failed_write_leaves_no_rows`, `every_pooled_connection_enforces_foreign_keys` and `every_pooled_connection_waits_and_uses_wal` with 8 connections held at once, and `exhausted_pool_fails_after_timeout` (all connections held, a store call fails with `StoreError::Pool` after 4.5–10 s) — Done when: tests green (any red is a defect fixed in `src/db.rs` or `src/store/mod.rs` in this task, with its test)
 
 ## Phase 5 — US-3 (P2) New databases
 - [ ] T16 (FR-12, FR-13) Check that `tests/db.rs` covers a new file and a new in-memory database end to end through `Store::open` and `Store::in_memory`; add any missing assertion — Done when: `cargo test --test db` green
