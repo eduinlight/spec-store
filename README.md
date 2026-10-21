@@ -24,6 +24,15 @@ cargo build --release
   without authentication.
 - Logs go to stderr; set `RUST_LOG=debug` for more detail.
 
+### Upgrading a database from before spec 004
+
+Migrations are embedded in the binary and recorded by Diesel in `__diesel_schema_migrations`.
+On the first start against an older database, the server copies the history from
+`schema_migrations` (with the original apply times), then applies only the migrations that are
+missing. Data is not touched, and the old `schema_migrations` table is kept. If any step fails,
+the database is left as it was, and the server exits with `migration step <step> failed`. Back up
+the file before upgrading, as with any new release.
+
 ## Bootstrap an admin, a project and a token
 
 Administration runs on the server host against the database file, without tokens. The first
