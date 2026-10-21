@@ -1,6 +1,8 @@
-use rusqlite::{Connection, params};
+use diesel::prelude::*;
+use diesel::sqlite::SqliteConnection;
 
 use crate::model::{Caller, DocumentKind, SpecStatus, StoreError, StoreResult};
+use crate::schema::specs;
 use crate::store::documents::{append_revision, current_revision, document_id, ensure_document};
 use crate::store::projects::access_in;
 use crate::store::specs::{branch_name, spec_by_number, spec_rows_in};
@@ -31,7 +33,7 @@ pub struct ImportReport {
 }
 
 fn current_body(
-  conn: &Connection,
+  conn: &mut SqliteConnection,
   project_id: i64,
   spec_id: Option<i64>,
   kind: DocumentKind,
@@ -52,28 +54,28 @@ fn spec_status(spec: &TreeSpec) -> Option<SpecStatus> {
 }
 
 fn existing_spec_problems(
-  conn: &Connection,
+  conn: &mut SqliteConnection,
   project_id: i64,
   project: &str,
   spec: &TreeSpec,
 ) -> StoreResult<Vec<String>> {
   let mut problems = Vec::new();
-  let number_taken: i64 = conn.query_row(
-    "SELECT count(*) FROM specs WHERE project_id = ?1 AND number = ?2",
-    params![project_id, spec.number],
-    |r| r.get(0),
-  )?;
+  let number_taken: i64 = specs::table
+    .filter(specs::project_id.eq(project_id))
+    .filter(specs::number.eq(spec.number))
+    .count()
+    .get_result(conn)?;
   if number_taken > 0 {
     problems.push(format!(
       "specs/{}: spec {:03} already exists in project {project:?}",
       spec.folder, spec.number
     ));
   }
-  let slug_taken: i64 = conn.query_row(
-    "SELECT count(*) FROM specs WHERE project_id = ?1 AND slug = ?2",
-    params![project_id, spec.slug],
-    |r| r.get(0),
-  )?;
+  let slug_taken: i64 = specs::table
+    .filter(specs::project_id.eq(project_id))
+    .filter(specs::slug.eq(&spec.slug))
+    .count()
+    .get_result(conn)?;
   if slug_taken > 0 {
     problems.push(format!(
       "specs/{}: slug {:?} already exists in project {project:?}",
@@ -172,11 +174,16 @@ impl Store {
       }
       for (spec, status) in tree.specs.iter().zip(statuses) {
         let branch = branch_name(spec.number, &spec.slug);
-        tx.execute(
-          "INSERT INTO specs (project_id, number, slug, status, branch) VALUES (?1, ?2, ?3, ?4, ?5)",
-          params![access.project_id, spec.number, spec.slug, status.as_str(), branch],
-        )?;
-        let spec_id = tx.last_insert_rowid();
+        let spec_id: i64 = diesel::insert_into(specs::table)
+          .values((
+            specs::project_id.eq(access.project_id),
+            specs::number.eq(spec.number),
+            specs::slug.eq(&spec.slug),
+            specs::status.eq(status.as_str()),
+            specs::branch.eq(&branch),
+          ))
+          .returning(specs::id)
+          .get_result(tx)?;
         audit(
           tx,
           caller.user_id,

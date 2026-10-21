@@ -51,7 +51,7 @@ impl From<StoreError> for UiError {
       }
       StoreError::Validation(m) | StoreError::Malformed(m) => UiError::BadRequest(m),
       StoreError::Conflict { .. } => UiError::BadRequest("the document changed meanwhile".into()),
-      StoreError::Database(e) => {
+      e @ (StoreError::Database(_) | StoreError::Pool(_) | StoreError::Migration { .. }) => {
         tracing::error!(error = %e, "database error while rendering the UI");
         UiError::Internal
       }

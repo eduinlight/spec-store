@@ -18,7 +18,11 @@ pub enum StoreError {
   #[error("{0}")]
   Malformed(String),
   #[error("database error: {0}")]
-  Database(#[from] rusqlite::Error),
+  Database(#[from] diesel::result::Error),
+  #[error("database pool error: {0}")]
+  Pool(#[from] diesel::r2d2::PoolError),
+  #[error("migration step {step} failed: {detail}")]
+  Migration { step: String, detail: String },
 }
 
 pub type StoreResult<T> = Result<T, StoreError>;

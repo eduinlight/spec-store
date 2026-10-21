@@ -178,7 +178,8 @@ pub enum AuditCmd {
 }
 
 pub fn run(cli: Cli) -> anyhow::Result<()> {
-  let store = Store::open(&cli.db).with_context(|| format!("opening {}", cli.db.display()))?;
+  let store = Store::open(&cli.db)
+    .map_err(|error| anyhow::anyhow!("opening {}: {error}", cli.db.display()))?;
   match cli.command {
     Command::Serve(args) => runtime()?.block_on(server::serve(
       store,

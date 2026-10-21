@@ -72,15 +72,10 @@ fn sample_tree(label: &str) -> ProjectTree {
 }
 
 fn counts(store: &Store) -> Vec<i64> {
-  store
-    .with_conn(|conn| {
-      let mut out = Vec::new();
-      for table in ["specs", "documents", "revisions", "audit_log"] {
-        out.push(conn.query_row(&format!("SELECT count(*) FROM {table}"), [], |r| r.get(0))?);
-      }
-      Ok(out)
-    })
-    .unwrap()
+  ["specs", "documents", "revisions", "audit_log"]
+    .into_iter()
+    .map(|table| common::int(store, &format!("SELECT count(*) FROM {table}")))
+    .collect()
 }
 
 fn import(f: &Fixture, tree: &ProjectTree) -> ImportReport {
@@ -317,16 +312,12 @@ fn a_failure_in_the_middle_leaves_the_store_unchanged() {
   put(&root, "specs/001-alpha/spec.md", ALPHA_SPEC);
   put(&root, "specs/002-beta/spec.md", "ABORT-IMPORT\n");
   let tree = scan(&root).unwrap();
-  f.store
-    .with_conn(|conn| {
-      conn.execute_batch(
-        "CREATE TRIGGER abort_marked BEFORE INSERT ON revisions
-         WHEN NEW.body LIKE '%ABORT-IMPORT%'
-         BEGIN SELECT RAISE(ABORT, 'forced failure'); END;",
-      )?;
-      Ok(())
-    })
-    .unwrap();
+  common::exec(
+    &f.store,
+    "CREATE TRIGGER abort_marked BEFORE INSERT ON revisions
+     WHEN NEW.body LIKE '%ABORT-IMPORT%'
+     BEGIN SELECT RAISE(ABORT, 'forced failure'); END;",
+  );
   let before = counts(&f.store);
   let result = f
     .store

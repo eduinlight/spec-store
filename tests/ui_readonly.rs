@@ -60,24 +60,19 @@ fn fixture() -> Fixture {
 }
 
 fn counts(store: &Store) -> Vec<(String, i64)> {
-  store
-    .with_conn(|c| {
-      let mut out = Vec::new();
-      for table in TABLES {
-        let n: i64 = c.query_row(&format!("SELECT count(*) FROM {table}"), [], |r| r.get(0))?;
-        out.push((table.to_string(), n));
-      }
-      let bodies: i64 = c.query_row("SELECT sum(length(body)) FROM revisions", [], |r| r.get(0))?;
-      out.push(("revision bytes".to_string(), bodies));
-      let roles: String = c.query_row(
-        "SELECT group_concat(role, ',') FROM (SELECT role FROM memberships ORDER BY user_id)",
-        [],
-        |r| r.get(0),
-      )?;
-      out.push(("roles".to_string(), roles.len() as i64));
-      Ok(out)
-    })
-    .unwrap()
+  let mut out = Vec::new();
+  for table in TABLES {
+    let n = common::int(store, &format!("SELECT count(*) FROM {table}"));
+    out.push((table.to_string(), n));
+  }
+  let bodies = common::int(store, "SELECT sum(length(body)) FROM revisions");
+  out.push(("revision bytes".to_string(), bodies));
+  let roles = common::text(
+    store,
+    "SELECT group_concat(role, ',') FROM (SELECT role FROM memberships ORDER BY user_id)",
+  );
+  out.push(("roles".to_string(), roles.len() as i64));
+  out
 }
 
 fn session(f: &Fixture, handle: &str) -> String {
@@ -159,9 +154,6 @@ async fn browsing_every_page_changes_nothing_but_the_session() {
   let status = send(&f, "GET", "/ui/p/demo/specs/9", &cookie).await;
   assert_eq!(status, StatusCode::NOT_FOUND);
   assert_eq!(counts(&f.store), before);
-  let sessions: i64 = f
-    .store
-    .with_conn(|c| Ok(c.query_row("SELECT count(*) FROM sessions", [], |r| r.get(0))?))
-    .unwrap();
+  let sessions: i64 = common::int(&f.store, "SELECT count(*) FROM sessions");
   assert_eq!(sessions, 1);
 }

@@ -221,10 +221,7 @@ async fn invalid_tokens_get_an_error_without_session_or_echo() {
       assert!(!text.contains(token), "submitted token echoed");
     }
   }
-  let sessions: i64 = f
-    .store
-    .with_conn(|c| Ok(c.query_row("SELECT count(*) FROM sessions", [], |r| r.get(0))?))
-    .unwrap();
+  let sessions: i64 = common::int(&f.store, "SELECT count(*) FROM sessions");
   assert_eq!(sessions, 0);
 }
 
@@ -396,14 +393,7 @@ async fn token_and_session_secret_never_leak() {
   texts.push(body_text(bad).await);
 
   let audit = format!("{:?}", f.store.list_audit(None, 100).unwrap());
-  let rows: Vec<String> = f
-    .store
-    .with_conn(|c| {
-      let mut stmt = c.prepare("SELECT secret_hash FROM sessions")?;
-      let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
-      Ok(rows.collect::<Result<Vec<_>, _>>()?)
-    })
-    .unwrap();
+  let rows: Vec<String> = common::texts(&f.store, "SELECT secret_hash AS value FROM sessions");
   let logs = String::from_utf8_lossy(&capture.0.lock().unwrap()).into_owned();
 
   for (label, text) in [("audit", &audit), ("logs", &logs)]

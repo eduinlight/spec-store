@@ -1,10 +1,12 @@
-use rusqlite::Connection;
+use diesel::prelude::*;
+use diesel::sqlite::SqliteConnection;
 
 use crate::markdown::markers::{MarkerKind, scan_markers};
 use crate::markdown::tasks::{ParsedTasks, Task, mark_done, parse_tasks};
 use crate::model::{
   Caller, DocumentKind, Role, SpecStatus, StoreError, StoreResult, validate_commit,
 };
+use crate::schema::{memberships, projects, specs};
 use crate::store::documents::{append_revision, current_revision, document_id};
 use crate::store::projects::access_in;
 use crate::store::specs::{SpecRow, SpecSummary, active_spec_in, list_specs_in, spec_by_number};
@@ -55,7 +57,10 @@ pub struct ProjectOverview {
   pub active: Option<ActiveStatus>,
 }
 
-fn constitution_version(conn: &Connection, project_id: i64) -> StoreResult<Option<String>> {
+fn constitution_version(
+  conn: &mut SqliteConnection,
+  project_id: i64,
+) -> StoreResult<Option<String>> {
   match document_id(conn, project_id, None, DocumentKind::Constitution)? {
     Some(doc_id) => Ok(current_revision(conn, doc_id)?.and_then(|(_, meta)| meta.version)),
     None => Ok(None),
@@ -63,7 +68,7 @@ fn constitution_version(conn: &Connection, project_id: i64) -> StoreResult<Optio
 }
 
 fn document_body(
-  conn: &Connection,
+  conn: &mut SqliteConnection,
   project_id: i64,
   spec_id: i64,
   kind: DocumentKind,
@@ -74,7 +79,11 @@ fn document_body(
   }
 }
 
-fn markers_of(conn: &Connection, project_id: i64, spec_id: i64) -> StoreResult<Vec<SpecMarker>> {
+fn markers_of(
+  conn: &mut SqliteConnection,
+  project_id: i64,
+  spec_id: i64,
+) -> StoreResult<Vec<SpecMarker>> {
   let mut markers = Vec::new();
   for kind in DocumentKind::SPEC_KINDS {
     if let Some(body) = document_body(conn, project_id, spec_id, kind)? {
@@ -90,7 +99,11 @@ fn markers_of(conn: &Connection, project_id: i64, spec_id: i64) -> StoreResult<V
   Ok(markers)
 }
 
-fn active_status(conn: &Connection, project_id: i64, spec: SpecRow) -> StoreResult<ActiveStatus> {
+fn active_status(
+  conn: &mut SqliteConnection,
+  project_id: i64,
+  spec: SpecRow,
+) -> StoreResult<ActiveStatus> {
   let parsed = document_body(conn, project_id, spec.id, DocumentKind::Tasks)?
     .map(|body| parse_tasks(&body))
     .unwrap_or_default();
@@ -165,32 +178,34 @@ impl Store {
 
   pub fn project_overview(&self, caller: &Caller) -> StoreResult<Vec<ProjectOverview>> {
     self.with_conn(|conn| {
-      let sql = if caller.is_admin {
-        "SELECT p.id, p.slug, p.name, m.role FROM projects p
-         LEFT JOIN memberships m ON m.project_id = p.id AND m.user_id = ?1
-         ORDER BY p.slug"
+      let joined = projects::table.left_join(
+        memberships::table.on(
+          memberships::project_id
+            .eq(projects::id)
+            .and(memberships::user_id.eq(caller.user_id)),
+        ),
+      );
+      let columns = (
+        projects::id,
+        projects::slug,
+        projects::name,
+        memberships::role.nullable(),
+      );
+      let rows: Vec<(i64, String, String, Option<String>)> = if caller.is_admin {
+        joined.select(columns).order(projects::slug).load(conn)?
       } else {
-        "SELECT p.id, p.slug, p.name, m.role FROM projects p
-         JOIN memberships m ON m.project_id = p.id AND m.user_id = ?1
-         ORDER BY p.slug"
+        joined
+          .filter(memberships::role.nullable().is_not_null())
+          .select(columns)
+          .order(projects::slug)
+          .load(conn)?
       };
-      let mut stmt = conn.prepare(sql)?;
-      let rows = stmt.query_map([caller.user_id], |r| {
-        Ok((
-          r.get::<_, i64>(0)?,
-          r.get::<_, String>(1)?,
-          r.get::<_, String>(2)?,
-          r.get::<_, Option<String>>(3)?,
-        ))
-      })?;
       let mut overview = Vec::new();
-      for row in rows {
-        let (project_id, slug, name, role) = row?;
-        let spec_count: i64 = conn.query_row(
-          "SELECT count(*) FROM specs WHERE project_id = ?1",
-          [project_id],
-          |r| r.get(0),
-        )?;
+      for (project_id, slug, name, role) in rows {
+        let spec_count: i64 = specs::table
+          .filter(specs::project_id.eq(project_id))
+          .count()
+          .get_result(conn)?;
         let active = active_spec_in(conn, project_id)?
           .map(|spec| active_status(conn, project_id, spec))
           .transpose()?;

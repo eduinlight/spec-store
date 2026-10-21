@@ -1,6 +1,9 @@
-use rusqlite::{Connection, OptionalExtension, params};
+use diesel::prelude::*;
+use diesel::sqlite::SqliteConnection;
+use diesel::upsert::excluded;
 
 use crate::model::{Caller, Role, StoreError, StoreResult, validate_slug};
+use crate::schema::{memberships, projects, users};
 use crate::store::users::{require_admin, user_id_by_handle};
 use crate::store::{Store, audit, project_id_by_slug};
 
@@ -32,20 +35,24 @@ pub fn validate_repository_url(url: &str) -> StoreResult<()> {
   Ok(())
 }
 
-pub fn project_in(conn: &Connection, project_id: i64) -> StoreResult<Project> {
-  Ok(conn.query_row(
-    "SELECT id, slug, name, repository_url, created_at FROM projects WHERE id = ?1",
-    [project_id],
-    |r| {
-      Ok(Project {
-        id: r.get(0)?,
-        slug: r.get(1)?,
-        name: r.get(2)?,
-        repository_url: r.get(3)?,
-        created_at: r.get(4)?,
-      })
-    },
-  )?)
+pub fn project_in(conn: &mut SqliteConnection, project_id: i64) -> StoreResult<Project> {
+  let (id, slug, name, repository_url, created_at) = projects::table
+    .filter(projects::id.eq(project_id))
+    .select((
+      projects::id,
+      projects::slug,
+      projects::name,
+      projects::repository_url,
+      projects::created_at,
+    ))
+    .first::<(i64, String, String, Option<String>, String)>(conn)?;
+  Ok(Project {
+    id,
+    slug,
+    name,
+    repository_url,
+    created_at,
+  })
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -76,18 +83,21 @@ impl Access {
   }
 }
 
-pub fn role_of(conn: &Connection, project_id: i64, user_id: i64) -> StoreResult<Option<Role>> {
-  let role: Option<String> = conn
-    .query_row(
-      "SELECT role FROM memberships WHERE project_id = ?1 AND user_id = ?2",
-      params![project_id, user_id],
-      |r| r.get(0),
-    )
+pub fn role_of(
+  conn: &mut SqliteConnection,
+  project_id: i64,
+  user_id: i64,
+) -> StoreResult<Option<Role>> {
+  let role: Option<String> = memberships::table
+    .filter(memberships::project_id.eq(project_id))
+    .filter(memberships::user_id.eq(user_id))
+    .select(memberships::role)
+    .first(conn)
     .optional()?;
   role.map(|r| r.parse()).transpose()
 }
 
-pub fn access_in(conn: &Connection, caller: &Caller, slug: &str) -> StoreResult<Access> {
+pub fn access_in(conn: &mut SqliteConnection, caller: &Caller, slug: &str) -> StoreResult<Access> {
   match project_id_by_slug(conn, slug)? {
     None if caller.is_admin => Err(StoreError::NotFound(format!("project {slug:?}"))),
     None => Err(StoreError::Forbidden),
@@ -115,16 +125,11 @@ impl Store {
           "project slug {slug:?} already exists"
         )));
       }
-      tx.execute(
-        "INSERT INTO projects (slug, name) VALUES (?1, ?2)",
-        params![slug, name],
-      )?;
-      let id = tx.last_insert_rowid();
+      let (id, created_at): (i64, String) = diesel::insert_into(projects::table)
+        .values((projects::slug.eq(slug), projects::name.eq(name)))
+        .returning((projects::id, projects::created_at))
+        .get_result(tx)?;
       audit(tx, actor.user_id, Some(id), "project.create", slug)?;
-      let created_at: String =
-        tx.query_row("SELECT created_at FROM projects WHERE id = ?1", [id], |r| {
-          r.get(0)
-        })?;
       Ok(Project {
         id,
         slug: slug.to_string(),
@@ -148,11 +153,16 @@ impl Store {
         return Err(StoreError::Forbidden);
       }
       let user_id = user_id_by_handle(tx, handle)?;
-      tx.execute(
-        "INSERT INTO memberships (project_id, user_id, role) VALUES (?1, ?2, ?3)
-         ON CONFLICT(project_id, user_id) DO UPDATE SET role = excluded.role",
-        params![access.project_id, user_id, role.as_str()],
-      )?;
+      diesel::insert_into(memberships::table)
+        .values((
+          memberships::project_id.eq(access.project_id),
+          memberships::user_id.eq(user_id),
+          memberships::role.eq(role.as_str()),
+        ))
+        .on_conflict((memberships::project_id, memberships::user_id))
+        .do_update()
+        .set(memberships::role.eq(excluded(memberships::role)))
+        .execute(tx)?;
       audit(
         tx,
         actor.user_id,
@@ -170,10 +180,12 @@ impl Store {
         return Err(StoreError::Forbidden);
       }
       let user_id = user_id_by_handle(tx, handle)?;
-      let removed = tx.execute(
-        "DELETE FROM memberships WHERE project_id = ?1 AND user_id = ?2",
-        params![access.project_id, user_id],
-      )?;
+      let removed = diesel::delete(
+        memberships::table
+          .filter(memberships::project_id.eq(access.project_id))
+          .filter(memberships::user_id.eq(user_id)),
+      )
+      .execute(tx)?;
       if removed == 0 {
         return Err(StoreError::NotFound(format!(
           "membership of {handle:?} in project {project_slug:?}"
@@ -191,28 +203,35 @@ impl Store {
 
   pub fn list_projects(&self, caller: &Caller) -> StoreResult<Vec<ProjectSummary>> {
     self.with_conn(|conn| {
-      let sql = if caller.is_admin {
-        "SELECT p.slug, p.name, COALESCE(m.role, 'admin')
-         FROM projects p
-         LEFT JOIN memberships m ON m.project_id = p.id AND m.user_id = ?1
-         ORDER BY p.slug"
+      let joined = projects::table.left_join(
+        memberships::table.on(
+          memberships::project_id
+            .eq(projects::id)
+            .and(memberships::user_id.eq(caller.user_id)),
+        ),
+      );
+      let rows: Vec<(String, String, Option<String>)> = if caller.is_admin {
+        joined
+          .select((projects::slug, projects::name, memberships::role.nullable()))
+          .order(projects::slug)
+          .load(conn)?
       } else {
-        "SELECT p.slug, p.name, m.role
-         FROM projects p
-         JOIN memberships m ON m.project_id = p.id AND m.user_id = ?1
-         ORDER BY p.slug"
+        joined
+          .filter(memberships::role.nullable().is_not_null())
+          .select((projects::slug, projects::name, memberships::role.nullable()))
+          .order(projects::slug)
+          .load(conn)?
       };
-      let mut stmt = conn.prepare(sql)?;
-      let rows = stmt.query_map([caller.user_id], |r| {
-        Ok(ProjectSummary {
-          slug: r.get(0)?,
-          name: r.get(1)?,
-          role: r.get(2)?,
-        })
-      })?;
-      rows
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(StoreError::from)
+      Ok(
+        rows
+          .into_iter()
+          .map(|(slug, name, role)| ProjectSummary {
+            slug,
+            name,
+            role: role.unwrap_or_else(|| "admin".to_string()),
+          })
+          .collect(),
+      )
     })
   }
 
@@ -230,23 +249,26 @@ impl Store {
   pub fn list_members(&self, caller: &Caller, slug: &str) -> StoreResult<Vec<Member>> {
     self.with_conn(|conn| {
       let access = access_in(conn, caller, slug)?;
-      let mut stmt = conn.prepare(
-        "SELECT u.handle, m.role FROM memberships m JOIN users u ON u.id = m.user_id
-         WHERE m.project_id = ?1
-         ORDER BY CASE m.role WHEN 'owner' THEN 0 WHEN 'editor' THEN 1 ELSE 2 END, u.handle",
-      )?;
-      let rows = stmt.query_map([access.project_id], |r| {
-        Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
-      })?;
-      rows
-        .map(|row| {
-          let (handle, role) = row?;
+      let rows: Vec<(String, String)> = memberships::table
+        .inner_join(users::table)
+        .filter(memberships::project_id.eq(access.project_id))
+        .select((users::handle, memberships::role))
+        .load(conn)?;
+      let mut members = rows
+        .into_iter()
+        .map(|(handle, role)| {
           Ok(Member {
             handle,
             role: role.parse()?,
           })
         })
-        .collect()
+        .collect::<StoreResult<Vec<_>>>()?;
+      members.sort_by(|a, b| {
+        role_rank(a.role)
+          .cmp(&role_rank(b.role))
+          .then_with(|| a.handle.cmp(&b.handle))
+      });
+      Ok(members)
     })
   }
 
@@ -264,10 +286,9 @@ impl Store {
       if !access.can_manage_members() {
         return Err(StoreError::Forbidden);
       }
-      tx.execute(
-        "UPDATE projects SET repository_url = ?2 WHERE id = ?1",
-        params![access.project_id, url],
-      )?;
+      diesel::update(projects::table.filter(projects::id.eq(access.project_id)))
+        .set(projects::repository_url.eq(url))
+        .execute(tx)?;
       let target = match url {
         Some(_) => slug.to_string(),
         None => format!("{slug} cleared"),
@@ -280,5 +301,13 @@ impl Store {
         &target,
       )
     })
+  }
+}
+
+fn role_rank(role: Role) -> u8 {
+  match role {
+    Role::Owner => 0,
+    Role::Editor => 1,
+    Role::Reader => 2,
   }
 }

@@ -1,9 +1,11 @@
-use rusqlite::{Connection, OptionalExtension, params};
+use diesel::prelude::*;
+use diesel::sqlite::SqliteConnection;
 
 use crate::model::{
   Caller, DocumentKind, SpecStatus, StoreError, StoreResult, allowed_targets, transition_allowed,
   validate_slug,
 };
+use crate::schema::{documents, specs};
 use crate::store::projects::access_in;
 use crate::store::{Store, audit};
 
@@ -29,11 +31,25 @@ pub fn branch_name(number: i64, slug: &str) -> String {
   format!("{number:03}-{slug}")
 }
 
-fn row_to_spec(r: &rusqlite::Row<'_>) -> rusqlite::Result<(i64, i64, String, String, String)> {
-  Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
-}
+type RawSpecRow = (i64, i64, String, String, String);
 
-fn to_spec_row(raw: (i64, i64, String, String, String)) -> StoreResult<SpecRow> {
+type SpecColumns = (
+  specs::id,
+  specs::number,
+  specs::slug,
+  specs::status,
+  specs::branch,
+);
+
+const SPEC_COLUMNS: SpecColumns = (
+  specs::id,
+  specs::number,
+  specs::slug,
+  specs::status,
+  specs::branch,
+);
+
+fn to_spec_row(raw: RawSpecRow) -> StoreResult<SpecRow> {
   let (id, number, slug, status, branch) = raw;
   Ok(SpecRow {
     id,
@@ -45,17 +61,16 @@ fn to_spec_row(raw: (i64, i64, String, String, String)) -> StoreResult<SpecRow> 
 }
 
 pub fn spec_by_number(
-  conn: &Connection,
+  conn: &mut SqliteConnection,
   project_id: i64,
   project_slug: &str,
   number: i64,
 ) -> StoreResult<SpecRow> {
-  let raw = conn
-    .query_row(
-      "SELECT id, number, slug, status, branch FROM specs WHERE project_id = ?1 AND number = ?2",
-      params![project_id, number],
-      row_to_spec,
-    )
+  let raw: Option<RawSpecRow> = specs::table
+    .filter(specs::project_id.eq(project_id))
+    .filter(specs::number.eq(number))
+    .select(SPEC_COLUMNS)
+    .first(conn)
     .optional()?;
   match raw {
     Some(raw) => to_spec_row(raw),
@@ -65,20 +80,25 @@ pub fn spec_by_number(
   }
 }
 
-pub fn kinds_of(conn: &Connection, spec_id: i64) -> StoreResult<Vec<DocumentKind>> {
-  let mut stmt = conn.prepare(
-    "SELECT kind FROM documents WHERE spec_id = ?1
-     ORDER BY CASE kind
-       WHEN 'spec' THEN 1 WHEN 'plan' THEN 2 WHEN 'tasks' THEN 3
-       WHEN 'research' THEN 4 WHEN 'validation' THEN 5 ELSE 6 END",
-  )?;
-  let kinds = stmt
-    .query_map([spec_id], |r| r.get::<_, String>(0))?
-    .collect::<Result<Vec<_>, _>>()?;
-  kinds.iter().map(|k| k.parse()).collect()
+pub fn kinds_of(conn: &mut SqliteConnection, spec_id: i64) -> StoreResult<Vec<DocumentKind>> {
+  let raw: Vec<String> = documents::table
+    .filter(documents::spec_id.eq(spec_id))
+    .select(documents::kind)
+    .load(conn)?;
+  let mut kinds = raw
+    .iter()
+    .map(|k| k.parse())
+    .collect::<StoreResult<Vec<DocumentKind>>>()?;
+  kinds.sort_by_key(|kind| {
+    DocumentKind::SPEC_KINDS
+      .iter()
+      .position(|k| k == kind)
+      .unwrap_or(DocumentKind::SPEC_KINDS.len())
+  });
+  Ok(kinds)
 }
 
-fn summarize(conn: &Connection, row: SpecRow) -> StoreResult<SpecSummary> {
+fn summarize(conn: &mut SqliteConnection, row: SpecRow) -> StoreResult<SpecSummary> {
   Ok(SpecSummary {
     kinds: kinds_of(conn, row.id)?,
     number: row.number,
@@ -88,31 +108,35 @@ fn summarize(conn: &Connection, row: SpecRow) -> StoreResult<SpecSummary> {
   })
 }
 
-pub fn list_specs_in(conn: &Connection, project_id: i64) -> StoreResult<Vec<SpecSummary>> {
+pub fn list_specs_in(
+  conn: &mut SqliteConnection,
+  project_id: i64,
+) -> StoreResult<Vec<SpecSummary>> {
   spec_rows_in(conn, project_id)?
     .into_iter()
     .map(|row| summarize(conn, row))
     .collect()
 }
 
-pub fn spec_rows_in(conn: &Connection, project_id: i64) -> StoreResult<Vec<SpecRow>> {
-  let mut stmt = conn.prepare(
-    "SELECT id, number, slug, status, branch FROM specs WHERE project_id = ?1 ORDER BY number",
-  )?;
-  let rows = stmt
-    .query_map([project_id], row_to_spec)?
-    .collect::<Result<Vec<_>, _>>()?;
+pub fn spec_rows_in(conn: &mut SqliteConnection, project_id: i64) -> StoreResult<Vec<SpecRow>> {
+  let rows: Vec<RawSpecRow> = specs::table
+    .filter(specs::project_id.eq(project_id))
+    .select(SPEC_COLUMNS)
+    .order(specs::number)
+    .load(conn)?;
   rows.into_iter().map(to_spec_row).collect()
 }
 
-pub fn active_spec_in(conn: &Connection, project_id: i64) -> StoreResult<Option<SpecRow>> {
-  let raw = conn
-    .query_row(
-      "SELECT id, number, slug, status, branch FROM specs
-       WHERE project_id = ?1 AND status != 'archived' ORDER BY number DESC LIMIT 1",
-      [project_id],
-      row_to_spec,
-    )
+pub fn active_spec_in(
+  conn: &mut SqliteConnection,
+  project_id: i64,
+) -> StoreResult<Option<SpecRow>> {
+  let raw: Option<RawSpecRow> = specs::table
+    .filter(specs::project_id.eq(project_id))
+    .filter(specs::status.ne("archived"))
+    .select(SPEC_COLUMNS)
+    .order(specs::number.desc())
+    .first(conn)
     .optional()?;
   raw.map(to_spec_row).transpose()
 }
@@ -156,28 +180,38 @@ impl Store {
         return Err(StoreError::Forbidden);
       }
       validate_slug(slug)?;
-      let duplicate: i64 = tx.query_row(
-        "SELECT count(*) FROM specs WHERE project_id = ?1 AND slug = ?2",
-        params![access.project_id, slug],
-        |r| r.get(0),
-      )?;
+      let duplicate: i64 = specs::table
+        .filter(specs::project_id.eq(access.project_id))
+        .filter(specs::slug.eq(slug))
+        .count()
+        .get_result(tx)?;
       if duplicate > 0 {
         return Err(StoreError::Validation(format!(
           "spec slug {slug:?} already exists in project {project:?}"
         )));
       }
-      let highest: Option<i64> = tx.query_row(
-        "SELECT max(number) FROM specs WHERE project_id = ?1",
-        [access.project_id],
-        |r| r.get(0),
-      )?;
+      let highest: Option<i64> = specs::table
+        .filter(specs::project_id.eq(access.project_id))
+        .select(diesel::dsl::max(specs::number))
+        .first(tx)?;
       let number = highest.unwrap_or(0) + 1;
       let branch = branch_name(number, slug);
-      tx.execute(
-        "INSERT INTO specs (project_id, number, slug, status, branch) VALUES (?1, ?2, ?3, 'draft', ?4)",
-        params![access.project_id, number, slug, branch],
+      diesel::insert_into(specs::table)
+        .values((
+          specs::project_id.eq(access.project_id),
+          specs::number.eq(number),
+          specs::slug.eq(slug),
+          specs::status.eq(SpecStatus::Draft.as_str()),
+          specs::branch.eq(&branch),
+        ))
+        .execute(tx)?;
+      audit(
+        tx,
+        caller.user_id,
+        Some(access.project_id),
+        "spec.create",
+        &branch,
       )?;
-      audit(tx, caller.user_id, Some(access.project_id), "spec.create", &branch)?;
       Ok(CreatedSpec {
         number,
         slug: slug.to_string(),
@@ -216,10 +250,9 @@ impl Store {
           spec.status
         )));
       }
-      tx.execute(
-        "UPDATE specs SET status = ?1 WHERE id = ?2",
-        params![to.as_str(), spec.id],
-      )?;
+      diesel::update(specs::table.filter(specs::id.eq(spec.id)))
+        .set(specs::status.eq(to.as_str()))
+        .execute(tx)?;
       audit(
         tx,
         caller.user_id,
