@@ -299,3 +299,20 @@ fn project_set_repo_sets_validates_and_clears() {
     audit.stdout
   );
 }
+
+#[test]
+fn open_failure_names_migration_step() {
+  let db = common::previous_release_db("cli-migration-failure", 1);
+  {
+    use diesel::connection::SimpleConnection;
+    common::raw_connection(&db)
+      .batch_execute("CREATE TABLE sessions (blocker INTEGER)")
+      .unwrap();
+  }
+  let out = fails(&db, &["user", "add", "bob"]);
+  assert!(
+    out.stderr.contains("migration step 0002 failed"),
+    "{}",
+    out.stderr
+  );
+}
