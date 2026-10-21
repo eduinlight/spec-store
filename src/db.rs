@@ -6,8 +6,8 @@ use rusqlite::Connection;
 use crate::model::StoreResult;
 
 const MIGRATIONS: &[(i64, &str)] = &[
-  (1, include_str!("migrations/0001_init.sql")),
-  (2, include_str!("migrations/0002_web_ui.sql")),
+  (1, include_str!("../migrations/0001_init/up.sql")),
+  (2, include_str!("../migrations/0002_web_ui/up.sql")),
 ];
 
 pub fn open(path: impl AsRef<Path>) -> StoreResult<Connection> {
