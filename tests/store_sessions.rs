@@ -24,13 +24,10 @@ fn fixture() -> Fixture {
 }
 
 fn stored_hashes(store: &Store) -> Vec<String> {
-  store
-    .with_conn(|c| {
-      let mut stmt = c.prepare("SELECT secret_hash FROM sessions ORDER BY id")?;
-      let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
-      Ok(rows.collect::<Result<Vec<_>, _>>()?)
-    })
-    .unwrap()
+  common::texts(
+    store,
+    "SELECT secret_hash AS value FROM sessions ORDER BY id",
+  )
 }
 
 #[test]
@@ -69,31 +66,25 @@ fn create_session_rejects_unknown_and_revoked_tokens() {
 fn session_caller_resolves_user_and_updates_last_used() {
   let f = fixture();
   let secret = f.store.create_session(&f.token).unwrap();
-  let before: Option<String> = f
-    .store
-    .with_conn(|c| {
-      Ok(c.query_row(
-        "SELECT last_used_at FROM api_tokens WHERE id = ?1",
-        [f.token_id],
-        |r| r.get(0),
-      )?)
-    })
-    .unwrap();
+  let before: Option<String> = common::optional_text(
+    &f.store,
+    &format!(
+      "SELECT last_used_at FROM api_tokens WHERE id = {}",
+      f.token_id
+    ),
+  );
   std::thread::sleep(std::time::Duration::from_millis(5));
   let (caller, token_id) = f.store.session_caller(&secret).unwrap();
   assert_eq!(caller.handle, "bob");
   assert!(!caller.is_admin);
   assert_eq!(token_id, f.token_id);
-  let after: Option<String> = f
-    .store
-    .with_conn(|c| {
-      Ok(c.query_row(
-        "SELECT last_used_at FROM api_tokens WHERE id = ?1",
-        [f.token_id],
-        |r| r.get(0),
-      )?)
-    })
-    .unwrap();
+  let after: Option<String> = common::optional_text(
+    &f.store,
+    &format!(
+      "SELECT last_used_at FROM api_tokens WHERE id = {}",
+      f.token_id
+    ),
+  );
   assert!(after.is_some());
   assert_ne!(before, after);
 }
@@ -120,15 +111,13 @@ fn unknown_ended_revoked_and_expired_sessions_are_unauthenticated() {
   ));
 
   let expired = f.store.create_session(&f.token).unwrap();
-  f.store
-    .with_tx(|tx| {
-      tx.execute(
-        "UPDATE sessions SET expires_at = '2000-01-01T00:00:00.000Z' WHERE secret_hash = ?1",
-        [hash_token(&expired)],
-      )?;
-      Ok(())
-    })
-    .unwrap();
+  common::exec(
+    &f.store,
+    &format!(
+      "UPDATE sessions SET expires_at = '2000-01-01T00:00:00.000Z' WHERE secret_hash = '{}'",
+      hash_token(&expired)
+    ),
+  );
   assert!(matches!(
     f.store.session_caller(&expired),
     Err(StoreError::Unauthenticated)
@@ -148,16 +137,13 @@ fn unknown_ended_revoked_and_expired_sessions_are_unauthenticated() {
 fn sessions_expire_thirty_days_after_creation() {
   let f = fixture();
   let secret = f.store.create_session(&f.token).unwrap();
-  let days: f64 = f
-    .store
-    .with_conn(|c| {
-      Ok(c.query_row(
-        "SELECT julianday(expires_at) - julianday(created_at) FROM sessions WHERE secret_hash = ?1",
-        [hash_token(&secret)],
-        |r| r.get(0),
-      )?)
-    })
-    .unwrap();
+  let days: f64 = common::real(
+    &f.store,
+    &format!(
+      "SELECT julianday(expires_at) - julianday(created_at) FROM sessions WHERE secret_hash = '{}'",
+      hash_token(&secret)
+    ),
+  );
   assert!((days - 30.0).abs() < 0.01, "{days}");
   assert_eq!(spec_store::store::sessions::SESSION_LIFETIME_DAYS, 30);
 }

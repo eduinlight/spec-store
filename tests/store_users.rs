@@ -74,9 +74,7 @@ fn issues_token_once_and_lists_without_secret() {
   let dump = format!("{tokens:?}");
   assert!(!dump.contains(&issued.token), "token must not be listed");
 
-  let stored_hash: String = store
-    .with_conn(|conn| Ok(conn.query_row("SELECT token_hash FROM api_tokens", [], |r| r.get(0))?))
-    .unwrap();
+  let stored_hash: String = common::text(&store, "SELECT token_hash FROM api_tokens");
   assert_ne!(stored_hash, issued.token);
   assert!(!stored_hash.contains(issued.token.trim_start_matches("sst_")));
 

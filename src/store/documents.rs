@@ -1,6 +1,8 @@
-use rusqlite::{Connection, OptionalExtension, params};
+use diesel::prelude::*;
+use diesel::sqlite::SqliteConnection;
 
 use crate::model::{Caller, DocumentKind, SpecStatus, StoreError, StoreResult, validate_body_size};
+use crate::schema::{documents, revisions, specs, users};
 use crate::store::projects::access_in;
 use crate::store::specs::spec_by_number;
 use crate::store::{Store, audit};
@@ -37,58 +39,64 @@ fn reject_constitution_kind(kind: DocumentKind) -> StoreResult<()> {
 }
 
 pub fn document_id(
-  conn: &Connection,
+  conn: &mut SqliteConnection,
   project_id: i64,
   spec_id: Option<i64>,
   kind: DocumentKind,
 ) -> StoreResult<Option<i64>> {
   Ok(
-    conn
-      .query_row(
-        "SELECT id FROM documents WHERE project_id = ?1 AND spec_id IS ?2 AND kind = ?3",
-        params![project_id, spec_id, kind.as_str()],
-        |r| r.get(0),
-      )
+    documents::table
+      .filter(documents::project_id.eq(project_id))
+      .filter(documents::spec_id.is(spec_id))
+      .filter(documents::kind.eq(kind.as_str()))
+      .select(documents::id)
+      .first(conn)
       .optional()?,
   )
+}
+
+type RevisionMetaRow = (i64, String, String, String, Option<String>);
+
+fn revision_meta((id, author, created_at, message, version): RevisionMetaRow) -> RevisionMeta {
+  RevisionMeta {
+    id,
+    author,
+    created_at,
+    message,
+    version,
+  }
 }
 
 pub fn current_revision(
-  conn: &Connection,
+  conn: &mut SqliteConnection,
   document_id: i64,
 ) -> StoreResult<Option<(String, RevisionMeta)>> {
-  Ok(
-    conn
-      .query_row(
-        "SELECT r.body, r.id, u.handle, r.created_at, r.message, r.version
-         FROM documents d
-         JOIN revisions r ON r.id = d.current_revision_id
-         JOIN users u ON u.id = r.author_id
-         WHERE d.id = ?1",
-        [document_id],
-        |r| {
-          Ok((
-            r.get(0)?,
-            RevisionMeta {
-              id: r.get(1)?,
-              author: r.get(2)?,
-              created_at: r.get(3)?,
-              message: r.get(4)?,
-              version: r.get(5)?,
-            },
-          ))
-        },
-      )
-      .optional()?,
-  )
+  let row: Option<(String, RevisionMetaRow)> = documents::table
+    .inner_join(revisions::table.on(documents::current_revision_id.eq(revisions::id.nullable())))
+    .inner_join(users::table.on(users::id.eq(revisions::author_id)))
+    .filter(documents::id.eq(document_id))
+    .select((
+      revisions::body,
+      (
+        revisions::id,
+        users::handle,
+        revisions::created_at,
+        revisions::message,
+        revisions::version,
+      ),
+    ))
+    .first(conn)
+    .optional()?;
+  Ok(row.map(|(body, meta)| (body, revision_meta(meta))))
 }
 
-fn current_revision_id(conn: &Connection, document_id: i64) -> StoreResult<Option<i64>> {
-  Ok(conn.query_row(
-    "SELECT current_revision_id FROM documents WHERE id = ?1",
-    [document_id],
-    |r| r.get(0),
-  )?)
+fn current_revision_id(conn: &mut SqliteConnection, document_id: i64) -> StoreResult<Option<i64>> {
+  Ok(
+    documents::table
+      .filter(documents::id.eq(document_id))
+      .select(documents::current_revision_id)
+      .first(conn)?,
+  )
 }
 
 fn check_expected_revision(
@@ -109,7 +117,7 @@ fn check_expected_revision(
 }
 
 pub(crate) fn ensure_document(
-  conn: &Connection,
+  conn: &mut SqliteConnection,
   project_id: i64,
   spec_id: Option<i64>,
   kind: DocumentKind,
@@ -117,30 +125,39 @@ pub(crate) fn ensure_document(
   if let Some(id) = document_id(conn, project_id, spec_id, kind)? {
     return Ok(id);
   }
-  conn.execute(
-    "INSERT INTO documents (project_id, spec_id, kind) VALUES (?1, ?2, ?3)",
-    params![project_id, spec_id, kind.as_str()],
-  )?;
-  Ok(conn.last_insert_rowid())
+  Ok(
+    diesel::insert_into(documents::table)
+      .values((
+        documents::project_id.eq(project_id),
+        documents::spec_id.eq(spec_id),
+        documents::kind.eq(kind.as_str()),
+      ))
+      .returning(documents::id)
+      .get_result(conn)?,
+  )
 }
 
 pub(crate) fn append_revision(
-  conn: &Connection,
+  conn: &mut SqliteConnection,
   document_id: i64,
   body: &str,
   version: Option<&str>,
   author_id: i64,
   message: &str,
 ) -> StoreResult<i64> {
-  conn.execute(
-    "INSERT INTO revisions (document_id, body, version, author_id, message) VALUES (?1, ?2, ?3, ?4, ?5)",
-    params![document_id, body, version, author_id, message],
-  )?;
-  let revision_id = conn.last_insert_rowid();
-  conn.execute(
-    "UPDATE documents SET current_revision_id = ?1 WHERE id = ?2",
-    params![revision_id, document_id],
-  )?;
+  let revision_id: i64 = diesel::insert_into(revisions::table)
+    .values((
+      revisions::document_id.eq(document_id),
+      revisions::body.eq(body),
+      revisions::version.eq(version),
+      revisions::author_id.eq(author_id),
+      revisions::message.eq(message),
+    ))
+    .returning(revisions::id)
+    .get_result(conn)?;
+  diesel::update(documents::table.filter(documents::id.eq(document_id)))
+    .set(documents::current_revision_id.eq(revision_id))
+    .execute(conn)?;
   Ok(revision_id)
 }
 
@@ -279,16 +296,6 @@ pub struct RevisionBody {
   pub number: Option<i64>,
 }
 
-fn revision_meta(r: &rusqlite::Row<'_>) -> rusqlite::Result<RevisionMeta> {
-  Ok(RevisionMeta {
-    id: r.get(0)?,
-    author: r.get(1)?,
-    created_at: r.get(2)?,
-    message: r.get(3)?,
-    version: r.get(4)?,
-  })
-}
-
 impl Store {
   pub fn list_revisions(
     &self,
@@ -321,15 +328,19 @@ impl Store {
             .ok_or_else(|| StoreError::NotFound(format!("{kind} document of spec {number:03}")))?
         }
       };
-      let mut stmt = conn.prepare(
-        "SELECT r.id, u.handle, r.created_at, r.message, r.version
-         FROM revisions r JOIN users u ON u.id = r.author_id
-         WHERE r.document_id = ?1 ORDER BY r.id DESC",
-      )?;
-      let rows = stmt.query_map([doc_id], revision_meta)?;
-      rows
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(StoreError::from)
+      let rows: Vec<RevisionMetaRow> = revisions::table
+        .inner_join(users::table)
+        .filter(revisions::document_id.eq(doc_id))
+        .select((
+          revisions::id,
+          users::handle,
+          revisions::created_at,
+          revisions::message,
+          revisions::version,
+        ))
+        .order(revisions::id.desc())
+        .load(conn)?;
+      Ok(rows.into_iter().map(revision_meta).collect())
     })
   }
 
@@ -341,34 +352,34 @@ impl Store {
   ) -> StoreResult<RevisionBody> {
     self.with_conn(|conn| {
       let access = access_in(conn, caller, project)?;
-      conn
-        .query_row(
-          "SELECT r.id, u.handle, r.created_at, r.message, r.version, r.body, d.kind, s.number
-           FROM revisions r
-           JOIN documents d ON d.id = r.document_id
-           JOIN users u ON u.id = r.author_id
-           LEFT JOIN specs s ON s.id = d.spec_id
-           WHERE r.id = ?1 AND d.project_id = ?2",
-          params![revision_id, access.project_id],
-          |r| {
-            Ok((
-              revision_meta(r)?,
-              r.get::<_, String>(5)?,
-              r.get::<_, String>(6)?,
-              r.get::<_, Option<i64>>(7)?,
-            ))
-          },
-        )
-        .optional()?
-        .ok_or_else(|| StoreError::NotFound(format!("revision {revision_id}")))
-        .and_then(|(meta, body, kind, number)| {
-          Ok(RevisionBody {
-            body,
-            meta,
-            kind: kind.parse()?,
-            number,
-          })
-        })
+      let row: Option<(RevisionMetaRow, String, String, Option<i64>)> = revisions::table
+        .inner_join(documents::table)
+        .inner_join(users::table)
+        .left_join(specs::table.on(documents::spec_id.eq(specs::id.nullable())))
+        .filter(revisions::id.eq(revision_id))
+        .filter(documents::project_id.eq(access.project_id))
+        .select((
+          (
+            revisions::id,
+            users::handle,
+            revisions::created_at,
+            revisions::message,
+            revisions::version,
+          ),
+          revisions::body,
+          documents::kind,
+          specs::number.nullable(),
+        ))
+        .first(conn)
+        .optional()?;
+      let (meta, body, kind, number) =
+        row.ok_or_else(|| StoreError::NotFound(format!("revision {revision_id}")))?;
+      Ok(RevisionBody {
+        body,
+        meta: revision_meta(meta),
+        kind: kind.parse()?,
+        number,
+      })
     })
   }
 }

@@ -1,9 +1,12 @@
 mod common;
 
+use diesel::prelude::*;
+use diesel::sql_types::Text;
 use spec_store::db;
+use spec_store::store::Store;
 
 const EXPECTED_TABLES: [&str; 10] = [
-  "schema_migrations",
+  "__diesel_schema_migrations",
   "users",
   "api_tokens",
   "projects",
@@ -15,22 +18,11 @@ const EXPECTED_TABLES: [&str; 10] = [
   "sessions",
 ];
 
-fn table_names(conn: &rusqlite::Connection) -> Vec<String> {
-  let mut stmt = conn
-    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")
-    .unwrap();
-  stmt
-    .query_map([], |row| row.get::<_, String>(0))
-    .unwrap()
-    .map(Result::unwrap)
-    .collect()
-}
-
 #[test]
 fn open_creates_every_table() {
   let path = common::temp_db_path("db-tables");
-  let conn = db::open(&path).expect("open");
-  let names = table_names(&conn);
+  let pool = db::open(&path).expect("open");
+  let names = common::table_names(&mut pool.get().unwrap());
   for table in EXPECTED_TABLES {
     assert!(names.iter().any(|n| n == table), "missing table {table}");
   }
@@ -39,51 +31,49 @@ fn open_creates_every_table() {
 #[test]
 fn open_enables_wal_and_foreign_keys() {
   let path = common::temp_db_path("db-pragmas");
-  let conn = db::open(&path).expect("open");
-  let journal: String = conn
-    .query_row("PRAGMA journal_mode", [], |r| r.get(0))
-    .unwrap();
-  assert_eq!(journal.to_lowercase(), "wal");
-  let fk: i64 = conn
-    .query_row("PRAGMA foreign_keys", [], |r| r.get(0))
-    .unwrap();
-  assert_eq!(fk, 1);
+  let pool = db::open(&path).expect("open");
+  let mut conn = pool.get().unwrap();
+  assert_eq!(common::journal_mode(&mut conn), "wal");
+  assert_eq!(common::foreign_keys(&mut conn), 1);
 }
 
 #[test]
-fn open_is_idempotent() {
+fn open_records_diesel_history_only() {
   let path = common::temp_db_path("db-idempotent");
   {
     let _first = db::open(&path).expect("first open");
   }
-  let conn = db::open(&path).expect("second open");
-  let applied: i64 = conn
-    .query_row("SELECT count(*) FROM schema_migrations", [], |r| r.get(0))
-    .unwrap();
-  assert_eq!(applied, 2);
-  let version: i64 = conn
-    .query_row("SELECT max(version) FROM schema_migrations", [], |r| {
-      r.get(0)
-    })
-    .unwrap();
-  assert_eq!(version, 2);
+  let pool = db::open(&path).expect("second open");
+  let mut conn = pool.get().unwrap();
+  assert_eq!(common::diesel_versions(&mut conn), vec!["0001", "0002"]);
+  assert!(
+    !common::table_names(&mut conn)
+      .iter()
+      .any(|n| n == "schema_migrations"),
+    "a new database has no previous history table"
+  );
 }
 
-fn column_names(conn: &rusqlite::Connection, table: &str) -> Vec<String> {
-  let mut stmt = conn
-    .prepare(&format!("PRAGMA table_info({table})"))
-    .unwrap();
-  stmt
-    .query_map([], |row| row.get::<_, String>(1))
+#[derive(QueryableByName)]
+struct ColumnName {
+  #[diesel(sql_type = Text)]
+  name: String,
+}
+
+fn column_names(conn: &mut SqliteConnection, table: &str) -> Vec<String> {
+  diesel::sql_query(format!("SELECT name FROM pragma_table_info('{table}')"))
+    .load::<ColumnName>(conn)
     .unwrap()
-    .map(Result::unwrap)
+    .into_iter()
+    .map(|c| c.name)
     .collect()
 }
 
 #[test]
 fn second_migration_adds_sessions_and_repository_url() {
-  let conn = db::open_in_memory().expect("memory");
-  let sessions = column_names(&conn, "sessions");
+  let pool = db::open_in_memory().expect("memory");
+  let mut conn = pool.get().unwrap();
+  let sessions = column_names(&mut conn, "sessions");
   for column in [
     "id",
     "secret_hash",
@@ -98,7 +88,7 @@ fn second_migration_adds_sessions_and_repository_url() {
       "sessions lacks {column}: {sessions:?}"
     );
   }
-  let projects = column_names(&conn, "projects");
+  let projects = column_names(&mut conn, "projects");
   assert!(
     projects.iter().any(|c| c == "repository_url"),
     "{projects:?}"
@@ -107,6 +97,33 @@ fn second_migration_adds_sessions_and_repository_url() {
 
 #[test]
 fn open_in_memory_runs_migrations_too() {
-  let conn = db::open_in_memory().expect("memory");
-  assert!(table_names(&conn).iter().any(|n| n == "revisions"));
+  let pool = db::open_in_memory().expect("memory");
+  let mut conn = pool.get().unwrap();
+  assert!(
+    common::table_names(&mut conn)
+      .iter()
+      .any(|n| n == "revisions")
+  );
+  assert_eq!(common::diesel_versions(&mut conn), vec!["0001", "0002"]);
+}
+
+#[test]
+fn memory_store_has_connection_settings() {
+  let store = Store::in_memory().expect("memory");
+  let (foreign_keys, busy_timeout) = store
+    .with_conn(|conn| Ok((common::foreign_keys(conn), common::busy_timeout(conn))))
+    .unwrap();
+  assert_eq!(foreign_keys, 1);
+  assert_eq!(busy_timeout, 5000);
+}
+
+#[test]
+fn file_store_keeps_its_data_across_opens() {
+  let path = common::temp_db_path("db-reopen");
+  {
+    let store = Store::open(&path).expect("first open");
+    store.create_user(None, "root", true).unwrap();
+  }
+  let store = Store::open(&path).expect("second open");
+  assert!(store.caller_by_handle("root").unwrap().is_admin);
 }

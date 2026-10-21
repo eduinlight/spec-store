@@ -7,17 +7,21 @@ pub mod transfer;
 pub mod users;
 
 use std::path::Path;
-use std::sync::{Arc, Mutex};
 
-use rusqlite::{Connection, OptionalExtension, Transaction, params};
+use diesel::dsl::sql;
+use diesel::expression::SqlLiteral;
+use diesel::prelude::*;
+use diesel::sql_types::Text;
+use diesel::sqlite::SqliteConnection;
 
-use crate::db;
+use crate::db::{self, DbPool};
 use crate::model::{Caller, StoreError, StoreResult};
+use crate::schema;
 use crate::store::projects::access_in;
 
 #[derive(Clone)]
 pub struct Store {
-  conn: Arc<Mutex<Connection>>,
+  pool: DbPool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -37,10 +41,8 @@ pub struct AuditEntry {
 }
 
 impl Store {
-  pub fn new(conn: Connection) -> Self {
-    Store {
-      conn: Arc::new(Mutex::new(conn)),
-    }
+  pub fn new(pool: DbPool) -> Self {
+    Store { pool }
   }
 
   pub fn open(path: impl AsRef<Path>) -> StoreResult<Self> {
@@ -51,23 +53,20 @@ impl Store {
     Ok(Store::new(db::open_in_memory()?))
   }
 
-  pub fn with_conn<T>(&self, f: impl FnOnce(&Connection) -> StoreResult<T>) -> StoreResult<T> {
-    let conn = self
-      .conn
-      .lock()
-      .unwrap_or_else(|poisoned| poisoned.into_inner());
-    f(&conn)
+  pub fn with_conn<T>(
+    &self,
+    f: impl FnOnce(&mut SqliteConnection) -> StoreResult<T>,
+  ) -> StoreResult<T> {
+    let mut conn = self.pool.get()?;
+    f(&mut conn)
   }
 
-  pub fn with_tx<T>(&self, f: impl FnOnce(&Transaction) -> StoreResult<T>) -> StoreResult<T> {
-    let mut conn = self
-      .conn
-      .lock()
-      .unwrap_or_else(|poisoned| poisoned.into_inner());
-    let tx = conn.transaction()?;
-    let value = f(&tx)?;
-    tx.commit()?;
-    Ok(value)
+  pub fn with_tx<T>(
+    &self,
+    f: impl FnOnce(&mut SqliteConnection) -> StoreResult<T>,
+  ) -> StoreResult<T> {
+    let mut conn = self.pool.get()?;
+    conn.immediate_transaction(f)
   }
 
   pub fn list_audit(
@@ -83,30 +82,55 @@ impl Store {
         },
         None => None,
       };
-      let mut stmt = conn.prepare(
-        "SELECT a.id, u.handle, p.slug, a.action, a.target, a.created_at
-         FROM audit_log a
-         JOIN users u ON u.id = a.actor_id
-         LEFT JOIN projects p ON p.id = a.project_id
-         WHERE (?1 IS NULL OR a.project_id = ?1)
-         ORDER BY a.id DESC
-         LIMIT ?2",
-      )?;
-      let rows = stmt.query_map(params![project_id, limit as i64], |row| {
-        Ok(AuditEntry {
-          id: row.get(0)?,
-          actor: row.get(1)?,
-          project: row.get(2)?,
-          action: row.get(3)?,
-          target: row.get(4)?,
-          created_at: row.get(5)?,
-        })
-      })?;
-      rows
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(StoreError::from)
+      audit_entries(conn, project_id, None, limit as i64)
     })
   }
+}
+
+type AuditRow = (i64, String, Option<String>, String, String, String);
+
+fn audit_entries(
+  conn: &mut SqliteConnection,
+  project_id: Option<i64>,
+  before: Option<i64>,
+  limit: i64,
+) -> StoreResult<Vec<AuditEntry>> {
+  let mut query = schema::audit_log::table
+    .inner_join(schema::users::table)
+    .left_join(schema::projects::table)
+    .select((
+      schema::audit_log::id,
+      schema::users::handle,
+      schema::projects::slug.nullable(),
+      schema::audit_log::action,
+      schema::audit_log::target,
+      schema::audit_log::created_at,
+    ))
+    .order(schema::audit_log::id.desc())
+    .limit(limit)
+    .into_boxed();
+  if let Some(project_id) = project_id {
+    query = query.filter(schema::audit_log::project_id.eq(project_id));
+  }
+  if let Some(before) = before {
+    query = query.filter(schema::audit_log::id.lt(before));
+  }
+  let rows: Vec<AuditRow> = query.load(conn)?;
+  Ok(
+    rows
+      .into_iter()
+      .map(
+        |(id, actor, project, action, target, created_at)| AuditEntry {
+          id,
+          actor,
+          project,
+          action,
+          target,
+          created_at,
+        },
+      )
+      .collect(),
+  )
 }
 
 impl Store {
@@ -129,27 +153,7 @@ impl Store {
         None if caller.is_admin => None,
         None => return Err(StoreError::Forbidden),
       };
-      let mut stmt = conn.prepare(
-        "SELECT a.id, u.handle, p.slug, a.action, a.target, a.created_at
-         FROM audit_log a
-         JOIN users u ON u.id = a.actor_id
-         LEFT JOIN projects p ON p.id = a.project_id
-         WHERE (?1 IS NULL OR a.project_id = ?1)
-           AND (?2 IS NULL OR a.id < ?2)
-         ORDER BY a.id DESC
-         LIMIT ?3",
-      )?;
-      let rows = stmt.query_map(params![project_id, before, limit as i64 + 1], |row| {
-        Ok(AuditEntry {
-          id: row.get(0)?,
-          actor: row.get(1)?,
-          project: row.get(2)?,
-          action: row.get(3)?,
-          target: row.get(4)?,
-          created_at: row.get(5)?,
-        })
-      })?;
-      let mut entries = rows.collect::<Result<Vec<_>, _>>()?;
+      let mut entries = audit_entries(conn, project_id, before, limit as i64 + 1)?;
       let has_more = entries.len() > limit;
       entries.truncate(limit);
       Ok(AuditPage { entries, has_more })
@@ -158,25 +162,33 @@ impl Store {
 }
 
 pub fn audit(
-  tx: &Transaction,
+  conn: &mut SqliteConnection,
   actor_id: i64,
   project_id: Option<i64>,
   action: &str,
   target: &str,
 ) -> StoreResult<()> {
-  tx.execute(
-    "INSERT INTO audit_log (actor_id, project_id, action, target) VALUES (?1, ?2, ?3, ?4)",
-    params![actor_id, project_id, action, target],
-  )?;
+  diesel::insert_into(schema::audit_log::table)
+    .values((
+      schema::audit_log::actor_id.eq(actor_id),
+      schema::audit_log::project_id.eq(project_id),
+      schema::audit_log::action.eq(action),
+      schema::audit_log::target.eq(target),
+    ))
+    .execute(conn)?;
   Ok(())
 }
 
-pub fn project_id_by_slug(conn: &Connection, slug: &str) -> StoreResult<Option<i64>> {
+pub fn project_id_by_slug(conn: &mut SqliteConnection, slug: &str) -> StoreResult<Option<i64>> {
   Ok(
-    conn
-      .query_row("SELECT id FROM projects WHERE slug = ?1", [slug], |r| {
-        r.get(0)
-      })
+    schema::projects::table
+      .filter(schema::projects::slug.eq(slug))
+      .select(schema::projects::id)
+      .first(conn)
       .optional()?,
   )
+}
+
+pub(crate) fn now_utc() -> SqlLiteral<Text> {
+  sql::<Text>("strftime('%Y-%m-%dT%H:%M:%fZ', 'now')")
 }

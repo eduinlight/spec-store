@@ -28,16 +28,11 @@ fn fixture() -> Fixture {
   store
     .set_member(&admin, "demo", "reader", Role::Reader)
     .unwrap();
-  store
-    .with_tx(|tx| {
-      tx.execute(
-        "INSERT INTO specs (project_id, number, slug, status, branch)
-         VALUES ((SELECT id FROM projects WHERE slug = 'demo'), 1, 'first', 'draft', '001-first')",
-        [],
-      )?;
-      Ok(())
-    })
-    .unwrap();
+  common::exec(
+    &store,
+    "INSERT INTO specs (project_id, number, slug, status, branch)
+     VALUES ((SELECT id FROM projects WHERE slug = 'demo'), 1, 'first', 'draft', '001-first')",
+  );
   Fixture {
     owner: store.caller_by_handle("owner").unwrap(),
     editor: store.caller_by_handle("editor").unwrap(),
@@ -175,15 +170,10 @@ fn put_creates_document_and_revision() {
   assert_eq!(doc.revision.id, second);
   assert_eq!(doc.revision.message, "second");
 
-  let (documents, revisions): (i64, i64) = f
-    .store
-    .with_conn(|c| {
-      Ok((
-        c.query_row("SELECT count(*) FROM documents", [], |r| r.get(0))?,
-        c.query_row("SELECT count(*) FROM revisions", [], |r| r.get(0))?,
-      ))
-    })
-    .unwrap();
+  let (documents, revisions): (i64, i64) = (
+    common::int(&f.store, "SELECT count(*) FROM documents"),
+    common::int(&f.store, "SELECT count(*) FROM revisions"),
+  );
   assert_eq!(documents, 1);
   assert_eq!(revisions, 2);
 
@@ -465,10 +455,7 @@ fn concurrent_puts_exactly_one_wins() {
     .filter(|r| matches!(r, Err(StoreError::Conflict { .. })))
     .count();
   assert_eq!((wins, conflicts), (1, 1), "{results:?}");
-  let revisions: i64 = f
-    .store
-    .with_conn(|c| Ok(c.query_row("SELECT count(*) FROM revisions", [], |r| r.get(0))?))
-    .unwrap();
+  let revisions: i64 = common::int(&f.store, "SELECT count(*) FROM revisions");
   assert_eq!(revisions, 2);
 }
 

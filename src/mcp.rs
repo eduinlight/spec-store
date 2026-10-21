@@ -415,8 +415,8 @@ pub fn to_mcp_error(error: StoreError) -> McpError {
     StoreError::Malformed(message) => {
       McpError::invalid_params(message, Some(json!({"kind": "malformed"})))
     }
-    StoreError::Database(error) => {
-      tracing::error!(%error, "database error");
+    StoreError::Database(_) | StoreError::Pool(_) | StoreError::Migration { .. } => {
+      tracing::error!(error = %error, "database error");
       McpError::internal_error("database error", Some(json!({"kind": "internal"})))
     }
   }

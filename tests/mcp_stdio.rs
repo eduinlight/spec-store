@@ -73,16 +73,11 @@ fn seed(db: &Path) -> Store {
   store
     .set_member(&admin, "demo", "reader", Role::Reader)
     .unwrap();
-  store
-    .with_tx(|tx| {
-      tx.execute(
-        "INSERT INTO specs (project_id, number, slug, status, branch)
-         VALUES ((SELECT id FROM projects WHERE slug = 'demo'), 1, 'first', 'clarified', '001-first')",
-        [],
-      )?;
-      Ok(())
-    })
-    .unwrap();
+  common::exec(
+    &store,
+    "INSERT INTO specs (project_id, number, slug, status, branch)
+     VALUES ((SELECT id FROM projects WHERE slug = 'demo'), 1, 'first', 'clarified', '001-first')",
+  );
   let editor = store.caller_by_handle("editor").unwrap();
   store
     .put_document(

@@ -30,29 +30,23 @@ fn fixture() -> Fixture {
 }
 
 fn insert_spec(store: &Store, number: i64, slug: &str, status: &str) -> i64 {
-  store
-    .with_tx(|tx| {
-      tx.execute(
-        "INSERT INTO specs (project_id, number, slug, status, branch)
-         VALUES ((SELECT id FROM projects WHERE slug = 'demo'), ?1, ?2, ?3, printf('%03d-%s', ?1, ?2))",
-        rusqlite::params![number, slug, status],
-      )?;
-      Ok(tx.last_insert_rowid())
-    })
-    .unwrap()
+  common::insert(
+    store,
+    &format!(
+      "INSERT INTO specs (project_id, number, slug, status, branch)
+       VALUES ((SELECT id FROM projects WHERE slug = 'demo'), {number}, '{slug}', '{status}', printf('%03d-%s', {number}, '{slug}'))"
+    ),
+  )
 }
 
 fn insert_document(store: &Store, spec_id: i64, kind: &str) {
-  store
-    .with_tx(|tx| {
-      tx.execute(
-        "INSERT INTO documents (project_id, spec_id, kind)
-         VALUES ((SELECT id FROM projects WHERE slug = 'demo'), ?1, ?2)",
-        rusqlite::params![spec_id, kind],
-      )?;
-      Ok(())
-    })
-    .unwrap();
+  common::exec(
+    store,
+    &format!(
+      "INSERT INTO documents (project_id, spec_id, kind)
+       VALUES ((SELECT id FROM projects WHERE slug = 'demo'), {spec_id}, '{kind}')"
+    ),
+  );
 }
 
 #[test]

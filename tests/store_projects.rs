@@ -78,16 +78,13 @@ fn set_member_replaces_role_and_remove_ends_access() {
     .unwrap();
   let access = f.store.access(&f.outsider, "demo").unwrap();
   assert_eq!(access.role, Some(Role::Editor));
-  let count: i64 = f
-    .store
-    .with_conn(|c| {
-      Ok(c.query_row(
-        "SELECT count(*) FROM memberships WHERE user_id = ?1",
-        [f.outsider.user_id],
-        |r| r.get(0),
-      )?)
-    })
-    .unwrap();
+  let count: i64 = common::int(
+    &f.store,
+    &format!(
+      "SELECT count(*) FROM memberships WHERE user_id = {}",
+      f.outsider.user_id
+    ),
+  );
   assert_eq!(count, 1);
 
   f.store.remove_member(&f.owner, "demo", "outsider").unwrap();

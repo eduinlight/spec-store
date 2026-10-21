@@ -1,5 +1,6 @@
 mod common;
 
+use diesel::connection::SimpleConnection;
 use spec_store::model::StoreError;
 use spec_store::store::{Store, audit};
 
@@ -8,30 +9,21 @@ fn store() -> Store {
 }
 
 fn insert_user(store: &Store, handle: &str) -> i64 {
-  store
-    .with_tx(|tx| {
-      tx.execute(
-        "INSERT INTO users (handle, is_admin) VALUES (?1, 1)",
-        [handle],
-      )?;
-      Ok(tx.last_insert_rowid())
-    })
-    .unwrap()
+  common::insert(
+    store,
+    &format!("INSERT INTO users (handle, is_admin) VALUES ('{handle}', 1)"),
+  )
 }
 
 fn insert_project(store: &Store, slug: &str) -> i64 {
-  store
-    .with_tx(|tx| {
-      tx.execute("INSERT INTO projects (slug, name) VALUES (?1, ?1)", [slug])?;
-      Ok(tx.last_insert_rowid())
-    })
-    .unwrap()
+  common::insert(
+    store,
+    &format!("INSERT INTO projects (slug, name) VALUES ('{slug}', '{slug}')"),
+  )
 }
 
 fn count_users(store: &Store) -> i64 {
-  store
-    .with_conn(|conn| Ok(conn.query_row("SELECT count(*) FROM users", [], |r| r.get(0))?))
-    .unwrap()
+  common::int(store, "SELECT count(*) FROM users")
 }
 
 #[test]
@@ -45,7 +37,7 @@ fn with_tx_commits_on_ok() {
 fn with_tx_rolls_back_on_error() {
   let store = store();
   let result: Result<(), StoreError> = store.with_tx(|tx| {
-    tx.execute("INSERT INTO users (handle, is_admin) VALUES ('bob', 0)", [])?;
+    tx.batch_execute("INSERT INTO users (handle, is_admin) VALUES ('bob', 0)")?;
     Err(StoreError::Validation("abort".into()))
   });
   assert!(matches!(result, Err(StoreError::Validation(_))));

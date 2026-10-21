@@ -146,10 +146,7 @@ fn mark_done_rejects_unknown_done_or_bad_commit() {
     Err(StoreError::NotFound(_))
   ));
 
-  let revisions_before: i64 = f
-    .store
-    .with_conn(|c| Ok(c.query_row("SELECT count(*) FROM revisions", [], |r| r.get(0))?))
-    .unwrap();
+  let revisions_before: i64 = common::int(&f.store, "SELECT count(*) FROM revisions");
   f.store
     .set_spec_status(&f.owner, "demo", 1, SpecStatus::Archived)
     .unwrap();
@@ -158,10 +155,7 @@ fn mark_done_rejects_unknown_done_or_bad_commit() {
       .mark_task_done(&f.editor, "demo", 1, "T02", "abc1234"),
     Err(StoreError::Forbidden)
   ));
-  let revisions_after: i64 = f
-    .store
-    .with_conn(|c| Ok(c.query_row("SELECT count(*) FROM revisions", [], |r| r.get(0))?))
-    .unwrap();
+  let revisions_after: i64 = common::int(&f.store, "SELECT count(*) FROM revisions");
   assert_eq!(
     revisions_before, revisions_after,
     "rejected marks store nothing"
