@@ -7,7 +7,7 @@ use crate::health::{live, ready};
 use crate::hosts::check_host;
 use crate::routes::clients::{list_clients, revoke_client};
 use crate::routes::me::me;
-use crate::routes::{invitations, members, organizations};
+use crate::routes::{audit, invitations, members, organizations, projects};
 use crate::state::AppState;
 
 pub const MAX_REQUEST_BODY_BYTES: usize = 2 * 1024 * 1024;
@@ -48,6 +48,29 @@ pub fn router(state: AppState) -> Router {
     .route(
       "/api/v1/orgs/{org}/invitations/{id}/resend",
       post(invitations::resend),
+    )
+    .route(
+      "/api/v1/orgs/{org}/projects",
+      get(projects::list).post(projects::create),
+    )
+    .route("/api/v1/orgs/{org}/audit", get(audit::organization))
+    .route("/api/v1/audit", get(audit::global))
+    .route("/api/v1/projects/{org}/{project}", get(projects::read))
+    .route(
+      "/api/v1/projects/{org}/{project}/members",
+      get(projects::members),
+    )
+    .route(
+      "/api/v1/projects/{org}/{project}/members/{handle}",
+      put(projects::set_member).delete(projects::remove_member),
+    )
+    .route(
+      "/api/v1/projects/{org}/{project}/repository-url",
+      put(projects::set_repository).delete(projects::clear_repository),
+    )
+    .route(
+      "/api/v1/projects/{org}/{project}/audit",
+      get(audit::project),
     )
     .route("/api/v1/invitations", get(invitations::mine))
     .route("/api/v1/invitations/{token}", get(invitations::preview))

@@ -269,6 +269,22 @@ impl Store {
     })
   }
 
+  pub fn list_organization_projects(
+    &self,
+    caller: &Caller,
+    organization: &str,
+  ) -> StoreResult<Vec<VisibleProject>> {
+    self.with_conn(|conn| {
+      crate::store::organizations::readable_organization(conn, caller, organization)?;
+      Ok(
+        visible_projects(conn, caller)?
+          .into_iter()
+          .filter(|p| p.address.organization == organization)
+          .collect(),
+      )
+    })
+  }
+
   pub fn access(&self, caller: &Caller, slug: &str) -> StoreResult<Access> {
     self.with_conn(|conn| access_in(conn, caller, slug))
   }
