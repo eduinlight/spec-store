@@ -61,5 +61,7 @@ test: test-services test-sweep
 
 e2e: docker-up
 	pnpm exec playwright test
+	pnpm --filter landing build
+	pnpm exec lhci autorun
 
 .PHONY: e2e docker-up docker-down install uninstall reinstall test-services test-sweep openapi openapi-check lint fmt-check test

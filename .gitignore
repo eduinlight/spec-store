@@ -9,3 +9,4 @@ playwright-report
 dist
 .react-router
 build
+.lighthouseci
