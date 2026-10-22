@@ -52,6 +52,17 @@ impl Store {
     }
     let email = identity.email.to_lowercase();
     self.with_tx(|tx| {
+      let taken: i64 = users::table
+        .filter(users::handle.eq(&identity.handle))
+        .filter(users::identity_subject.ne(&identity.subject))
+        .count()
+        .get_result(tx)?;
+      if taken > 0 {
+        return Err(StoreError::Validation(format!(
+          "username {:?} already belongs to another account",
+          identity.handle
+        )));
+      }
       let row: UserRow = diesel::insert_into(users::table)
         .values((
           users::identity_subject.eq(&identity.subject),

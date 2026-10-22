@@ -72,7 +72,7 @@ Switch group (as in spec 004): T08–T17 change the persistence layer from SQLit
 
 ## Phase 7 — US-2 (P1) Sign up and sign in through the identity provider
 - [x] T49 (FR-8) Write `packages/core/tests/users.rs`: first sign-in creates the profile from the verified email, name and username; a later sign-in updates email and name; handle uniqueness — Done when: tests written and red
-- [ ] T50 (FR-8) Complete `upsert_user_from_identity` in `src/store/users.rs` — Done when: T49 tests green
+- [x] T50 (FR-8) Complete `upsert_user_from_identity` in `src/store/users.rs` — Done when: T49 tests green
 - [ ] T51 (FR-6, FR-7) Write unit tests for `src/crypto.rs` (seal/open round trip, a tampered ciphertext refused) and `tests/sessions.rs` (create session, find by secret, end, end by identity session id, login attempt refused after 10 minutes) — Done when: tests written and red
 - [ ] T52 (FR-6, FR-7) Implement `src/crypto.rs` (AES-256-GCM with `aws-lc-rs`) and `src/store/sessions.rs` (browser sessions, login attempts, sweep) — Done when: T51 tests green
 - [ ] T53 (FR-6, FR-7, FR-10) Write `apps/api/tests/http_bff.rs` (login redirects with PKCE, `return_to` and `ui_locales` from the language cookie; callback sets `__Host-spec_store_session` with `Secure`, `HttpOnly`, `SameSite=Strict`; logout ends the session and redirects to `end_session` with `id_token_hint`; back-channel logout ends matching sessions) and `tests/http_auth.rs` (cookie auth, a state-changing request without `X-Spec-Store-Request` gets 403, an expired access token is refreshed, a disabled user's refresh is refused and the session ends with 401), plus `FakeKeycloak` token and logout endpoints — Done when: tests written and red
