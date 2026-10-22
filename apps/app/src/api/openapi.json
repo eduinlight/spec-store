@@ -622,6 +622,45 @@
         }
       }
     },
+    "/api/v1/me/language": {
+      "put": {
+        "tags": [
+          "me"
+        ],
+        "operationId": "set_language",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LanguageInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {},
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/orgs": {
       "get": {
         "tags": [
@@ -3239,6 +3278,17 @@
             "items": {
               "$ref": "#/components/schemas/InvitationOutput"
             }
+          }
+        }
+      },
+      "LanguageInput": {
+        "type": "object",
+        "required": [
+          "language"
+        ],
+        "properties": {
+          "language": {
+            "type": "string"
           }
         }
       },

@@ -22,6 +22,7 @@ fn documented() -> OpenApiRouter<AppState> {
   let (import_schemas, import_paths, import_router) = routes!(transfer::import);
   OpenApiRouter::new()
     .routes(routes!(me::me))
+    .routes(routes!(me::set_language))
     .routes(routes!(clients::list_clients))
     .routes(routes!(clients::revoke_client))
     .routes(routes!(invitations::accept_pending))

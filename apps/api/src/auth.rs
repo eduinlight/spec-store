@@ -120,7 +120,7 @@ async fn from_session(
     .await?;
   Ok(Principal {
     identity: Identity {
-      subject: String::new(),
+      subject: user.subject,
       handle: user.handle,
       email: user.email,
       name: user.name,

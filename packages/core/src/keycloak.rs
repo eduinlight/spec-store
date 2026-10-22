@@ -161,6 +161,47 @@ impl KeycloakAdmin {
     Ok(token.access_token)
   }
 
+  pub async fn set_locale(&self, user_id: &str, locale: &str) -> Result<(), KeycloakError> {
+    let token = self.admin_token().await?;
+    let url = self.admin_url(&format!("/users/{}", encode_segment(user_id)));
+    let response = self
+      .http
+      .get(&url)
+      .bearer_auth(&token)
+      .send()
+      .await
+      .map_err(unavailable)?;
+    if response.status() == reqwest::StatusCode::NOT_FOUND {
+      return Err(KeycloakError::NotFound(format!("identity {user_id:?}")));
+    }
+    if !response.status().is_success() {
+      return Err(KeycloakError::Rejected(format!(
+        "reading the user answered {}",
+        response.status()
+      )));
+    }
+    let mut user: serde_json::Value = response.json().await.map_err(unavailable)?;
+    if !user["attributes"].is_object() {
+      user["attributes"] = serde_json::json!({});
+    }
+    user["attributes"]["locale"] = serde_json::json!([locale]);
+    let response = self
+      .http
+      .put(&url)
+      .bearer_auth(&token)
+      .json(&user)
+      .send()
+      .await
+      .map_err(unavailable)?;
+    if !response.status().is_success() {
+      return Err(KeycloakError::Rejected(format!(
+        "updating the user answered {}",
+        response.status()
+      )));
+    }
+    Ok(())
+  }
+
   pub async fn list_consents(&self, user_id: &str) -> Result<Vec<Consent>, KeycloakError> {
     let token = self.admin_token().await?;
     let response = self

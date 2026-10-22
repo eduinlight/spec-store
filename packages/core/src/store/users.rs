@@ -8,6 +8,7 @@ use crate::store::Store;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct User {
   pub id: i64,
+  pub subject: String,
   pub handle: String,
   pub email: String,
   pub name: String,
@@ -31,11 +32,12 @@ pub fn user_id_by_handle(conn: &mut PgConnection, handle: &str) -> StoreResult<i
     .ok_or_else(|| StoreError::NotFound(format!("user {handle:?}")))
 }
 
-type UserRow = (i64, String, String, String, String);
+type UserRow = (i64, String, String, String, String, String);
 
-fn to_user((id, handle, email, name, created_at): UserRow) -> User {
+fn to_user((id, subject, handle, email, name, created_at): UserRow) -> User {
   User {
     id,
+    subject,
     handle,
     email,
     name,
@@ -79,6 +81,7 @@ impl Store {
         ))
         .returning((
           users::id,
+          users::identity_subject,
           users::handle,
           users::email,
           users::name,
@@ -95,6 +98,7 @@ impl Store {
         .filter(users::identity_subject.eq(subject))
         .select((
           users::id,
+          users::identity_subject,
           users::handle,
           users::email,
           users::name,
@@ -113,6 +117,7 @@ impl Store {
         .filter(users::id.eq(id))
         .select((
           users::id,
+          users::identity_subject,
           users::handle,
           users::email,
           users::name,

@@ -147,6 +147,7 @@ pub struct KeycloakState {
   pub operators: Mutex<Vec<String>>,
   pub codes: Mutex<HashMap<String, (String, String, String)>>,
   pub refresh_grants: AtomicUsize,
+  pub user_attributes: Mutex<HashMap<String, Value>>,
 }
 
 fn mint_with(spec: &TokenSpec) -> String {
@@ -370,6 +371,42 @@ async fn token(
     .into_response()
 }
 
+async fn read_user(
+  State(state): State<Arc<KeycloakState>>,
+  Path((_realm, user)): Path<(String, String)>,
+  headers: HeaderMap,
+) -> Response {
+  if !admin_authorized(&headers) {
+    return StatusCode::UNAUTHORIZED.into_response();
+  }
+  let attributes = state
+    .user_attributes
+    .lock()
+    .expect("attributes")
+    .get(&user)
+    .cloned()
+    .unwrap_or_else(|| json!({ "keep": ["this"] }));
+  Json(json!({ "id": user, "username": user, "enabled": true, "attributes": attributes }))
+    .into_response()
+}
+
+async fn update_user(
+  State(state): State<Arc<KeycloakState>>,
+  Path((_realm, user)): Path<(String, String)>,
+  headers: HeaderMap,
+  Json(body): Json<Value>,
+) -> Response {
+  if !admin_authorized(&headers) {
+    return StatusCode::UNAUTHORIZED.into_response();
+  }
+  state
+    .user_attributes
+    .lock()
+    .expect("attributes")
+    .insert(user, body["attributes"].clone());
+  StatusCode::NO_CONTENT.into_response()
+}
+
 async fn list_consents(
   State(state): State<Arc<KeycloakState>>,
   Path((_realm, user)): Path<(String, String)>,
@@ -445,6 +482,7 @@ impl FakeKeycloak {
       operators: Mutex::new(Vec::new()),
       codes: Mutex::new(HashMap::new()),
       refresh_grants: AtomicUsize::new(0),
+      user_attributes: Mutex::new(HashMap::new()),
     });
     let app = Router::new()
       .route(
@@ -466,6 +504,10 @@ impl FakeKeycloak {
       .route(
         "/admin/realms/{realm}/users/{user}/consents",
         get(list_consents),
+      )
+      .route(
+        "/admin/realms/{realm}/users/{user}",
+        get(read_user).put(update_user),
       )
       .route(
         "/admin/realms/{realm}/users/{user}/consents/{client}",
@@ -586,6 +628,16 @@ impl FakeKeycloak {
       .lock()
       .expect("operators")
       .push(username.to_string());
+  }
+
+  pub fn user_attributes(&self, subject: &str) -> Option<Value> {
+    self
+      .state
+      .user_attributes
+      .lock()
+      .expect("attributes")
+      .get(subject)
+      .cloned()
   }
 
   pub fn refresh_grants(&self) -> usize {

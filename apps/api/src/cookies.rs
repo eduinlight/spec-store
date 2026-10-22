@@ -23,6 +23,29 @@ pub fn language(headers: &HeaderMap) -> &'static str {
   }
 }
 
+pub const ONE_YEAR_SECONDS: u32 = 31_536_000;
+
+pub fn parent_domain(url: &str) -> Option<String> {
+  let host = url.split("://").nth(1)?.split(['/', ':']).next()?;
+  if host == "localhost" || host.chars().all(|c| c.is_ascii_digit() || c == '.') {
+    return None;
+  }
+  let labels: Vec<&str> = host.split('.').collect();
+  (labels.len() >= 2).then(|| labels[labels.len() - 2..].join("."))
+}
+
+pub fn language_cookie(language: &str, app_url: &str) -> String {
+  let mut cookie =
+    format!("{LANGUAGE_COOKIE}={language}; Path=/; Max-Age={ONE_YEAR_SECONDS}; SameSite=Lax");
+  if let Some(domain) = parent_domain(app_url) {
+    cookie.push_str(&format!("; Domain={domain}"));
+  }
+  if app_url.starts_with("https://") {
+    cookie.push_str("; Secure");
+  }
+  cookie
+}
+
 pub fn session_cookie(secret: &str) -> String {
   format!("{SESSION_COOKIE}={secret}; Path=/; Secure; HttpOnly; SameSite=Strict")
 }
@@ -36,6 +59,17 @@ mod tests {
   use axum::http::HeaderValue;
 
   use super::*;
+
+  #[test]
+  fn language_cookies_cover_the_parent_domain() {
+    assert_eq!(
+      parent_domain("https://app-spec-store.eduindev.com").as_deref(),
+      Some("eduindev.com")
+    );
+    assert_eq!(parent_domain("http://localhost:5173"), None);
+    let cookie = language_cookie("es", "https://app-spec-store.eduindev.com");
+    assert!(cookie.contains("Domain=eduindev.com") && cookie.contains("Secure"));
+  }
 
   #[test]
   fn reads_named_cookies_and_the_language() {
