@@ -75,10 +75,10 @@ pub fn organization(store: &Store, owner: &Caller, slug: &str) {
     .expect("create organization");
 }
 
-pub fn join(store: &Store, owner: &Caller, org: &str, member: &Caller) {
+pub fn join(store: &Store, _owner: &Caller, org: &str, member: &Caller) {
   store
-    .set_organization_member(owner, org, &member.handle, OrgRole::Member)
-    .expect("add organization member");
+    .admit_organization_member(org, member.user_id, OrgRole::Member)
+    .expect("admit organization member");
 }
 
 pub fn temp_dir(label: &str) -> PathBuf {
