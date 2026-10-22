@@ -31,7 +31,10 @@ services:
       retries: 30
 
   keycloak:
-    image: quay.io/keycloak/keycloak:26.8.1
+    image: spec-store-keycloak:dev
+    build:
+      context: .
+      dockerfile: deploy/keycloak/Dockerfile
     restart: unless-stopped
     command: ["start-dev", "--import-realm"]
     depends_on:
@@ -57,6 +60,11 @@ services:
       SMTP_FROM: no-reply@spec-store.local
       SPEC_STORE_APP_CLIENT_SECRET: ${SPEC_STORE_APP_CLIENT_SECRET:-${KEYCLOAK_APP_CLIENT_SECRET}}
       SPEC_STORE_ADMIN_CLIENT_SECRET: ${SPEC_STORE_ADMIN_CLIENT_SECRET:-${KEYCLOAK_ADMIN_CLIENT_SECRET}}
+      KEYCLOAK_THEME: spec-store
+      KEYCLOAK_EMAIL_THEME: spec-store
+      KC_SPI_THEME__CACHE_THEMES: "false"
+      KC_SPI_THEME__CACHE_TEMPLATES: "false"
+      KC_SPI_THEME__STATIC_MAX_AGE: "-1"
     volumes:
       - ./deploy/keycloak/realm/spec-store.json:/opt/keycloak/data/import/spec-store-realm.json:ro
       - ./deploy/keycloak/dev/spec-store-users-0.json:/opt/keycloak/data/import/spec-store-users-0.json:ro

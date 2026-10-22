@@ -1,0 +1,4 @@
+*
+!deploy/keycloak/themes/**
+!deploy/keycloak/realm/**
+!packages/ui/src/styles/tokens.css
