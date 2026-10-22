@@ -4,9 +4,15 @@ import * as diff from "~/routes/diff";
 import * as document from "~/routes/document";
 import * as history from "~/routes/history";
 import * as home from "~/routes/home";
+import * as invitationAccept from "~/routes/invitation-accept";
+import * as invitations from "~/routes/invitations";
+import * as members from "~/routes/members";
 import * as onboarding from "~/routes/onboarding";
 import * as organization from "~/routes/organization";
+import * as profile from "~/routes/profile";
 import * as project from "~/routes/project";
+import * as projectNew from "~/routes/project-new";
+import * as projectSettings from "~/routes/project-settings";
 import * as revision from "~/routes/revision";
 import * as root from "~/routes/root";
 import * as spec from "~/routes/spec";
@@ -31,6 +37,41 @@ export const routes: RouteObject[] = [
           },
           { path: "o/:org", loader: organization.loader, Component: organization.Organization },
           { path: "o/:org/audit", loader: audit.loader, Component: audit.Audit },
+          {
+            path: "o/:org/members",
+            loader: members.loader,
+            action: members.action,
+            Component: members.Members,
+          },
+          {
+            path: "o/:org/invitations",
+            loader: invitations.loader,
+            action: invitations.action,
+            Component: invitations.Invitations,
+          },
+          {
+            path: "o/:org/projects/new",
+            action: projectNew.action,
+            Component: projectNew.ProjectNew,
+          },
+          {
+            path: "invitations/:token",
+            loader: invitationAccept.loader,
+            action: invitationAccept.action,
+            Component: invitationAccept.InvitationAccept,
+          },
+          {
+            path: "profile",
+            loader: profile.loader,
+            action: profile.action,
+            Component: profile.Profile,
+          },
+          {
+            path: "p/:org/:project/settings",
+            loader: projectSettings.loader,
+            action: projectSettings.action,
+            Component: projectSettings.ProjectSettings,
+          },
           { path: "p/:org/:project", loader: project.loader, Component: project.Project },
           {
             path: "p/:org/:project/constitution",

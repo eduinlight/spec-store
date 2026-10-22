@@ -96,8 +96,8 @@ Switch group (as in spec 004): T08–T17 change the persistence layer from SQLit
 - [x] T69 (FR-22) Implement `apps/app/src/routes/{project,spec,document}.tsx` — Done when: the project, spec and document tests of T68 are green
 - [x] T70 (FR-22) Implement `apps/app/src/routes/{history,revision,diff,audit}.tsx` — Done when: all T68 tests green
 - [x] T71 (FR-12, FR-36, FR-38) Write `apps/app` tests for members and invitations management, invitation acceptance and decline, project creation, project roles, repository URL, the profile's authorized clients with revoke, and the absence of any document-writing control — Done when: tests written and red
-- [ ] T72 (FR-36) Implement `apps/app/src/routes/{members,invitations,invitation-accept,project-new,project-settings}.tsx` — Done when: the management tests of T71 are green
-- [ ] T73 (FR-12, FR-24, FR-38) Implement `apps/app/src/routes/profile.tsx` (authorized clients, revoke) and the language switcher in the layout — Done when: all T71 tests green
+- [x] T72 (FR-36) Implement `apps/app/src/routes/{members,invitations,invitation-accept,project-new,project-settings}.tsx` — Done when: the management tests of T71 are green
+- [x] T73 (FR-12, FR-24, FR-38) Implement `apps/app/src/routes/profile.tsx` (authorized clients, revoke) and the language switcher in the layout — Done when: all T71 tests green
 - [ ] T74 (FR-6, FR-7, FR-9) Write `e2e/sign-in.spec.ts` (Playwright, run by `make e2e`): sign up, verify the email through Mailpit, land in the app on the requested screen, sign out, then a protected screen asks for credentials again; a Spanish run screenshots the sign-in page — Done when: `make e2e` sign-in suite green against compose
 
 ## Phase 9 — US-7 (P2) Public landing page
