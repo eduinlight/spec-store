@@ -164,6 +164,45 @@ impl TestApp {
   }
 }
 
+impl TestApp {
+  pub fn person(&self, handle: &str) -> spec_store_core::model::Caller {
+    self
+      .state
+      .store
+      .caller_for(
+        &spec_store_core::store::users::Identity {
+          subject: format!("subject-{handle}"),
+          handle: handle.to_string(),
+          email: format!("{handle}@example.com"),
+          name: handle.to_string(),
+        },
+        false,
+      )
+      .unwrap()
+  }
+
+  pub fn admit(&self, org: &str, handle: &str) {
+    let caller = self.person(handle);
+    self
+      .state
+      .store
+      .admit_organization_member(org, caller.user_id, spec_store_core::model::OrgRole::Member)
+      .unwrap();
+  }
+
+  pub async fn organization(&self, owner: &str, slug: &str) {
+    let response = self
+      .json(
+        "POST",
+        "/api/v1/orgs",
+        owner,
+        serde_json::json!({"slug": slug, "name": slug}),
+      )
+      .await;
+    assert_eq!(response.status(), axum::http::StatusCode::CREATED);
+  }
+}
+
 pub async fn body_text(response: Response<Body>) -> String {
   let bytes = response
     .into_body()

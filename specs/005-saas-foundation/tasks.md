@@ -57,7 +57,7 @@ Switch group (as in spec 004): T08–T17 change the persistence layer from SQLit
 - [x] T36 (FR-1, FR-2, FR-3, FR-5) Write `apps/api/tests/http_orgs.rs` and `tests/http_invitations.rs` (invitation email visible in Mailpit within 5 minutes with organization, inviter and acceptance link, in the inviter's language; resend; mail service down → invitation recorded and sent after it returns) — Done when: tests written and red
 - [x] T37 (FR-2) Implement `packages/core/src/email.rs` (en/es invitation message, `lettre` SMTP) and `apps/api/src/outbox.rs` (sender loop every 10 s, backoff, failure logged without the address in clear) — Done when: the email tests of T36 are green
 - [x] T38 (FR-1, FR-2, FR-3) Implement `apps/api/src/routes/{organizations,invitations,members}.rs` — Done when: all T36 tests green
-- [ ] T39 (FR-4, FR-5, FR-17) Write `apps/api/tests/http_projects.rs` (create, members, repository URL, other tenant 404, operator read 200 and write 403) and `tests/http_audit.rs` — Done when: tests written and red
+- [x] T39 (FR-4, FR-5, FR-17) Write `apps/api/tests/http_projects.rs` (create, members, repository URL, other tenant 404, operator read 200 and write 403) and `tests/http_audit.rs` — Done when: tests written and red
 - [ ] T40 (FR-4, FR-5, FR-17) Implement `apps/api/src/routes/{projects,audit}.rs` — Done when: T39 tests green
 - [ ] T41 (FR-5) Write `apps/mcp/tests/mcp_tenancy.rs` (an agent of organization A lists and addresses nothing of organization B) — Done when: test green
 
