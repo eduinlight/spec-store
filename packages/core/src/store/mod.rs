@@ -1,3 +1,4 @@
+pub mod audit;
 pub mod documents;
 pub mod invitations;
 pub mod organizations;
@@ -98,8 +99,18 @@ type AuditRow = (
   String,
 );
 
-fn audit_entries(
+pub(crate) fn audit_entries(
   conn: &mut PgConnection,
+  project_id: Option<i64>,
+  before: Option<i64>,
+  limit: i64,
+) -> StoreResult<Vec<AuditEntry>> {
+  filtered_audit_entries(conn, None, project_id, before, limit)
+}
+
+pub(crate) fn filtered_audit_entries(
+  conn: &mut PgConnection,
+  organization_id: Option<i64>,
   project_id: Option<i64>,
   before: Option<i64>,
   limit: i64,
@@ -120,6 +131,9 @@ fn audit_entries(
     .order(schema::audit_log::id.desc())
     .limit(limit)
     .into_boxed();
+  if let Some(organization_id) = organization_id {
+    query = query.filter(schema::audit_log::organization_id.eq(organization_id));
+  }
   if let Some(project_id) = project_id {
     query = query.filter(schema::audit_log::project_id.eq(project_id));
   }
