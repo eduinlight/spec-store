@@ -1,0 +1,1 @@
+import{D as e,t}from"./jsx-runtime-DmOl4kLj.js";import{n,r,t as i}from"./landing-C_qCBN4o.js";var a=t();function o(){return r(`es`)}function s(){return n()}var c=e(function(){return(0,a.jsx)(i,{language:`es`})});export{c as default,s as links,o as meta};

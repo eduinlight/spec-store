@@ -102,7 +102,7 @@ Switch group (as in spec 004): T08–T17 change the persistence layer from SQLit
 
 ## Phase 9 — US-7 (P2) Public landing page
 - [x] T75 (FR-24, FR-25) Scaffold `apps/landing` (React Router 7.18 framework mode, `ssr: false`, `prerender: ["/", "/es"]`, Tailwind with `@workspace/ui`) and write `prerender.test.ts` (built `index.html` and `es/index.html` contain the headline, body copy, and sign-up and sign-in links to the identity provider) and the i18n parity test — Done when: tests written and red
-- [ ] T76 (FR-24, FR-25) Implement `app/root.tsx`, `app/routes/home.tsx` with placeholder copy in en/es, `hreflang` links, and sign-up and sign-in actions pointing at `/auth/login` on the app host (with `kc_action=register` for sign-up) — Done when: T75 tests green
+- [x] T76 (FR-24, FR-25) Implement `app/root.tsx`, `app/routes/home.tsx` with placeholder copy in en/es, `hreflang` links, and sign-up and sign-in actions pointing at `/auth/login` on the app host (with `kc_action=register` for sign-up) — Done when: T75 tests green
 - [ ] T77 (FR-25, NFR-7) Write `deploy/landing.conf` (static files plus a language redirect map: cookie, then `Accept-Language`) and `deploy/landing/Dockerfile`, and add Lighthouse CI (`lighthouserc.json`, error at 0.9 for performance and accessibility on mobile) to `make e2e` — Done when: `make e2e` Lighthouse step passes on the built landing
 
 ## Phase 10 — US-8 (P2) One repository, one entry point

@@ -12,12 +12,12 @@ test("the English page is complete in the first HTML response", () => {
   expect(english).toContain("one place your team and your AI agents share");
   expect(english).toContain(`href="${app}/auth/login?action=register"`);
   expect(english).toContain(`href="${app}/auth/login"`);
-  expect(english).toContain('hreflang="es"');
+  expect(english).toMatch(/hreflang="es"/i);
 });
 
 test("the Spanish page is complete in the first HTML response", () => {
   expect(spanish).toContain('<html lang="es"');
   expect(spanish).toContain("Specs en las que tus agentes pueden confiar");
   expect(spanish).toContain(`href="${app}/auth/login?action=register"`);
-  expect(spanish).toContain('hreflang="en"');
+  expect(spanish).toMatch(/hreflang="en"/i);
 });

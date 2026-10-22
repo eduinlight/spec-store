@@ -1,7 +1,7 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "types": ["node", "vite/client"],
+    "types": ["node", "vite/client", "vitest/globals"],
     "rootDirs": [".", "./.react-router/types"],
     "paths": {
       "@workspace/ui/*": ["../../packages/ui/src/*"],
