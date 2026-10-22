@@ -3,9 +3,13 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use axum::extract::State;
-use axum::routing::get;
-use axum::{Json, Router};
+use std::collections::HashMap;
+
+use axum::extract::{Path, State};
+use axum::http::{HeaderMap, StatusCode};
+use axum::response::{IntoResponse, Response};
+use axum::routing::{delete, get, post};
+use axum::{Form, Json, Router};
 use jsonwebtoken::{Algorithm, EncodingKey, Header};
 use serde_json::{Value, json};
 use tokio::task::JoinHandle;
@@ -114,9 +118,82 @@ pub fn now_seconds() -> i64 {
     .as_secs() as i64
 }
 
+pub const ADMIN_CLIENT_ID: &str = "spec-store-api-admin";
+pub const ADMIN_CLIENT_SECRET: &str = "admin-secret";
+const ADMIN_TOKEN: &str = "fake-admin-token";
+
 pub struct KeycloakState {
   pub published: Mutex<Vec<TestKey>>,
   pub jwks_fetches: AtomicUsize,
+  pub consents: Mutex<HashMap<String, Vec<Value>>>,
+  pub admin_token_requests: AtomicUsize,
+}
+
+fn admin_authorized(headers: &HeaderMap) -> bool {
+  headers
+    .get("authorization")
+    .and_then(|v| v.to_str().ok())
+    .is_some_and(|v| v == format!("Bearer {ADMIN_TOKEN}"))
+}
+
+async fn token(
+  State(state): State<Arc<KeycloakState>>,
+  Form(form): Form<HashMap<String, String>>,
+) -> Response {
+  let grant = form.get("grant_type").map(String::as_str);
+  if grant == Some("client_credentials")
+    && form.get("client_id").map(String::as_str) == Some(ADMIN_CLIENT_ID)
+    && form.get("client_secret").map(String::as_str) == Some(ADMIN_CLIENT_SECRET)
+  {
+    state.admin_token_requests.fetch_add(1, Ordering::SeqCst);
+    return Json(json!({ "access_token": ADMIN_TOKEN, "expires_in": 300, "token_type": "Bearer" }))
+      .into_response();
+  }
+  (
+    StatusCode::UNAUTHORIZED,
+    Json(json!({ "error": "unauthorized_client" })),
+  )
+    .into_response()
+}
+
+async fn list_consents(
+  State(state): State<Arc<KeycloakState>>,
+  Path((_realm, user)): Path<(String, String)>,
+  headers: HeaderMap,
+) -> Response {
+  if !admin_authorized(&headers) {
+    return StatusCode::UNAUTHORIZED.into_response();
+  }
+  let consents = state
+    .consents
+    .lock()
+    .expect("consents")
+    .get(&user)
+    .cloned()
+    .unwrap_or_default();
+  Json(Value::Array(consents)).into_response()
+}
+
+async fn revoke_consent(
+  State(state): State<Arc<KeycloakState>>,
+  Path((_realm, user, client)): Path<(String, String, String)>,
+  headers: HeaderMap,
+) -> Response {
+  if !admin_authorized(&headers) {
+    return StatusCode::UNAUTHORIZED.into_response();
+  }
+  let mut consents = state.consents.lock().expect("consents");
+  let entries = consents.entry(user).or_default();
+  let before = entries.len();
+  entries.retain(|c| c["clientId"] != client.as_str());
+  if entries.len() == before {
+    return (
+      StatusCode::NOT_FOUND,
+      Json(json!({ "error": "Consent nor offline token not found" })),
+    )
+      .into_response();
+  }
+  StatusCode::NO_CONTENT.into_response()
 }
 
 pub struct FakeKeycloak {
@@ -143,11 +220,25 @@ impl FakeKeycloak {
     let state = Arc::new(KeycloakState {
       published: Mutex::new(vec![TestKey::A]),
       jwks_fetches: AtomicUsize::new(0),
+      consents: Mutex::new(HashMap::new()),
+      admin_token_requests: AtomicUsize::new(0),
     });
     let app = Router::new()
       .route(
         &format!("/realms/{REALM}/protocol/openid-connect/certs"),
         get(jwks),
+      )
+      .route(
+        &format!("/realms/{REALM}/protocol/openid-connect/token"),
+        post(token),
+      )
+      .route(
+        "/admin/realms/{realm}/users/{user}/consents",
+        get(list_consents),
+      )
+      .route(
+        "/admin/realms/{realm}/users/{user}/consents/{client}",
+        delete(revoke_consent),
       )
       .with_state(Arc::clone(&state));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
@@ -178,6 +269,38 @@ impl FakeKeycloak {
     if !published.contains(&key) {
       published.push(key);
     }
+  }
+
+  pub fn grant_consent(&self, subject: &str, client_id: &str, name: &str) {
+    self
+      .state
+      .consents
+      .lock()
+      .expect("consents")
+      .entry(subject.to_string())
+      .or_default()
+      .push(json!({
+        "clientId": client_id,
+        "clientName": name,
+        "grantedClientScopes": ["openid", "spec-store-mcp", "offline_access"],
+        "createdDate": 1_760_000_000_000_i64,
+        "lastUpdatedDate": 1_760_000_500_000_i64,
+      }));
+  }
+
+  pub fn consent_client_ids(&self, subject: &str) -> Vec<String> {
+    self
+      .state
+      .consents
+      .lock()
+      .expect("consents")
+      .get(subject)
+      .map(|c| {
+        c.iter()
+          .map(|v| v["clientId"].as_str().unwrap_or_default().to_string())
+          .collect()
+      })
+      .unwrap_or_default()
   }
 
   pub fn jwks_fetches(&self) -> usize {

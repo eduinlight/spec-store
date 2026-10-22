@@ -9,7 +9,9 @@ use http_body_util::BodyExt;
 use serde_json::Value;
 use spec_store_api::{ApiConfig, AppState, router};
 use spec_store_core::identity::{IdentityConfig, Verifier};
+use spec_store_core::keycloak::{AdminConfig, KeycloakAdmin};
 use spec_store_core::store::Store;
+use spec_store_testkit::keycloak::{ADMIN_CLIENT_ID, ADMIN_CLIENT_SECRET, REALM};
 use spec_store_testkit::{FakeKeycloak, TestDb, TokenSpec};
 use tower::ServiceExt;
 
@@ -43,7 +45,13 @@ pub async fn app_with(config: ApiConfig, verifier: Option<Verifier>) -> TestApp 
       jwks_url: keycloak.jwks_url(),
     })
   });
-  let state = AppState::new(store, Arc::new(verifier), config);
+  let admin = KeycloakAdmin::new(AdminConfig {
+    base_url: keycloak.base_url.clone(),
+    realm: REALM.into(),
+    client_id: ADMIN_CLIENT_ID.into(),
+    client_secret: ADMIN_CLIENT_SECRET.into(),
+  });
+  let state = AppState::new(store, Arc::new(verifier), config).with_keycloak_admin(Arc::new(admin));
   TestApp {
     router: router(state.clone()),
     state,
@@ -68,6 +76,20 @@ impl TestApp {
       .oneshot(request)
       .await
       .expect("response")
+  }
+
+  pub async fn authorized(&self, method: &str, path: &str, username: &str) -> Response<Body> {
+    self
+      .send(
+        Request::builder()
+          .method(method)
+          .uri(path)
+          .header("host", "api.example.test")
+          .header("authorization", format!("Bearer {}", self.token(username)))
+          .body(Body::empty())
+          .unwrap(),
+      )
+      .await
   }
 
   pub async fn get(&self, path: &str) -> Response<Body> {
