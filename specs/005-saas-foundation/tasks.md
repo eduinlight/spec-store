@@ -63,7 +63,7 @@ Switch group (as in spec 004): T08–T17 change the persistence layer from SQLit
 
 ## Phase 6 — US-4 (P1) The CLI works against the hosted service
 - [x] T42 (FR-13) Add `apps/cli` as a workspace member (crate `spec-store-cli`, bin `spec-store`); write `tests/cli_login.rs` (device code and address printed, success after approval, timeout error after the lifespan, credentials file mode 0600 in the fallback store, `logout` removes them) and `FakeKeycloak` device endpoints — Done when: tests written and red
-- [ ] T43 (FR-13) Implement `apps/cli/src/login.rs` (device flow with `reqwest`, polling interval, keyring with 0600-file fallback) and `login`, `logout`, `whoami` in `cli.rs` — Done when: T42 tests green
+- [x] T43 (FR-13) Implement `apps/cli/src/login.rs` (device flow with `reqwest`, polling interval, keyring with 0600-file fallback) and `login`, `logout`, `whoami` in `cli.rs` — Done when: T42 tests green
 - [ ] T44 (FR-14) Write `apps/cli/tests/cli_commands.rs` with one case per command in plan §6.3 except import/export, running against the in-process API — Done when: tests written and red
 - [ ] T45 (FR-14) Implement `apps/cli/src/client.rs` (bearer with transparent refresh, exit code 1 and stderr message on error) and the organization, project and audit commands in `cli.rs` — Done when: T44 tests green
 - [ ] T46 (FR-15) Port `apps/cli/tests/cli_transfer.rs` to the API (spec 003 FR-1–FR-21, byte-identical round trip) and write `apps/api/tests/http_transfer.rs` (import refused with cookie auth, dry run, owner only) — Done when: tests written and red

@@ -261,6 +261,51 @@ async fn token(
   Form(form): Form<HashMap<String, String>>,
 ) -> Response {
   let grant = form.get("grant_type").map(String::as_str);
+  if grant == Some("urn:ietf:params:oauth:grant-type:device_code") {
+    let code = form.get("device_code").cloned().unwrap_or_default();
+    let found = state
+      .devices
+      .lock()
+      .expect("devices")
+      .iter()
+      .find(|d| d.device_code == code)
+      .cloned();
+    return match found {
+      None => oauth_error("invalid_grant"),
+      Some(grant) if grant.expires_at <= now_seconds() => oauth_error("expired_token"),
+      Some(DeviceGrant {
+        approved_for: None, ..
+      }) => oauth_error("authorization_pending"),
+      Some(DeviceGrant {
+        approved_for: Some(username),
+        ..
+      }) => {
+        state
+          .devices
+          .lock()
+          .expect("devices")
+          .retain(|d| d.device_code != code);
+        Json(token_pair(&state, &username)).into_response()
+      }
+    };
+  }
+  if grant == Some("refresh_token") {
+    let refresh = form.get("refresh_token").cloned().unwrap_or_default();
+    let username = state
+      .refresh_tokens
+      .lock()
+      .expect("refresh tokens")
+      .remove(&refresh);
+    return match username {
+      Some(username) if state.disabled.lock().expect("disabled").contains(&username) => (
+        StatusCode::BAD_REQUEST,
+        Json(json!({ "error": "invalid_grant", "error_description": "User disabled" })),
+      )
+        .into_response(),
+      Some(username) => Json(token_pair(&state, &username)).into_response(),
+      None => oauth_error("invalid_grant"),
+    };
+  }
   if grant == Some("client_credentials")
     && form.get("client_id").map(String::as_str) == Some(ADMIN_CLIENT_ID)
     && form.get("client_secret").map(String::as_str) == Some(ADMIN_CLIENT_SECRET)
