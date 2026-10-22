@@ -281,12 +281,14 @@ impl Store {
       queue_email(
         tx,
         actor,
-        organization_id,
-        &email,
-        language,
-        &token,
-        &expires_at,
-        accept_base_url,
+        InvitationEmail {
+          organization_id,
+          email: &email,
+          language,
+          token: &token,
+          expires_at: &expires_at,
+          accept_base_url,
+        },
       )?;
       audit_in(
         tx,
@@ -371,12 +373,14 @@ impl Store {
       queue_email(
         tx,
         actor,
-        found_org,
-        &preview.email,
-        &language,
-        &token,
-        &preview.expires_at,
-        accept_base_url,
+        InvitationEmail {
+          organization_id: found_org,
+          email: &preview.email,
+          language: &language,
+          token: &token,
+          expires_at: &preview.expires_at,
+          accept_base_url,
+        },
       )?;
       audit_in(
         tx,
