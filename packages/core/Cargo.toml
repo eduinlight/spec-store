@@ -8,6 +8,11 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+jsonwebtoken = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
 diesel = { workspace = true }
 diesel_migrations = { version = "2.3", features = ["postgres"] }
 sha2 = "0.11"

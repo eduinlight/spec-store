@@ -1,6 +1,8 @@
 pub mod address;
+pub mod config;
 pub mod db;
 pub mod diff;
+pub mod identity;
 pub mod markdown;
 pub mod model;
 pub mod schema;
