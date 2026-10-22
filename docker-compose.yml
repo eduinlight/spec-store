@@ -51,10 +51,10 @@ services:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
       KC_HOSTNAME: http://localhost:${KEYCLOAK_PORT:-58080}
-      MCP_RESOURCE: ${MCP_RESOURCE:-http://localhost:4100/mcp}
+      MCP_RESOURCE: ${MCP_RESOURCE:-http://localhost:54100/mcp}
       APP_URL: ${APP_URL:-http://localhost:5173}
       LANDING_URL: ${LANDING_URL:-http://localhost:5174}
-      API_INTERNAL_URL: ${API_INTERNAL_URL:-http://host.docker.internal:4000}
+      API_INTERNAL_URL: ${API_INTERNAL_URL:-http://host.docker.internal:54000}
       SMTP_HOST: mailpit
       SMTP_PORT: "1025"
       SMTP_FROM: no-reply@spec-store.local

@@ -10,3 +10,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const first = organizations[0];
   return first ? redirect(`/o/${first.slug}`) : redirect("/onboarding");
 }
+
+export function Home() {
+  return null;
+}

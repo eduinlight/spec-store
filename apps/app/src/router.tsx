@@ -28,7 +28,7 @@ export const routes: RouteObject[] = [
       {
         errorElement: <root.RouteError />,
         children: [
-          { index: true, loader: home.loader },
+          { index: true, loader: home.loader, Component: home.Home },
           {
             path: "onboarding",
             loader: onboarding.loader,

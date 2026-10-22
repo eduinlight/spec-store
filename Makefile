@@ -59,4 +59,7 @@ test: test-services test-sweep
 	cargo test --workspace --locked
 	pnpm -r --if-present test
 
-.PHONY: docker-up docker-down install uninstall reinstall test-services test-sweep openapi openapi-check lint fmt-check test
+e2e: docker-up
+	pnpm exec playwright test
+
+.PHONY: e2e docker-up docker-down install uninstall reinstall test-services test-sweep openapi openapi-check lint fmt-check test
