@@ -47,6 +47,24 @@ pub enum Command {
   Project(ProjectCommand),
   #[command(subcommand, about = "Audit trail")]
   Audit(AuditCommand),
+  #[command(about = "Import a project directory: docs/constitution.md and specs/NNN-name/*.md")]
+  Import {
+    project: String,
+    dir: std::path::PathBuf,
+    #[arg(long)]
+    constitution_version: Option<String>,
+    #[arg(long)]
+    dry_run: bool,
+  },
+  #[command(about = "Export the current documents of a project to a directory")]
+  Export {
+    project: String,
+    dir: std::path::PathBuf,
+    #[arg(long)]
+    spec: Option<i64>,
+    #[arg(long)]
+    force: bool,
+  },
 }
 
 #[derive(Subcommand, Debug)]
@@ -182,6 +200,27 @@ pub async fn run(cli: Cli) -> anyhow::Result<()> {
     }
     Command::Org(command) => run_org(&mut cli.client()?, command).await,
     Command::Project(command) => run_project(&mut cli.client()?, command).await,
+    Command::Import {
+      project,
+      dir,
+      constitution_version,
+      dry_run,
+    } => {
+      crate::transfer::import(
+        &mut cli.client()?,
+        project,
+        dir,
+        constitution_version.clone(),
+        *dry_run,
+      )
+      .await
+    }
+    Command::Export {
+      project,
+      dir,
+      spec,
+      force,
+    } => crate::transfer::export(&mut cli.client()?, project, dir, *spec, *force).await,
     Command::Audit(AuditCommand::List {
       org,
       project,
