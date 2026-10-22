@@ -122,11 +122,131 @@ pub const ADMIN_CLIENT_ID: &str = "spec-store-api-admin";
 pub const ADMIN_CLIENT_SECRET: &str = "admin-secret";
 const ADMIN_TOKEN: &str = "fake-admin-token";
 
+pub const CLI_CLIENT_ID: &str = "spec-store-cli";
+pub const CLI_AUDIENCE: &str = "spec-store-api";
+
+#[derive(Debug, Clone)]
+pub struct DeviceGrant {
+  pub device_code: String,
+  pub user_code: String,
+  pub expires_at: i64,
+  pub approved_for: Option<String>,
+}
+
 pub struct KeycloakState {
   pub published: Mutex<Vec<TestKey>>,
   pub jwks_fetches: AtomicUsize,
   pub consents: Mutex<HashMap<String, Vec<Value>>>,
   pub admin_token_requests: AtomicUsize,
+  pub issuer: Mutex<String>,
+  pub devices: Mutex<Vec<DeviceGrant>>,
+  pub device_lifespan: Mutex<i64>,
+  pub refresh_tokens: Mutex<HashMap<String, String>>,
+  pub revoked_refresh_tokens: Mutex<Vec<String>>,
+  pub disabled: Mutex<Vec<String>>,
+}
+
+fn sign(state: &KeycloakState, username: &str, audience: &str) -> String {
+  let issuer = state.issuer.lock().expect("issuer").clone();
+  let mut spec = TokenSpec::new(username, audience).issuer(&issuer);
+  spec.client_id = CLI_CLIENT_ID.into();
+  mint_with(&spec)
+}
+
+fn mint_with(spec: &TokenSpec) -> String {
+  let now = now_seconds();
+  let claims = json!({
+    "iss": spec.issuer.clone().unwrap_or_default(),
+    "sub": spec.subject,
+    "aud": spec.audience,
+    "exp": now + spec.ttl_seconds,
+    "iat": now,
+    "azp": spec.client_id,
+    "sid": spec.session_id,
+    "preferred_username": spec.username,
+    "email": spec.email,
+    "email_verified": true,
+    "name": spec.name,
+    "realm_access": { "roles": spec.roles },
+  });
+  let mut header = Header::new(Algorithm::RS256);
+  header.kid = Some(spec.key.kid().to_string());
+  let key = EncodingKey::from_rsa_pem(spec.key.pem().as_bytes()).expect("test key");
+  jsonwebtoken::encode(&header, &claims, &key).expect("sign token")
+}
+
+fn token_pair(state: &KeycloakState, username: &str) -> Value {
+  let refresh = format!("refresh-{username}-{}", now_seconds_nanos());
+  state
+    .refresh_tokens
+    .lock()
+    .expect("refresh tokens")
+    .insert(refresh.clone(), username.to_string());
+  json!({
+    "access_token": sign(state, username, CLI_AUDIENCE),
+    "refresh_token": refresh,
+    "expires_in": 300,
+    "refresh_expires_in": 0,
+    "token_type": "Bearer",
+  })
+}
+
+fn now_seconds_nanos() -> u128 {
+  SystemTime::now()
+    .duration_since(UNIX_EPOCH)
+    .expect("clock")
+    .as_nanos()
+}
+
+fn oauth_error(error: &str) -> Response {
+  (StatusCode::BAD_REQUEST, Json(json!({ "error": error }))).into_response()
+}
+
+async fn device_authorization(
+  State(state): State<Arc<KeycloakState>>,
+  Form(form): Form<HashMap<String, String>>,
+) -> Response {
+  if form.get("client_id").map(String::as_str) != Some(CLI_CLIENT_ID) {
+    return oauth_error("invalid_client");
+  }
+  let n = now_seconds_nanos();
+  let lifespan = *state.device_lifespan.lock().expect("lifespan");
+  let grant = DeviceGrant {
+    device_code: format!("device-{n}"),
+    user_code: format!("CODE-{}", n % 10_000),
+    expires_at: now_seconds() + lifespan,
+    approved_for: None,
+  };
+  state.devices.lock().expect("devices").push(grant.clone());
+  let issuer = state.issuer.lock().expect("issuer").clone();
+  Json(json!({
+    "device_code": grant.device_code,
+    "user_code": grant.user_code,
+    "verification_uri": format!("{issuer}/device"),
+    "verification_uri_complete": format!("{issuer}/device?user_code={}", grant.user_code),
+    "expires_in": lifespan,
+    "interval": 1,
+  }))
+  .into_response()
+}
+
+async fn logout(
+  State(state): State<Arc<KeycloakState>>,
+  Form(form): Form<HashMap<String, String>>,
+) -> Response {
+  if let Some(refresh) = form.get("refresh_token") {
+    state
+      .revoked_refresh_tokens
+      .lock()
+      .expect("revoked")
+      .push(refresh.clone());
+    state
+      .refresh_tokens
+      .lock()
+      .expect("refresh tokens")
+      .remove(refresh);
+  }
+  StatusCode::NO_CONTENT.into_response()
 }
 
 fn admin_authorized(headers: &HeaderMap) -> bool {
@@ -222,6 +342,12 @@ impl FakeKeycloak {
       jwks_fetches: AtomicUsize::new(0),
       consents: Mutex::new(HashMap::new()),
       admin_token_requests: AtomicUsize::new(0),
+      issuer: Mutex::new(String::new()),
+      devices: Mutex::new(Vec::new()),
+      device_lifespan: Mutex::new(600),
+      refresh_tokens: Mutex::new(HashMap::new()),
+      revoked_refresh_tokens: Mutex::new(Vec::new()),
+      disabled: Mutex::new(Vec::new()),
     });
     let app = Router::new()
       .route(
@@ -231,6 +357,14 @@ impl FakeKeycloak {
       .route(
         &format!("/realms/{REALM}/protocol/openid-connect/token"),
         post(token),
+      )
+      .route(
+        &format!("/realms/{REALM}/protocol/openid-connect/auth/device"),
+        post(device_authorization),
+      )
+      .route(
+        &format!("/realms/{REALM}/protocol/openid-connect/logout"),
+        post(logout),
       )
       .route(
         "/admin/realms/{realm}/users/{user}/consents",
@@ -248,6 +382,7 @@ impl FakeKeycloak {
     let server = tokio::spawn(async move {
       axum::serve(listener, app).await.expect("fake keycloak");
     });
+    *state.issuer.lock().expect("issuer") = format!("http://{address}/realms/{REALM}");
     FakeKeycloak {
       base_url: format!("http://{address}"),
       address,
@@ -303,30 +438,56 @@ impl FakeKeycloak {
       .unwrap_or_default()
   }
 
+  pub fn set_device_lifespan(&self, seconds: i64) {
+    *self.state.device_lifespan.lock().expect("lifespan") = seconds;
+  }
+
+  pub fn approve_device(&self, user_code: &str, username: &str) -> bool {
+    let mut devices = self.state.devices.lock().expect("devices");
+    match devices.iter_mut().find(|d| d.user_code == user_code) {
+      Some(grant) => {
+        grant.approved_for = Some(username.to_string());
+        true
+      }
+      None => false,
+    }
+  }
+
+  pub fn issue_refresh_token(&self, username: &str) -> String {
+    token_pair(&self.state, username)["refresh_token"]
+      .as_str()
+      .unwrap()
+      .to_string()
+  }
+
+  pub fn revoked_refresh_tokens(&self) -> Vec<String> {
+    self
+      .state
+      .revoked_refresh_tokens
+      .lock()
+      .expect("revoked")
+      .clone()
+  }
+
+  pub fn disable(&self, username: &str) {
+    self
+      .state
+      .disabled
+      .lock()
+      .expect("disabled")
+      .push(username.to_string());
+  }
+
   pub fn jwks_fetches(&self) -> usize {
     self.state.jwks_fetches.load(Ordering::SeqCst)
   }
 
   pub fn mint(&self, spec: &TokenSpec) -> String {
-    let now = now_seconds();
-    let claims = json!({
-      "iss": spec.issuer.clone().unwrap_or_else(|| self.issuer()),
-      "sub": spec.subject,
-      "aud": spec.audience,
-      "exp": now + spec.ttl_seconds,
-      "iat": now,
-      "azp": spec.client_id,
-      "sid": spec.session_id,
-      "preferred_username": spec.username,
-      "email": spec.email,
-      "email_verified": true,
-      "name": spec.name,
-      "realm_access": { "roles": spec.roles },
-    });
-    let mut header = Header::new(Algorithm::RS256);
-    header.kid = Some(spec.key.kid().to_string());
-    let key = EncodingKey::from_rsa_pem(spec.key.pem().as_bytes()).expect("test key");
-    jsonwebtoken::encode(&header, &claims, &key).expect("sign token")
+    let mut spec = spec.clone();
+    if spec.issuer.is_none() {
+      spec.issuer = Some(self.issuer());
+    }
+    mint_with(&spec)
   }
 }
 
