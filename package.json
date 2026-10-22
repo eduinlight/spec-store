@@ -1,0 +1,18 @@
+{
+  "name": "spec-store",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "lint": "biome lint .",
+    "format:check": "biome format .",
+    "check": "biome ci ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.2",
+    "typescript": "6.0.2"
+  }
+}

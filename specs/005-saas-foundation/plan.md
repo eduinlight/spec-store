@@ -8,7 +8,7 @@ The single crate becomes a Cargo workspace with one library, `packages/core`, th
 
 ## 2. Technical context
 
-- Language/version: Rust stable 1.97, edition 2024; TypeScript 6 on Node 24 LTS with pnpm 12.
+- Language/version: Rust stable 1.97, edition 2024; TypeScript 6 on Node 24 LTS with pnpm 10.33 (corepack 0.34 cannot run pnpm 12).
 - Framework/platform: axum 0.8, tokio 1, rmcp 3.5.1 (streamable HTTP server), diesel 2.3 (`postgres`, `r2d2`, `chrono`), diesel_migrations 2.3; React 19, React Router 7.18 (framework mode with prerender for the landing, data mode for the app), Vite 8, Tailwind CSS 4.3, shadcn/ui (CLI 4.22), react-i18next 17 + i18next 26, dayjs 1.11.
 - Dependencies (new, justified in §7): Rust `jsonwebtoken` 11 (`aws_lc_rs`), `aws-lc-rs`, `reqwest` 0.13 (`rustls`, `json`), `lettre` 0.11, `utoipa` 6 + `utoipa-axum` 0.3, `keyring` 4 (CLI only), `chrono` (feature of diesel, already in the tree). Removed: `libsqlite3-sys`, the diesel `sqlite` features and `pulldown-cmark` (rendering moves to the app). Kept: `base64`, `sha2`, `rand` for session and invitation secrets, `similar` for diffs. TypeScript: `react-markdown` 10 + `remark-gfm` 4, `i18next-browser-languagedetector` 8, `openapi-fetch` 0.17 + `openapi-typescript` 7, `@biomejs/biome` 2.6, `vitest` 5 + `@testing-library/react` 16 + `jsdom`, `@playwright/test` 1.64, `@lhci/cli` 0.15, `lucide-react`, `clsx`, `tailwind-merge`.
 - Storage: PostgreSQL 18; databases `platform` (this system) and `keycloak` (Keycloak's own); one instance per environment.
