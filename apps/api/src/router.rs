@@ -9,7 +9,10 @@ use utoipa_axum::routes;
 use crate::bff;
 use crate::health::{live, ready};
 use crate::hosts::check_host;
-use crate::routes::{audit, clients, invitations, me, members, organizations, projects, transfer};
+use crate::routes::{
+  audit, clients, documents, history, invitations, me, members, organizations, projects, specs,
+  transfer,
+};
 use crate::state::AppState;
 
 pub const MAX_REQUEST_BODY_BYTES: usize = 2 * 1024 * 1024;
@@ -41,6 +44,16 @@ fn documented() -> OpenApiRouter<AppState> {
       projects::clear_repository
     ))
     .routes(routes!(audit::project))
+    .routes(routes!(specs::status))
+    .routes(routes!(specs::list))
+    .routes(routes!(specs::read))
+    .routes(routes!(specs::tasks))
+    .routes(routes!(specs::markers))
+    .routes(routes!(documents::read))
+    .routes(routes!(documents::constitution))
+    .routes(routes!(history::list))
+    .routes(routes!(history::read))
+    .routes(routes!(history::diff))
     .routes((
       import_schemas,
       import_paths,

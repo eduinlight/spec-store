@@ -4,7 +4,7 @@ use axum::http::StatusCode;
 use serde_json::json;
 use spec_store_core::model::{DocumentKind, Role};
 
-const TASKS: &str = "# Tasks\n\n## Phase 1 — Setup\n- [x] T01 (FR-1) First task — Done when: done `abc1234`\n- [ ] T02 [P] (FR-2) Second task — Done when: green\n";
+const TASKS: &str = "# Tasks\n\n## Phase 1 — Setup\n- [x] T01 (FR-1) First task — Done when: done · commit: abc1234\n- [ ] T02 [P] (FR-2) Second task — Done when: green\n";
 
 async fn seeded() -> common::TestApp {
   let app = common::app().await;
