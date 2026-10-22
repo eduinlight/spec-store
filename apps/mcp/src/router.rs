@@ -6,6 +6,7 @@ use rmcp::transport::streamable_http_server::{StreamableHttpServerConfig, Stream
 
 use crate::auth::require_bearer;
 use crate::health::{live, ready};
+use crate::metadata::protected_resource;
 use crate::state::AppState;
 use crate::tools::SpecStoreMcp;
 
@@ -32,9 +33,19 @@ pub fn router(state: AppState) -> Router {
         state.clone(),
         require_bearer,
       ));
-  Router::new()
+  let metadata_path = format!(
+    "/.well-known/oauth-protected-resource{}",
+    state.config.resource_path()
+  );
+  let mut public = Router::new()
     .route("/healthz", get(live))
     .route("/readyz", get(ready))
-    .merge(protected)
-    .with_state(state)
+    .route(
+      "/.well-known/oauth-protected-resource",
+      get(protected_resource),
+    );
+  if !state.config.resource_path().is_empty() {
+    public = public.route(&metadata_path, get(protected_resource));
+  }
+  public.merge(protected).with_state(state)
 }

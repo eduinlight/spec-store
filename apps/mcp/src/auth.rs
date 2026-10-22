@@ -1,7 +1,7 @@
 use axum::body::Body;
 use axum::extract::{Request, State};
 use axum::http::StatusCode;
-use axum::http::header::AUTHORIZATION;
+use axum::http::header::{AUTHORIZATION, WWW_AUTHENTICATE};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 use spec_store_core::identity::IdentityError;
@@ -19,8 +19,26 @@ fn bearer(request: &Request<Body>) -> Option<String> {
     .map(str::to_string)
 }
 
-pub fn unauthorized(_state: &AppState) -> Response {
-  (StatusCode::UNAUTHORIZED, "authentication required").into_response()
+pub fn challenge(state: &AppState, invalid_token: bool) -> String {
+  let mut header = String::from("Bearer ");
+  if invalid_token {
+    header.push_str("error=\"invalid_token\", ");
+  }
+  header.push_str(&format!(
+    "resource_metadata=\"{}\", scope=\"{}\"",
+    state.config.metadata_url(),
+    state.config.scopes.join(" ")
+  ));
+  header
+}
+
+pub fn unauthorized(state: &AppState, invalid_token: bool) -> Response {
+  (
+    StatusCode::UNAUTHORIZED,
+    [(WWW_AUTHENTICATE, challenge(state, invalid_token))],
+    "authentication required",
+  )
+    .into_response()
 }
 
 pub async fn require_bearer(
@@ -29,7 +47,7 @@ pub async fn require_bearer(
   next: Next,
 ) -> Response {
   let Some(token) = bearer(&request) else {
-    return unauthorized(&state);
+    return unauthorized(&state, false);
   };
   let claims = match state.verifier.verify(&token, &state.config.resource).await {
     Ok(claims) => claims,
@@ -43,7 +61,7 @@ pub async fn require_bearer(
     }
     Err(error) => {
       tracing::debug!(%error, "rejected token");
-      return unauthorized(&state);
+      return unauthorized(&state, true);
     }
   };
   let identity = claims.identity();
