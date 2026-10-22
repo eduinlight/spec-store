@@ -96,9 +96,9 @@ pub fn person(store: &Store, handle: &str) -> Caller {
   store.caller_for(&identity(handle), false).expect("person")
 }
 
-pub fn join(store: &Store, owner: &Caller, org: &str, member: &Caller) {
+pub fn join(store: &Store, _owner: &Caller, org: &str, member: &Caller) {
   store
-    .set_organization_member(owner, org, &member.handle, OrgRole::Member)
+    .admit_organization_member(org, member.user_id, OrgRole::Member)
     .expect("join organization");
 }
 
