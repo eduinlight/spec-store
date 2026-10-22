@@ -144,13 +144,9 @@ pub struct KeycloakState {
   pub refresh_tokens: Mutex<HashMap<String, String>>,
   pub revoked_refresh_tokens: Mutex<Vec<String>>,
   pub disabled: Mutex<Vec<String>>,
-}
-
-fn sign(state: &KeycloakState, username: &str, audience: &str) -> String {
-  let issuer = state.issuer.lock().expect("issuer").clone();
-  let mut spec = TokenSpec::new(username, audience).issuer(&issuer);
-  spec.client_id = CLI_CLIENT_ID.into();
-  mint_with(&spec)
+  pub operators: Mutex<Vec<String>>,
+  pub codes: Mutex<HashMap<String, (String, String, String)>>,
+  pub refresh_grants: AtomicUsize,
 }
 
 fn mint_with(spec: &TokenSpec) -> String {
@@ -175,6 +171,21 @@ fn mint_with(spec: &TokenSpec) -> String {
   jsonwebtoken::encode(&header, &claims, &key).expect("sign token")
 }
 
+pub const APP_CLIENT_ID: &str = "spec-store-app";
+pub const APP_CLIENT_SECRET: &str = "app-secret";
+
+fn session_id(username: &str) -> String {
+  format!("sid-{username}")
+}
+
+fn id_token(state: &KeycloakState, username: &str) -> String {
+  let issuer = state.issuer.lock().expect("issuer").clone();
+  let mut spec = TokenSpec::new(username, APP_CLIENT_ID).issuer(&issuer);
+  spec.client_id = APP_CLIENT_ID.into();
+  spec.session_id = Some(session_id(username));
+  mint_with(&spec)
+}
+
 fn token_pair(state: &KeycloakState, username: &str) -> Value {
   let refresh = format!("refresh-{username}-{}", now_seconds_nanos());
   state
@@ -182,13 +193,31 @@ fn token_pair(state: &KeycloakState, username: &str) -> Value {
     .lock()
     .expect("refresh tokens")
     .insert(refresh.clone(), username.to_string());
+  let issuer = state.issuer.lock().expect("issuer").clone();
+  let mut spec = TokenSpec::new(username, CLI_AUDIENCE).issuer(&issuer);
+  spec.session_id = Some(session_id(username));
+  if state
+    .operators
+    .lock()
+    .expect("operators")
+    .contains(&username.to_string())
+  {
+    spec = spec.operator();
+  }
   json!({
-    "access_token": sign(state, username, CLI_AUDIENCE),
+    "access_token": mint_with(&spec),
     "refresh_token": refresh,
+    "id_token": id_token(state, username),
     "expires_in": 300,
     "refresh_expires_in": 0,
     "token_type": "Bearer",
   })
+}
+
+fn pkce_challenge(verifier: &str) -> String {
+  use base64::Engine;
+  use sha2::Digest;
+  base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(sha2::Sha256::digest(verifier.as_bytes()))
 }
 
 fn now_seconds_nanos() -> u128 {
@@ -289,7 +318,27 @@ async fn token(
       }
     };
   }
+  if grant == Some("authorization_code") {
+    if form.get("client_id").map(String::as_str) != Some(APP_CLIENT_ID)
+      || form.get("client_secret").map(String::as_str) != Some(APP_CLIENT_SECRET)
+    {
+      return oauth_error("unauthorized_client");
+    }
+    let code = form.get("code").cloned().unwrap_or_default();
+    let found = state.codes.lock().expect("codes").remove(&code);
+    let verifier = form.get("code_verifier").cloned().unwrap_or_default();
+    return match found {
+      Some((username, challenge, redirect_uri))
+        if challenge == pkce_challenge(&verifier)
+          && form.get("redirect_uri").map(String::as_str) == Some(redirect_uri.as_str()) =>
+      {
+        Json(token_pair(&state, &username)).into_response()
+      }
+      _ => oauth_error("invalid_grant"),
+    };
+  }
   if grant == Some("refresh_token") {
+    state.refresh_grants.fetch_add(1, Ordering::SeqCst);
     let refresh = form.get("refresh_token").cloned().unwrap_or_default();
     let username = state
       .refresh_tokens
@@ -393,6 +442,9 @@ impl FakeKeycloak {
       refresh_tokens: Mutex::new(HashMap::new()),
       revoked_refresh_tokens: Mutex::new(Vec::new()),
       disabled: Mutex::new(Vec::new()),
+      operators: Mutex::new(Vec::new()),
+      codes: Mutex::new(HashMap::new()),
+      refresh_grants: AtomicUsize::new(0),
     });
     let app = Router::new()
       .route(
@@ -512,6 +564,50 @@ impl FakeKeycloak {
       .lock()
       .expect("revoked")
       .clone()
+  }
+
+  pub fn authorize(&self, username: &str, code_challenge: &str, redirect_uri: &str) -> String {
+    let code = format!("code-{username}-{}", now_seconds_nanos());
+    self.state.codes.lock().expect("codes").insert(
+      code.clone(),
+      (
+        username.to_string(),
+        code_challenge.to_string(),
+        redirect_uri.to_string(),
+      ),
+    );
+    code
+  }
+
+  pub fn make_operator(&self, username: &str) {
+    self
+      .state
+      .operators
+      .lock()
+      .expect("operators")
+      .push(username.to_string());
+  }
+
+  pub fn refresh_grants(&self) -> usize {
+    self.state.refresh_grants.load(Ordering::SeqCst)
+  }
+
+  pub fn mint_logout_token(&self, username: &str) -> String {
+    let now = now_seconds();
+    let claims = json!({
+      "iss": self.issuer(),
+      "aud": APP_CLIENT_ID,
+      "iat": now,
+      "exp": now + 60,
+      "jti": format!("logout-{}", now_seconds_nanos()),
+      "sub": format!("subject-{username}"),
+      "sid": session_id(username),
+      "events": { "http://schemas.openid.net/event/backchannel-logout": {} },
+    });
+    let mut header = Header::new(Algorithm::RS256);
+    header.kid = Some(TestKey::A.kid().to_string());
+    let key = EncodingKey::from_rsa_pem(TestKey::A.pem().as_bytes()).expect("test key");
+    jsonwebtoken::encode(&header, &claims, &key).expect("sign logout token")
   }
 
   pub fn disable(&self, username: &str) {

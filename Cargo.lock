@@ -2652,11 +2652,13 @@ name = "spec-store-testkit"
 version = "0.2.0"
 dependencies = [
  "axum",
+ "base64 0.22.1",
  "diesel",
  "jsonwebtoken",
  "reqwest",
  "serde",
  "serde_json",
+ "sha2",
  "tokio",
 ]
 

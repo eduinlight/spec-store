@@ -13,6 +13,8 @@ axum = { workspace = true }
 diesel = { workspace = true }
 jsonwebtoken = { workspace = true }
 reqwest = { workspace = true }
+sha2 = "0.11"
+base64 = "0.22"
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }

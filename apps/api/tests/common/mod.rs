@@ -30,12 +30,70 @@ pub struct TestApp {
 
 pub const APP_URL: &str = "https://app.example.test";
 
+pub const LANDING_URL: &str = "https://example.test";
+pub const SESSION_COOKIE: &str = "__Host-spec_store_session";
+
 pub fn config() -> ApiConfig {
   ApiConfig {
     allowed_hosts: vec!["api.example.test".into(), "app.example.test".into()],
     audience: API_AUDIENCE.into(),
     app_url: APP_URL.into(),
+    landing_url: LANDING_URL.into(),
+    app_client_id: spec_store_testkit::keycloak::APP_CLIENT_ID.into(),
+    app_client_secret: spec_store_testkit::keycloak::APP_CLIENT_SECRET.into(),
+    session_key: spec_store_core::crypto::Sealer::generate_key(),
   }
+}
+
+pub fn decode(value: &str) -> String {
+  let bytes = value.as_bytes();
+  let mut out = Vec::new();
+  let mut i = 0;
+  while i < bytes.len() {
+    match bytes[i] {
+      b'%' if i + 2 < bytes.len() => {
+        let hex = std::str::from_utf8(&bytes[i + 1..i + 3]).unwrap();
+        out.push(u8::from_str_radix(hex, 16).unwrap());
+        i += 3;
+      }
+      b'+' => {
+        out.push(b' ');
+        i += 1;
+      }
+      b => {
+        out.push(b);
+        i += 1;
+      }
+    }
+  }
+  String::from_utf8(out).unwrap()
+}
+
+pub fn query_param(url: &str, name: &str) -> Option<String> {
+  let query = url.split_once('?')?.1;
+  query.split('&').find_map(|pair| {
+    let (key, value) = pair.split_once('=')?;
+    (key == name).then(|| decode(value))
+  })
+}
+
+pub fn location(response: &Response<Body>) -> String {
+  response
+    .headers()
+    .get("location")
+    .expect("location header")
+    .to_str()
+    .unwrap()
+    .to_string()
+}
+
+pub fn set_cookie(response: &Response<Body>) -> Option<String> {
+  response
+    .headers()
+    .get_all("set-cookie")
+    .iter()
+    .map(|v| v.to_str().unwrap().to_string())
+    .find(|c| c.starts_with(SESSION_COOKIE))
 }
 
 pub fn smtp() -> spec_store_core::config::SmtpSettings {
@@ -165,6 +223,63 @@ impl TestApp {
 }
 
 impl TestApp {
+  pub async fn browser(
+    &self,
+    method: &str,
+    path: &str,
+    cookie: &str,
+    csrf: bool,
+    body: Option<Value>,
+  ) -> Response<Body> {
+    let mut request = Request::builder()
+      .method(method)
+      .uri(path)
+      .header("host", "app.example.test")
+      .header("cookie", cookie.to_string());
+    if csrf {
+      request = request.header("x-spec-store-request", "1");
+    }
+    let body = match body {
+      Some(value) => {
+        request = request.header("content-type", "application/json");
+        Body::from(value.to_string())
+      }
+      None => Body::empty(),
+    };
+    self.send(request.body(body).unwrap()).await
+  }
+
+  pub async fn start_login(&self, query: &str, cookie: Option<&str>) -> Response<Body> {
+    let mut request =
+      Request::get(format!("/auth/login{query}")).header("host", "app.example.test");
+    if let Some(cookie) = cookie {
+      request = request.header("cookie", cookie.to_string());
+    }
+    self.send(request.body(Body::empty()).unwrap()).await
+  }
+
+  pub async fn complete_login(&self, username: &str, authorize_url: &str) -> Response<Body> {
+    let state = query_param(authorize_url, "state").expect("state");
+    let challenge = query_param(authorize_url, "code_challenge").expect("challenge");
+    let redirect_uri = query_param(authorize_url, "redirect_uri").expect("redirect uri");
+    let code = self.keycloak.authorize(username, &challenge, &redirect_uri);
+    self
+      .send(
+        Request::get(format!("/auth/callback?code={code}&state={state}"))
+          .header("host", "app.example.test")
+          .body(Body::empty())
+          .unwrap(),
+      )
+      .await
+  }
+
+  pub async fn browser_sign_in(&self, username: &str) -> String {
+    let started = self.start_login("?return_to=/", None).await;
+    let finished = self.complete_login(username, &location(&started)).await;
+    let cookie = set_cookie(&finished).expect("session cookie");
+    cookie.split(';').next().unwrap().to_string()
+  }
+
   pub fn person(&self, handle: &str) -> spec_store_core::model::Caller {
     self
       .state
