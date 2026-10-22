@@ -1,5 +1,6 @@
 pub mod address;
 pub mod config;
+pub mod crypto;
 pub mod db;
 pub mod diff;
 pub mod email;
