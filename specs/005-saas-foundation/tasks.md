@@ -59,7 +59,7 @@ Switch group (as in spec 004): T08–T17 change the persistence layer from SQLit
 - [x] T38 (FR-1, FR-2, FR-3) Implement `apps/api/src/routes/{organizations,invitations,members}.rs` — Done when: all T36 tests green
 - [x] T39 (FR-4, FR-5, FR-17) Write `apps/api/tests/http_projects.rs` (create, members, repository URL, other tenant 404, operator read 200 and write 403) and `tests/http_audit.rs` — Done when: tests written and red
 - [x] T40 (FR-4, FR-5, FR-17) Implement `apps/api/src/routes/{projects,audit}.rs` — Done when: T39 tests green
-- [ ] T41 (FR-5) Write `apps/mcp/tests/mcp_tenancy.rs` (an agent of organization A lists and addresses nothing of organization B) — Done when: test green
+- [x] T41 (FR-5) Write `apps/mcp/tests/mcp_tenancy.rs` (an agent of organization A lists and addresses nothing of organization B) — Done when: test green
 
 ## Phase 6 — US-4 (P1) The CLI works against the hosted service
 - [ ] T42 (FR-13) Add `apps/cli` as a workspace member (crate `spec-store-cli`, bin `spec-store`); write `tests/cli_login.rs` (device code and address printed, success after approval, timeout error after the lifespan, credentials file mode 0600 in the fallback store, `logout` removes them) and `FakeKeycloak` device endpoints — Done when: tests written and red
