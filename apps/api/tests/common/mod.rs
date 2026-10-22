@@ -28,10 +28,25 @@ pub struct TestApp {
   pub db: Option<TestDb>,
 }
 
+pub const APP_URL: &str = "https://app.example.test";
+
 pub fn config() -> ApiConfig {
   ApiConfig {
     allowed_hosts: vec!["api.example.test".into(), "app.example.test".into()],
     audience: API_AUDIENCE.into(),
+    app_url: APP_URL.into(),
+  }
+}
+
+pub fn smtp() -> spec_store_core::config::SmtpSettings {
+  spec_store_core::config::SmtpSettings {
+    host: spec_store_testkit::mailpit::smtp_host(),
+    port: spec_store_testkit::mailpit::smtp_port(),
+    from: "no-reply@spec-store.test".into(),
+    from_name: "spec-store".into(),
+    username: None,
+    password: None,
+    starttls: false,
   }
 }
 
@@ -66,7 +81,52 @@ pub async fn app() -> TestApp {
 
 impl TestApp {
   pub fn token(&self, username: &str) -> String {
-    self.keycloak.mint(&TokenSpec::new(username, API_AUDIENCE))
+    let spec = TokenSpec::new(username, API_AUDIENCE);
+    let spec = if username == "ops" {
+      spec.operator()
+    } else {
+      spec
+    };
+    self.keycloak.mint(&spec)
+  }
+
+  pub fn token_with_email(&self, username: &str, email: &str) -> String {
+    let mut spec = TokenSpec::new(username, API_AUDIENCE);
+    spec.email = email.to_string();
+    self.keycloak.mint(&spec)
+  }
+
+  pub async fn json(
+    &self,
+    method: &str,
+    path: &str,
+    username: &str,
+    body: Value,
+  ) -> Response<Body> {
+    self
+      .json_with_token(method, path, &self.token(username), body)
+      .await
+  }
+
+  pub async fn json_with_token(
+    &self,
+    method: &str,
+    path: &str,
+    token: &str,
+    body: Value,
+  ) -> Response<Body> {
+    self
+      .send(
+        Request::builder()
+          .method(method)
+          .uri(path)
+          .header("host", "api.example.test")
+          .header("authorization", format!("Bearer {token}"))
+          .header("content-type", "application/json")
+          .body(Body::from(body.to_string()))
+          .unwrap(),
+      )
+      .await
   }
 
   pub async fn send(&self, request: Request<Body>) -> Response<Body> {
