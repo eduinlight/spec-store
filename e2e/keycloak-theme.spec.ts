@@ -37,6 +37,20 @@ for (const language of ["en", "es"]) {
     await page.locator("input[type=submit], button[type=submit]").first().click();
     await capture(page, "verify-email", language);
 
+    const mailpit = process.env.MAILPIT_URL ?? "http://localhost:58025";
+    let id = "";
+    for (let attempt = 0; attempt < 20 && !id; attempt += 1) {
+      const search = await page.request.get(`${mailpit}/api/v1/search`, {
+        params: { query: `to:"${username}@example.test"` },
+      });
+      id = (await search.json()).messages?.[0]?.ID ?? "";
+      if (!id) await page.waitForTimeout(250);
+    }
+    expect(id).not.toBe("");
+    await page.goto(`${mailpit}/view/${id}.html`);
+    await expect(page.locator("body")).toContainText("spec-store");
+    await page.screenshot({ path: `${evidence}/keycloak-email-${language}.png`, fullPage: true });
+
     await page.context().clearCookies();
     await page.goto(authorize("auth", language));
     await page.locator("a[href*='reset-credentials']").first().click();

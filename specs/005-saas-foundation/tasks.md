@@ -79,7 +79,7 @@ Switch group (as in spec 004): T08–T17 change the persistence layer from SQLit
 - [x] T54 (FR-6, FR-7) Add code exchange, refresh, logout URL and back-channel token verification to `packages/core/src/keycloak.rs`; implement `apps/api/src/bff.rs` — Done when: `http_bff.rs` green
 - [x] T55 (FR-10) Add the cookie path to `apps/api/src/auth.rs` (session lookup, refresh when the access token has expired, session ended on refusal, CSRF header) — Done when: `http_auth.rs` green
 - [x] T56 (FR-9) Write the `spec-store` login theme in `deploy/keycloak/themes/spec-store/login/` (`theme.properties` with `parent=keycloak.v2`, CSS mapping `packages/ui/src/styles/tokens.css` onto PatternFly variables, logo, `messages_en.properties`, `messages_es.properties`) — Done when: with compose up, screenshots of sign-in, sign-up, verify email, reset password and error pages in en and es show the logo and product colours, saved under `specs/005-saas-foundation/evidence/`
-- [ ] T57 (FR-9) Write the `email` theme type (verification and password reset in en and es, with the same logo and colours) — Done when: a verification email captured in Mailpit shows the branding in each language
+- [x] T57 (FR-9) Write the `email` theme type (verification and password reset in en and es, with the same logo and colours) — Done when: a verification email captured in Mailpit shows the branding in each language
 - [ ] T58 (FR-9) Write `deploy/keycloak/Dockerfile` (keycloak 26.8.1, theme and tokens copied, health and postgres build options, `kc.sh build`, `start --optimized`) and switch compose to it with the realm's login and email theme set to `spec-store` — Done when: `docker compose build keycloak` succeeds and the realm serves the themed sign-in page
 
 ## Phase 8 — US-6 (P1) Browser app
