@@ -118,7 +118,8 @@ impl fmt::Display for Role {
   }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum SpecStatus {
   Draft,
   Clarified,
@@ -184,7 +185,8 @@ pub fn allowed_targets(from: SpecStatus, role: Role) -> Vec<SpecStatus> {
     .collect()
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum DocumentKind {
   Constitution,
   Spec,

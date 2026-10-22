@@ -1,16 +1,17 @@
 use axum::Router;
+use axum::extract::DefaultBodyLimit;
 use axum::middleware;
 use axum::routing::{delete, get, post, put};
-use tower_http::limit::RequestBodyLimitLayer;
 
 use crate::health::{live, ready};
 use crate::hosts::check_host;
 use crate::routes::clients::{list_clients, revoke_client};
 use crate::routes::me::me;
-use crate::routes::{audit, invitations, members, organizations, projects};
+use crate::routes::{audit, invitations, members, organizations, projects, transfer};
 use crate::state::AppState;
 
 pub const MAX_REQUEST_BODY_BYTES: usize = 2 * 1024 * 1024;
+pub const MAX_IMPORT_BODY_BYTES: usize = 128 * 1024 * 1024;
 
 pub fn router(state: AppState) -> Router {
   Router::new()
@@ -72,6 +73,14 @@ pub fn router(state: AppState) -> Router {
       "/api/v1/projects/{org}/{project}/audit",
       get(audit::project),
     )
+    .route(
+      "/api/v1/projects/{org}/{project}/import",
+      post(transfer::import).layer(DefaultBodyLimit::max(MAX_IMPORT_BODY_BYTES)),
+    )
+    .route(
+      "/api/v1/projects/{org}/{project}/export",
+      get(transfer::export),
+    )
     .route("/api/v1/invitations", get(invitations::mine))
     .route("/api/v1/invitations/{token}", get(invitations::preview))
     .route(
@@ -83,6 +92,6 @@ pub fn router(state: AppState) -> Router {
       post(invitations::decline),
     )
     .layer(middleware::from_fn_with_state(state.clone(), check_host))
-    .layer(RequestBodyLimitLayer::new(MAX_REQUEST_BODY_BYTES))
+    .layer(DefaultBodyLimit::max(MAX_REQUEST_BODY_BYTES))
     .with_state(state)
 }

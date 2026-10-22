@@ -12,6 +12,7 @@ pub struct Principal {
   pub caller: Caller,
   pub identity: Identity,
   pub email_verified: bool,
+  pub via_session: bool,
 }
 
 pub fn bearer_token(parts: &Parts) -> Option<&str> {
@@ -46,6 +47,7 @@ impl FromRequestParts<AppState> for Principal {
       caller,
       identity,
       email_verified: claims.email_verified,
+      via_session: false,
     };
     parts.extensions.insert(principal.clone());
     Ok(principal)

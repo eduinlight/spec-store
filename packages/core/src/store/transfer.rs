@@ -17,14 +17,14 @@ pub struct ImportOptions {
   pub dry_run: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ImportedSpec {
   pub branch: String,
   pub status: SpecStatus,
   pub kinds: Vec<DocumentKind>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub struct ImportReport {
   pub constitution_version: Option<String>,
   pub specs: Vec<ImportedSpec>,
@@ -215,14 +215,14 @@ impl Store {
   }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct StatusNotice {
   pub branch: String,
   pub stored: SpecStatus,
   pub written: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub struct ProjectExport {
   pub files: Vec<ExportFile>,
   pub notices: Vec<StatusNotice>,

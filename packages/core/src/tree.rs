@@ -4,13 +4,13 @@ use std::path::Path;
 use crate::model::{DocumentKind, MAX_BODY_BYTES, validate_slug};
 use crate::store::specs::branch_name;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct TreeFile {
   pub relative_path: String,
   pub body: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct TreeSpec {
   pub folder: String,
   pub number: i64,
@@ -18,7 +18,7 @@ pub struct TreeSpec {
   pub documents: Vec<(DocumentKind, TreeFile)>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub struct ProjectTree {
   pub constitution: Option<TreeFile>,
   pub specs: Vec<TreeSpec>,
@@ -184,7 +184,7 @@ pub fn version_line(body: &str) -> Option<&str> {
   first_line_after(body, "Version ")
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ExportFile {
   pub relative_path: String,
   pub body: String,
