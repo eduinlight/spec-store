@@ -1,7 +1,7 @@
 mod common;
 
-use spec_store::model::{Caller, DocumentKind, Role, SpecStatus, StoreError};
-use spec_store::store::Store;
+use spec_store_core::model::{Caller, DocumentKind, Role, SpecStatus, StoreError};
+use spec_store_core::store::Store;
 
 struct Fixture {
   store: Store,

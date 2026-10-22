@@ -1,7 +1,7 @@
 mod common;
 
-use spec_store::model::{Caller, Role, StoreError};
-use spec_store::store::Store;
+use spec_store_core::model::{Caller, Role, StoreError};
+use spec_store_core::store::Store;
 
 struct Fixture {
   store: Store,
@@ -281,7 +281,7 @@ fn repository_url_is_validated_audited_and_clearable() {
   );
 
   let audit = f.store.list_audit(Some("demo"), 20).unwrap();
-  let repo_entries: Vec<&spec_store::store::AuditEntry> = audit
+  let repo_entries: Vec<&spec_store_core::store::AuditEntry> = audit
     .iter()
     .filter(|e| e.action == "project.repo")
     .collect();

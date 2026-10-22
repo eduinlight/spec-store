@@ -3,10 +3,10 @@ mod common;
 use std::fs;
 use std::time::{Duration, Instant};
 
-use spec_store::model::Role;
-use spec_store::store::Store;
-use spec_store::store::transfer::ImportOptions;
-use spec_store::tree::scan;
+use spec_store_core::model::Role;
+use spec_store_core::store::Store;
+use spec_store_core::store::transfer::ImportOptions;
+use spec_store_core::tree::scan;
 
 const SPECS: usize = 100;
 const DOCUMENT_BYTES: usize = 20 * 1024;

@@ -3,10 +3,10 @@ mod common;
 use std::fs;
 use std::path::Path;
 
-use spec_store::model::{Caller, DocumentKind, Role, SpecStatus, StoreError};
-use spec_store::store::Store;
-use spec_store::store::transfer::{ImportOptions, ImportReport, StatusNotice};
-use spec_store::tree::{ProjectTree, scan};
+use spec_store_core::model::{Caller, DocumentKind, Role, SpecStatus, StoreError};
+use spec_store_core::store::Store;
+use spec_store_core::store::transfer::{ImportOptions, ImportReport, StatusNotice};
+use spec_store_core::tree::{ProjectTree, scan};
 
 struct Fixture {
   store: Store,

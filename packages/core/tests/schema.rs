@@ -3,7 +3,7 @@ mod common;
 use diesel::prelude::*;
 use diesel::sql_types::{Integer, Text};
 use diesel::sqlite::Sqlite;
-use spec_store::{db, schema};
+use spec_store_core::{db, schema};
 
 #[derive(QueryableByName)]
 struct TableColumn {

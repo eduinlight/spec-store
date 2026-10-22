@@ -1,6 +1,5 @@
 pub mod documents;
 pub mod projects;
-pub mod sessions;
 pub mod specs;
 pub mod tasks;
 pub mod transfer;

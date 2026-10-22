@@ -1,7 +1,5 @@
 use similar::{ChangeTag, TextDiff};
 
-use crate::ui::html::escape;
-
 const CONTEXT_LINES: usize = 3;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -46,29 +44,6 @@ pub fn diff_lines(old: &str, new: &str) -> Vec<Hunk> {
         .collect(),
     })
     .collect()
-}
-
-pub fn render_diff(hunks: &[Hunk]) -> String {
-  let mut out = String::new();
-  for (index, hunk) in hunks.iter().enumerate() {
-    if index > 0 {
-      out.push_str("<tr class=\"hunk-separator\"><td colspan=\"3\">…</td></tr>\n");
-    }
-    for line in &hunk.lines {
-      let (class, sign) = match line.tag {
-        DiffTag::Equal => ("ctx", " "),
-        DiffTag::Insert => ("ins", "+"),
-        DiffTag::Delete => ("del", "-"),
-      };
-      let old = line.old_line.map(|n| n.to_string()).unwrap_or_default();
-      let new = line.new_line.map(|n| n.to_string()).unwrap_or_default();
-      out.push_str(&format!(
-        "<tr class=\"{class}\"><td class=\"ln\">{old}</td><td class=\"ln\">{new}</td><td class=\"code\">{sign}{}</td></tr>\n",
-        escape(&line.text)
-      ));
-    }
-  }
-  out
 }
 
 #[cfg(test)]
@@ -137,17 +112,5 @@ mod tests {
       .filter(|l| l.tag == DiffTag::Insert)
       .collect();
     assert!(inserted.iter().any(|l| l.text == "c"));
-  }
-
-  #[test]
-  fn render_marks_rows_and_escapes_text() {
-    let hunks = diff_lines("x\n<b>\n", "x\n&y\n");
-    let html = render_diff(&hunks);
-    assert!(html.contains("class=\"del\""));
-    assert!(html.contains("class=\"ins\""));
-    assert!(html.contains("&lt;b&gt;"));
-    assert!(html.contains("&amp;y"));
-    assert!(!html.contains("<b>"));
-    assert_eq!(render_diff(&[]), "");
   }
 }

@@ -1,8 +1,8 @@
 mod common;
 
 use diesel::connection::SimpleConnection;
-use spec_store::model::StoreError;
-use spec_store::store::{Store, audit};
+use spec_store_core::model::StoreError;
+use spec_store_core::store::{Store, audit};
 
 fn store() -> Store {
   Store::open(common::temp_db_path("store-audit")).expect("open store")
@@ -108,7 +108,7 @@ fn list_audit_filters_by_project_and_limit() {
 
 #[test]
 fn list_audit_page_is_authorized_and_paged() {
-  use spec_store::model::Role;
+  use spec_store_core::model::Role;
   let store = store();
   store.create_user(None, "root", false).unwrap();
   let admin = store.caller_by_handle("root").unwrap();

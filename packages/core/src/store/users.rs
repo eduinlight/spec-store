@@ -1,9 +1,9 @@
 use diesel::prelude::*;
 use diesel::sqlite::SqliteConnection;
 
-use crate::auth::{generate_token, hash_token};
 use crate::model::{Caller, StoreError, StoreResult, validate_slug};
 use crate::schema::{api_tokens, users};
+use crate::secrets::{generate_token, hash_token};
 use crate::store::{Store, audit, now_utc};
 
 #[derive(Debug, Clone, PartialEq, Eq)]

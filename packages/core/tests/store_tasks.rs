@@ -1,7 +1,7 @@
 mod common;
 
-use spec_store::model::{Caller, DocumentKind, Role, SpecStatus, StoreError};
-use spec_store::store::Store;
+use spec_store_core::model::{Caller, DocumentKind, Role, SpecStatus, StoreError};
+use spec_store_core::store::Store;
 
 const TASKS: &str = "# Tasks — Spec 001
 
@@ -295,7 +295,7 @@ fn list_markers_across_documents() {
   assert_eq!(markers[0].document_kind, DocumentKind::Spec);
   assert_eq!(
     markers[0].kind,
-    spec_store::markdown::markers::MarkerKind::Clarification
+    spec_store_core::markdown::markers::MarkerKind::Clarification
   );
   assert_eq!(markers[0].heading, "5. Functional requirements");
   assert_eq!(markers[0].text, "which actor?");
@@ -303,7 +303,7 @@ fn list_markers_across_documents() {
   assert_eq!(markers[2].document_kind, DocumentKind::Plan);
   assert_eq!(
     markers[2].kind,
-    spec_store::markdown::markers::MarkerKind::Research
+    spec_store_core::markdown::markers::MarkerKind::Research
   );
   assert_eq!(markers[2].text, "rmcp version");
   assert!(matches!(

@@ -1,7 +1,7 @@
 mod common;
 
-use spec_store::model::{Caller, DocumentKind, Role, StoreError};
-use spec_store::store::Store;
+use spec_store_core::model::{Caller, DocumentKind, Role, StoreError};
+use spec_store_core::store::Store;
 
 struct Fixture {
   store: Store,
@@ -308,7 +308,12 @@ fn reader_and_archived_cannot_write() {
     .put_document(&f.editor, "demo", 1, DocumentKind::Spec, "x", "m", None)
     .unwrap();
   f.store
-    .set_spec_status(&f.owner, "demo", 1, spec_store::model::SpecStatus::Archived)
+    .set_spec_status(
+      &f.owner,
+      "demo",
+      1,
+      spec_store_core::model::SpecStatus::Archived,
+    )
     .unwrap();
   assert!(matches!(
     f.store
@@ -376,7 +381,7 @@ fn constitution_owner_only_and_version_must_change() {
 #[test]
 fn rejects_over_1mb_and_keeps_bytes() {
   let f = fixture();
-  let limit = spec_store::model::MAX_BODY_BYTES;
+  let limit = spec_store_core::model::MAX_BODY_BYTES;
   assert!(matches!(
     f.store.put_document(
       &f.editor,

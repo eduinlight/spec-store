@@ -2,8 +2,8 @@ mod common;
 
 use std::time::{Duration, Instant};
 
-use spec_store::model::{DocumentKind, Role};
-use spec_store::store::Store;
+use spec_store_core::model::{DocumentKind, Role};
+use spec_store_core::store::Store;
 
 const THREADS: usize = 10;
 const READS_PER_THREAD: usize = 20;

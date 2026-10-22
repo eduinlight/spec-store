@@ -1,12 +1,9 @@
-pub mod auth;
-pub mod cli;
 pub mod db;
+pub mod diff;
 pub mod markdown;
-pub mod mcp;
 pub mod model;
 pub mod schema;
-pub mod server;
+pub mod secrets;
 pub mod store;
 pub mod templates;
 pub mod tree;
-pub mod ui;

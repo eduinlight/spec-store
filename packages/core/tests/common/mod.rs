@@ -5,7 +5,7 @@ use diesel::connection::SimpleConnection;
 use diesel::dsl::sql;
 use diesel::prelude::*;
 use diesel::sql_types::{BigInt, Double, Nullable, Text};
-use spec_store::store::Store;
+use spec_store_core::store::Store;
 
 static COUNTER: AtomicUsize = AtomicUsize::new(0);
 

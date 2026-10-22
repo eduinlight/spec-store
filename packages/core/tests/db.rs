@@ -2,8 +2,8 @@ mod common;
 
 use diesel::prelude::*;
 use diesel::sql_types::Text;
-use spec_store::db;
-use spec_store::store::Store;
+use spec_store_core::db;
+use spec_store_core::store::Store;
 
 const EXPECTED_TABLES: [&str; 10] = [
   "__diesel_schema_migrations",

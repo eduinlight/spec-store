@@ -1,7 +1,7 @@
 mod common;
 
-use spec_store::model::{Caller, StoreError};
-use spec_store::store::Store;
+use spec_store_core::model::{Caller, StoreError};
+use spec_store_core::store::Store;
 
 fn store() -> Store {
   Store::open(common::temp_db_path("store-users")).expect("open store")
@@ -138,12 +138,12 @@ fn revoked_token_fails_other_tokens_work() {
 
 #[test]
 fn token_helpers_are_deterministic_and_prefixed() {
-  let token = spec_store::auth::generate_token();
+  let token = spec_store_core::secrets::generate_token();
   assert!(token.starts_with("sst_"));
-  assert_ne!(token, spec_store::auth::generate_token());
-  let hash = spec_store::auth::hash_token(&token);
+  assert_ne!(token, spec_store_core::secrets::generate_token());
+  let hash = spec_store_core::secrets::hash_token(&token);
   assert_eq!(hash.len(), 64);
-  assert_eq!(hash, spec_store::auth::hash_token(&token));
+  assert_eq!(hash, spec_store_core::secrets::hash_token(&token));
   assert!(hash.bytes().all(|b| b.is_ascii_hexdigit()));
 }
 
