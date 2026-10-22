@@ -36,7 +36,7 @@ Switch group (as in spec 004): T08–T17 change the persistence layer from SQLit
 - [x] T21 (FR-33, FR-39) Implement `apps/api/src/main.rs` (config, preflight, migrate, serve, graceful SIGTERM), `router.rs` (health routes, host allow-list, 2 MB body limit), `error.rs` (`StoreError` → status and `{code, message}`) and `auth.rs` (bearer extractor with audience `spec-store-api` → `Caller`, store calls through `spawn_blocking`) — Done when: T20 tests green
 
 ## Phase 3 — US-5 (P1) Agent workflow unchanged
-- [ ] T22 (FR-19, FR-33) Add `apps/mcp` as a workspace member (crate `spec-store-mcp`). Port `tests/mcp_tools.rs` from stdio to the rmcp HTTP client with a `FakeKeycloak` bearer token and `org/project` addresses, keeping every spec 001 assertion. Add `tests/mcp_health.rs` — Done when: tests written and red
+- [x] T22 (FR-19, FR-33) Add `apps/mcp` as a workspace member (crate `spec-store-mcp`). Port `tests/mcp_tools.rs` from stdio to the rmcp HTTP client with a `FakeKeycloak` bearer token and `org/project` addresses, keeping every spec 001 assertion. Add `tests/mcp_health.rs` — Done when: tests written and red
 - [ ] T23 (FR-19, FR-33) Implement `apps/mcp/src/main.rs`, `router.rs` (`/mcp`, health routes), `auth.rs` (bearer verified with audience = MCP URL, `Caller` in the request extensions) and port `tools.rs` to `ProjectRef` and `spawn_blocking` — Done when: T22 tests green
 - [ ] T24 (FR-16) Write `apps/mcp/tests/mcp_replicas.rs`: two MCP servers on one database, concurrent `write_document` with the same expected revision — Done when: test green with exactly one success and one conflict naming the current revision
 

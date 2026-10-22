@@ -1,33 +1,11 @@
 mod common;
 
-use std::path::Path;
-
-use rmcp::ServiceExt;
 use rmcp::model::{CallToolRequestParams, CallToolResult};
-use rmcp::service::{RoleClient, RunningService, ServiceError};
-use rmcp::transport::{ConfigureCommandExt, TokioChildProcess};
+use rmcp::service::ServiceError;
 use serde_json::{Value, json};
-use spec_store::model::{DocumentKind, Role};
-use spec_store::store::Store;
+use spec_store_core::model::{DocumentKind, Role};
 
-type Client = RunningService<RoleClient, ()>;
-
-async fn connect(db: &Path, as_handle: &str) -> Client {
-  let db = db.to_path_buf();
-  let as_handle = as_handle.to_string();
-  let transport = TokioChildProcess::new(
-    tokio::process::Command::new(env!("CARGO_BIN_EXE_spec-store")).configure(|cmd| {
-      cmd
-        .arg("--db")
-        .arg(&db)
-        .arg("stdio")
-        .arg("--as")
-        .arg(&as_handle);
-    }),
-  )
-  .expect("spawn server");
-  ().serve(transport).await.expect("initialize")
-}
+use common::{Client, TestMcp};
 
 async fn call(client: &Client, name: &str, args: Value) -> Result<Value, ServiceError> {
   let mut params = CallToolRequestParams::new(name.to_string());
@@ -56,33 +34,36 @@ fn kind(err: &rmcp::ErrorData) -> String {
     .to_string()
 }
 
-fn seed(db: &Path) -> Store {
-  let store = Store::open(db).unwrap();
-  store.create_user(None, "root", false).unwrap();
-  let admin = store.caller_by_handle("root").unwrap();
-  for h in ["editor", "reader", "outsider"] {
-    store.create_user(Some(&admin), h, false).unwrap();
+async fn seed() -> TestMcp {
+  let mcp = common::start().await;
+  let store = &mcp.store;
+  let root = common::person(store, "root");
+  store.create_organization(&root, "acme", "Acme").unwrap();
+  for h in ["editor", "reader"] {
+    let member = common::person(store, h);
+    common::join(store, &root, "acme", &member);
   }
+  common::person(store, "outsider");
   store
-    .create_project(&admin, "demo", "Demo project")
+    .create_project(&root, "acme/demo", "Demo project")
     .unwrap();
-  store.create_project(&admin, "other", "Other").unwrap();
+  store.create_project(&root, "acme/other", "Other").unwrap();
   store
-    .set_member(&admin, "demo", "editor", Role::Editor)
+    .set_member(&root, "acme/demo", "editor", Role::Editor)
     .unwrap();
   store
-    .set_member(&admin, "demo", "reader", Role::Reader)
+    .set_member(&root, "acme/demo", "reader", Role::Reader)
     .unwrap();
   common::exec(
-    &store,
+    store,
     "INSERT INTO specs (project_id, number, slug, status, branch)
      VALUES ((SELECT id FROM projects WHERE slug = 'demo'), 1, 'first', 'clarified', '001-first')",
   );
-  let editor = store.caller_by_handle("editor").unwrap();
+  let editor = store.caller_by_handle("editor", false).unwrap();
   store
     .put_document(
       &editor,
-      "demo",
+      "acme/demo",
       1,
       DocumentKind::Spec,
       "# Spec 001 — First\n",
@@ -90,28 +71,23 @@ fn seed(db: &Path) -> Store {
       None,
     )
     .unwrap();
-  let owner_like = store.caller_by_handle("root").unwrap();
-  store
-    .set_member(&admin, "demo", "root", Role::Owner)
-    .unwrap();
   store
     .put_constitution(
-      &owner_like,
-      "demo",
+      &root,
+      "acme/demo",
       "# Constitution\n",
       "1.0",
       "ratified",
       None,
     )
     .unwrap();
-  store
+  mcp
 }
 
 #[tokio::test]
 async fn lists_tools_and_projects_for_the_acting_user() {
-  let db = common::temp_db_path("mcp-read-list");
-  seed(&db);
-  let client = connect(&db, "editor").await;
+  let mcp = seed().await;
+  let client = mcp.connect("editor").await;
 
   let tools = client.list_tools(None).await.unwrap();
   let names: Vec<&str> = tools.tools.iter().map(|t| t.name.as_ref()).collect();
@@ -120,10 +96,10 @@ async fn lists_tools_and_projects_for_the_acting_user() {
   let projects = call(&client, "list_projects", json!({})).await.unwrap();
   assert_eq!(
     projects,
-    json!({"projects": [{"slug": "demo", "name": "Demo project", "role": "editor"}]})
+    json!({"projects": [{"slug": "acme/demo", "name": "Demo project", "role": "editor"}]})
   );
 
-  let admin = connect(&db, "root").await;
+  let admin = mcp.connect("root").await;
   let projects = call(&admin, "list_projects", json!({})).await.unwrap();
   let slugs: Vec<&str> = projects["projects"]
     .as_array()
@@ -131,16 +107,15 @@ async fn lists_tools_and_projects_for_the_acting_user() {
     .iter()
     .map(|p| p["slug"].as_str().unwrap())
     .collect();
-  assert_eq!(slugs, vec!["demo", "other"]);
+  assert_eq!(slugs, vec!["acme/demo", "acme/other"]);
   client.cancel().await.unwrap();
   admin.cancel().await.unwrap();
 }
 
 #[tokio::test]
 async fn reads_specs_documents_constitution_and_templates() {
-  let db = common::temp_db_path("mcp-read-docs");
-  seed(&db);
-  let client = connect(&db, "reader").await;
+  let mcp = seed().await;
+  let client = mcp.connect("reader").await;
 
   let tools = client.list_tools(None).await.unwrap();
   let names: Vec<&str> = tools.tools.iter().map(|t| t.name.as_ref()).collect();
@@ -157,7 +132,7 @@ async fn reads_specs_documents_constitution_and_templates() {
     );
   }
 
-  let specs = call(&client, "list_specs", json!({"project": "demo"}))
+  let specs = call(&client, "list_specs", json!({"project": "acme/demo"}))
     .await
     .unwrap();
   assert_eq!(
@@ -165,19 +140,19 @@ async fn reads_specs_documents_constitution_and_templates() {
     json!({"specs": [{"number": 1, "slug": "first", "status": "clarified", "branch": "001-first", "kinds": ["spec"]}]})
   );
 
-  let active = call(&client, "get_active_spec", json!({"project": "demo"}))
+  let active = call(&client, "get_active_spec", json!({"project": "acme/demo"}))
     .await
     .unwrap();
   assert_eq!(active["spec"]["number"], 1);
   assert_eq!(active["spec"]["branch"], "001-first");
 
-  let none = call(&client, "get_active_spec", json!({"project": "other"})).await;
-  assert_eq!(kind(&error_of(none.unwrap_err())), "forbidden");
+  let none = call(&client, "get_active_spec", json!({"project": "acme/other"})).await;
+  assert_eq!(kind(&error_of(none.unwrap_err())), "not_found");
 
   let doc = call(
     &client,
     "get_document",
-    json!({"project": "demo", "number": 1, "kind": "spec"}),
+    json!({"project": "acme/demo", "number": 1, "kind": "spec"}),
   )
   .await
   .unwrap();
@@ -189,7 +164,7 @@ async fn reads_specs_documents_constitution_and_templates() {
   let missing = call(
     &client,
     "get_document",
-    json!({"project": "demo", "number": 1, "kind": "plan"}),
+    json!({"project": "acme/demo", "number": 1, "kind": "plan"}),
   )
   .await;
   let err = error_of(missing.unwrap_err());
@@ -199,12 +174,12 @@ async fn reads_specs_documents_constitution_and_templates() {
   let bad_kind = call(
     &client,
     "get_document",
-    json!({"project": "demo", "number": 1, "kind": "notes"}),
+    json!({"project": "acme/demo", "number": 1, "kind": "notes"}),
   )
   .await;
   assert_eq!(kind(&error_of(bad_kind.unwrap_err())), "validation");
 
-  let constitution = call(&client, "get_constitution", json!({"project": "demo"}))
+  let constitution = call(&client, "get_constitution", json!({"project": "acme/demo"}))
     .await
     .unwrap();
   assert_eq!(constitution["body"], "# Constitution\n");
@@ -221,24 +196,26 @@ async fn reads_specs_documents_constitution_and_templates() {
 }
 
 #[tokio::test]
-async fn outsider_is_forbidden_without_existence_leak() {
-  let db = common::temp_db_path("mcp-read-forbidden");
-  seed(&db);
-  let client = connect(&db, "outsider").await;
+async fn outsider_gets_not_found_without_existence_leak() {
+  let mcp = seed().await;
+  let client = mcp.connect("outsider").await;
 
   let existing = error_of(
-    call(&client, "list_specs", json!({"project": "demo"}))
+    call(&client, "list_specs", json!({"project": "acme/demo"}))
       .await
       .unwrap_err(),
   );
   let missing = error_of(
-    call(&client, "list_specs", json!({"project": "nope"}))
+    call(&client, "list_specs", json!({"project": "acme/nope"}))
       .await
       .unwrap_err(),
   );
-  assert_eq!(kind(&existing), "forbidden");
-  assert_eq!(kind(&missing), "forbidden");
-  assert_eq!(existing.message, missing.message);
+  assert_eq!(kind(&existing), "not_found");
+  assert_eq!(kind(&missing), "not_found");
+  assert_eq!(
+    existing.message.replace("demo", "X"),
+    missing.message.replace("nope", "X")
+  );
   assert_eq!(existing.code, missing.code);
   client.cancel().await.unwrap();
 }
@@ -247,9 +224,8 @@ const TASKS_BODY: &str = "# Tasks — Spec 002\n\n## Phase 1 — Setup\n- [ ] T0
 
 #[tokio::test]
 async fn writes_specs_documents_status_and_tasks() {
-  let db = common::temp_db_path("mcp-write");
-  seed(&db);
-  let client = connect(&db, "editor").await;
+  let mcp = seed().await;
+  let client = mcp.connect("editor").await;
 
   let tools = client.list_tools(None).await.unwrap();
   let names: Vec<&str> = tools.tools.iter().map(|t| t.name.as_ref()).collect();
@@ -269,7 +245,7 @@ async fn writes_specs_documents_status_and_tasks() {
   let created = call(
     &client,
     "create_spec",
-    json!({"project": "demo", "slug": "second"}),
+    json!({"project": "acme/demo", "slug": "second"}),
   )
   .await
   .unwrap();
@@ -280,7 +256,7 @@ async fn writes_specs_documents_status_and_tasks() {
   let dup = call(
     &client,
     "create_spec",
-    json!({"project": "demo", "slug": "second"}),
+    json!({"project": "acme/demo", "slug": "second"}),
   )
   .await;
   assert_eq!(kind(&error_of(dup.unwrap_err())), "validation");
@@ -288,7 +264,7 @@ async fn writes_specs_documents_status_and_tasks() {
   let put = call(
     &client,
     "put_document",
-    json!({"project": "demo", "number": 2, "kind": "tasks", "body": TASKS_BODY, "message": "tasks"}),
+    json!({"project": "acme/demo", "number": 2, "kind": "tasks", "body": TASKS_BODY, "message": "tasks"}),
   )
   .await
   .unwrap();
@@ -297,7 +273,7 @@ async fn writes_specs_documents_status_and_tasks() {
   let conflict = call(
     &client,
     "put_document",
-    json!({"project": "demo", "number": 2, "kind": "tasks", "body": "x", "message": "again"}),
+    json!({"project": "acme/demo", "number": 2, "kind": "tasks", "body": "x", "message": "again"}),
   )
   .await;
   let err = error_of(conflict.unwrap_err());
@@ -307,7 +283,7 @@ async fn writes_specs_documents_status_and_tasks() {
   let second = call(
     &client,
     "put_document",
-    json!({"project": "demo", "number": 2, "kind": "tasks", "body": TASKS_BODY, "message": "same", "expected_revision": first}),
+    json!({"project": "acme/demo", "number": 2, "kind": "tasks", "body": TASKS_BODY, "message": "same", "expected_revision": first}),
   )
   .await
   .unwrap();
@@ -317,7 +293,7 @@ async fn writes_specs_documents_status_and_tasks() {
   let marked = call(
     &client,
     "mark_task_done",
-    json!({"project": "demo", "number": 2, "task_id": "T01", "commit": "abc1234"}),
+    json!({"project": "acme/demo", "number": 2, "task_id": "T01", "commit": "abc1234"}),
   )
   .await
   .unwrap();
@@ -336,14 +312,14 @@ async fn writes_specs_documents_status_and_tasks() {
   let again = call(
     &client,
     "mark_task_done",
-    json!({"project": "demo", "number": 2, "task_id": "T01", "commit": "abc1234"}),
+    json!({"project": "acme/demo", "number": 2, "task_id": "T01", "commit": "abc1234"}),
   )
   .await;
   assert_eq!(kind(&error_of(again.unwrap_err())), "validation");
   let doc = call(
     &client,
     "get_document",
-    json!({"project": "demo", "number": 2, "kind": "tasks"}),
+    json!({"project": "acme/demo", "number": 2, "kind": "tasks"}),
   )
   .await
   .unwrap();
@@ -352,7 +328,7 @@ async fn writes_specs_documents_status_and_tasks() {
   let bad = call(
     &client,
     "set_spec_status",
-    json!({"project": "demo", "number": 2, "status": "approved"}),
+    json!({"project": "acme/demo", "number": 2, "status": "approved"}),
   )
   .await;
   let err = error_of(bad.unwrap_err());
@@ -361,7 +337,7 @@ async fn writes_specs_documents_status_and_tasks() {
   let status = call(
     &client,
     "set_spec_status",
-    json!({"project": "demo", "number": 2, "status": "clarified"}),
+    json!({"project": "acme/demo", "number": 2, "status": "clarified"}),
   )
   .await
   .unwrap();
@@ -369,7 +345,7 @@ async fn writes_specs_documents_status_and_tasks() {
   let archive = call(
     &client,
     "set_spec_status",
-    json!({"project": "demo", "number": 2, "status": "archived"}),
+    json!({"project": "acme/demo", "number": 2, "status": "archived"}),
   )
   .await;
   assert_eq!(kind(&error_of(archive.unwrap_err())), "validation");
@@ -377,43 +353,43 @@ async fn writes_specs_documents_status_and_tasks() {
   let not_owner = call(
     &client,
     "put_constitution",
-    json!({"project": "demo", "body": "c", "version": "2.0", "message": "m"}),
+    json!({"project": "acme/demo", "body": "c", "version": "2.0", "message": "m"}),
   )
   .await;
   assert_eq!(kind(&error_of(not_owner.unwrap_err())), "forbidden");
   client.cancel().await.unwrap();
 
-  let owner = connect(&db, "root").await;
-  let current = call(&owner, "get_constitution", json!({"project": "demo"}))
+  let owner = mcp.connect("root").await;
+  let current = call(&owner, "get_constitution", json!({"project": "acme/demo"}))
     .await
     .unwrap();
   let current_id = current["revision"]["id"].as_i64().unwrap();
   let same_version = call(
     &owner,
     "put_constitution",
-    json!({"project": "demo", "body": "c", "version": "1.0", "message": "m", "expected_revision": current_id}),
+    json!({"project": "acme/demo", "body": "c", "version": "1.0", "message": "m", "expected_revision": current_id}),
   )
   .await;
   assert_eq!(kind(&error_of(same_version.unwrap_err())), "conflict");
   let amended = call(
     &owner,
     "put_constitution",
-    json!({"project": "demo", "body": "# Constitution v1.1\n", "version": "1.1", "message": "amended", "expected_revision": current_id}),
+    json!({"project": "acme/demo", "body": "# Constitution v1.1\n", "version": "1.1", "message": "amended", "expected_revision": current_id}),
   )
   .await
   .unwrap();
   assert!(amended["revision_id"].as_i64().unwrap() > current_id);
-  let after = call(&owner, "get_constitution", json!({"project": "demo"}))
+  let after = call(&owner, "get_constitution", json!({"project": "acme/demo"}))
     .await
     .unwrap();
   assert_eq!(after["version"], "1.1");
   owner.cancel().await.unwrap();
 
-  let reader = connect(&db, "reader").await;
+  let reader = mcp.connect("reader").await;
   let forbidden = call(
     &reader,
     "put_document",
-    json!({"project": "demo", "number": 2, "kind": "plan", "body": "p", "message": "m"}),
+    json!({"project": "acme/demo", "number": 2, "kind": "plan", "body": "p", "message": "m"}),
   )
   .await;
   assert_eq!(kind(&error_of(forbidden.unwrap_err())), "forbidden");
@@ -422,9 +398,8 @@ async fn writes_specs_documents_status_and_tasks() {
 
 #[tokio::test]
 async fn derived_reads_tasks_markers_and_status() {
-  let db = common::temp_db_path("mcp-derived");
-  seed(&db);
-  let client = connect(&db, "editor").await;
+  let mcp = seed().await;
+  let client = mcp.connect("editor").await;
 
   let tools = client.list_tools(None).await.unwrap();
   let names: Vec<&str> = tools.tools.iter().map(|t| t.name.as_ref()).collect();
@@ -438,28 +413,28 @@ async fn derived_reads_tasks_markers_and_status() {
   call(
     &client,
     "create_spec",
-    json!({"project": "demo", "slug": "second"}),
+    json!({"project": "acme/demo", "slug": "second"}),
   )
   .await
   .unwrap();
   call(
     &client,
     "put_document",
-    json!({"project": "demo", "number": 2, "kind": "tasks", "body": TASKS_BODY, "message": "tasks"}),
+    json!({"project": "acme/demo", "number": 2, "kind": "tasks", "body": TASKS_BODY, "message": "tasks"}),
   )
   .await
   .unwrap();
   call(
     &client,
     "put_document",
-    json!({"project": "demo", "number": 2, "kind": "spec", "body": "# Spec 002\n\n## 12. Open questions\n- [NEEDS CLARIFICATION: who approves?]\n", "message": "spec"}),
+    json!({"project": "acme/demo", "number": 2, "kind": "spec", "body": "# Spec 002\n\n## 12. Open questions\n- [NEEDS CLARIFICATION: who approves?]\n", "message": "spec"}),
   )
   .await
   .unwrap();
   call(
     &client,
     "mark_task_done",
-    json!({"project": "demo", "number": 2, "task_id": "T01", "commit": "abc1234"}),
+    json!({"project": "acme/demo", "number": 2, "task_id": "T01", "commit": "abc1234"}),
   )
   .await
   .unwrap();
@@ -467,7 +442,7 @@ async fn derived_reads_tasks_markers_and_status() {
   let tasks = call(
     &client,
     "list_tasks",
-    json!({"project": "demo", "number": 2}),
+    json!({"project": "acme/demo", "number": 2}),
   )
   .await
   .unwrap();
@@ -490,7 +465,7 @@ async fn derived_reads_tasks_markers_and_status() {
   let pending = call(
     &client,
     "list_tasks",
-    json!({"project": "demo", "number": 2, "pending_only": true}),
+    json!({"project": "acme/demo", "number": 2, "pending_only": true}),
   )
   .await
   .unwrap();
@@ -500,7 +475,7 @@ async fn derived_reads_tasks_markers_and_status() {
   let markers = call(
     &client,
     "list_markers",
-    json!({"project": "demo", "number": 2}),
+    json!({"project": "acme/demo", "number": 2}),
   )
   .await
   .unwrap();
@@ -512,7 +487,7 @@ async fn derived_reads_tasks_markers_and_status() {
     }]})
   );
 
-  let status = call(&client, "project_status", json!({"project": "demo"}))
+  let status = call(&client, "project_status", json!({"project": "acme/demo"}))
     .await
     .unwrap();
   assert_eq!(status["constitution_version"], "1.0");
@@ -531,8 +506,8 @@ async fn derived_reads_tasks_markers_and_status() {
   assert_eq!(active["markers"], 1);
   client.cancel().await.unwrap();
 
-  let admin = connect(&db, "root").await;
-  let empty = call(&admin, "project_status", json!({"project": "other"}))
+  let admin = mcp.connect("root").await;
+  let empty = call(&admin, "project_status", json!({"project": "acme/other"}))
     .await
     .unwrap();
   assert!(empty["constitution_version"].is_null());
@@ -543,9 +518,8 @@ async fn derived_reads_tasks_markers_and_status() {
 
 #[tokio::test]
 async fn history_tools_list_and_read_revisions() {
-  let db = common::temp_db_path("mcp-history");
-  seed(&db);
-  let client = connect(&db, "editor").await;
+  let mcp = seed().await;
+  let client = mcp.connect("editor").await;
 
   let tools = client.list_tools(None).await.unwrap();
   let names: Vec<&str> = tools.tools.iter().map(|t| t.name.as_ref()).collect();
@@ -560,7 +534,7 @@ async fn history_tools_list_and_read_revisions() {
   let current = call(
     &client,
     "get_document",
-    json!({"project": "demo", "number": 1, "kind": "spec"}),
+    json!({"project": "acme/demo", "number": 1, "kind": "spec"}),
   )
   .await
   .unwrap();
@@ -568,7 +542,7 @@ async fn history_tools_list_and_read_revisions() {
   let second = call(
     &client,
     "put_document",
-    json!({"project": "demo", "number": 1, "kind": "spec", "body": "# Spec 001 v2\n", "message": "second", "expected_revision": first}),
+    json!({"project": "acme/demo", "number": 1, "kind": "spec", "body": "# Spec 001 v2\n", "message": "second", "expected_revision": first}),
   )
   .await
   .unwrap()["revision_id"]
@@ -578,7 +552,7 @@ async fn history_tools_list_and_read_revisions() {
   let revisions = call(
     &client,
     "list_revisions",
-    json!({"project": "demo", "number": 1, "kind": "spec"}),
+    json!({"project": "acme/demo", "number": 1, "kind": "spec"}),
   )
   .await
   .unwrap();
@@ -593,7 +567,7 @@ async fn history_tools_list_and_read_revisions() {
   let constitution = call(
     &client,
     "list_revisions",
-    json!({"project": "demo", "kind": "constitution"}),
+    json!({"project": "acme/demo", "kind": "constitution"}),
   )
   .await
   .unwrap();
@@ -602,7 +576,7 @@ async fn history_tools_list_and_read_revisions() {
   let old = call(
     &client,
     "get_revision",
-    json!({"project": "demo", "revision_id": first}),
+    json!({"project": "acme/demo", "revision_id": first}),
   )
   .await
   .unwrap();
@@ -615,7 +589,7 @@ async fn history_tools_list_and_read_revisions() {
   let missing = call(
     &client,
     "get_revision",
-    json!({"project": "demo", "revision_id": 9999}),
+    json!({"project": "acme/demo", "revision_id": 9999}),
   )
   .await;
   assert_eq!(kind(&error_of(missing.unwrap_err())), "not_found");

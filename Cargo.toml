@@ -1,7 +1,7 @@
 [workspace]
 resolver = "3"
-members = ["packages/core", "packages/testkit", "apps/api"]
-default-members = ["packages/core", "packages/testkit", "apps/api"]
+members = ["packages/core", "packages/testkit", "apps/api", "apps/mcp"]
+default-members = ["packages/core", "packages/testkit", "apps/api", "apps/mcp"]
 
 [workspace.package]
 version = "0.2.0"

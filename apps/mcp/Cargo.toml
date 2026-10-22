@@ -1,0 +1,30 @@
+[package]
+name = "spec-store-mcp"
+description = "spec-store MCP server over Streamable HTTP with MCP authorization"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "spec-store-mcp"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+axum = { workspace = true }
+rmcp = { version = "=3.5.1", features = ["server", "macros", "schemars", "transport-streamable-http-server"] }
+schemars = "1"
+serde = { workspace = true }
+serde_json = { workspace = true }
+spec-store-core = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+[dev-dependencies]
+diesel = { workspace = true }
+reqwest = { workspace = true }
+rmcp = { version = "=3.5.1", features = ["client", "transport-streamable-http-client-reqwest", "reqwest"] }
+spec-store-testkit = { workspace = true }

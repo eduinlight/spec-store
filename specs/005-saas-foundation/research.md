@@ -164,3 +164,11 @@ Versions were read from crates.io, npm and the official release pages on 2026-10
 - Finding: `lettre` 0.11 is the maintained Rust SMTP client (async with Tokio, rustls). With several API instances, `SELECT … FOR UPDATE SKIP LOCKED` lets each instance claim different rows of a queue table. Mailpit provides an SMTP sink with an HTTP API for local development and tests.
 - Source: https://docs.rs/lettre/latest/lettre/ ; https://www.postgresql.org/docs/18/sql-select.html#SQL-FOR-UPDATE-SHARE ; https://mailpit.axllent.org/docs/api-v1/
 - Decision: invitations write an `email_outbox` row in the same transaction; an in-process sender in each API instance claims due rows with `SKIP LOCKED` every 10 s, sends with `lettre`, retries with backoff until one hour after creation, then marks the row failed and logs it without the address in clear. Mailpit in docker compose for development and tests. Rejected: sending inside the request (a mail outage would fail the invitation); an external queue (a new service).
+
+## R24 — MCP sessions across replicas
+
+- Question: can two MCP replicas serve one client without sticky sessions (NFR-5)?
+- Finding: rmcp 3.5.1 `StreamableHttpServerConfig` defaults to `legacy_session_mode: true`, which keeps sessions in the memory of the instance that handled `initialize` (`LocalSessionManager`); a request reaching another instance would fail unless a `session_store` is configured. With `legacy_session_mode: false` every request is served statelessly, and the `2026-07-28` protocol removes sessions altogether (SEP-2567). `json_response: true` returns plain JSON for simple tool calls.
+- Source: `rmcp-3.5.1/src/transport/streamable_http_server/tower.rs` lines 78–212
+- Decision: the MCP server runs with `legacy_session_mode(false)` and `json_response(true)`; identity is checked on every request by the axum middleware, so no per-session state exists. Rejected: an external session store (a new shared service) and sticky sessions at the ingress (breaks on pod restarts).
+
