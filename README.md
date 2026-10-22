@@ -1,155 +1,58 @@
 # spec-store
 
-Remote, multi-project store for Spec Driven Development documents (constitution, spec, plan,
-tasks, research, validation) exposed to AI agents through an MCP server. One Rust binary serves
-the Streamable HTTP MCP endpoint, a read-only browser view and the administration commands, with
-a single SQLite file as the only state. Documents are markdown with append-only revisions; tasks, markers and project
-status are derived from the current revision on every read.
+Hosted store for Spec Driven Development documents (constitution, spec, plan, tasks, research,
+validation), shared by teams and their AI agents. Organizations own projects; people sign in with
+Keycloak; agents connect over MCP by approving the client in the browser; a CLI manages
+organizations, projects, import and export from the terminal. Every document write is an
+append-only revision with an audit entry, stored in PostgreSQL.
 
-## Run the server
+## Repository layout
 
-```sh
-cargo build --release
-./target/release/spec-store --db /var/lib/spec-store/store.db serve \
-  --bind 0.0.0.0:7391 \
-  --allowed-host specs.example.com:7391
-```
-
-- `--db` (or `SPEC_STORE_DB`) is the SQLite file; it is created on first use.
-- `--bind` defaults to `127.0.0.1:7391`.
-- `--allowed-host` lists the `Host` header values the server accepts. Without it only loopback
-  hosts are accepted, which protects against DNS rebinding; pass the public host name and port
-  when serving a team.
-- The MCP endpoint is `POST /mcp`; the browser view is at `/ui/`; `GET /healthz` answers `ok`
-  without authentication.
-- Logs go to stderr; set `RUST_LOG=debug` for more detail.
-
-### Upgrading a database from before spec 004
-
-Migrations are embedded in the binary and recorded by Diesel in `__diesel_schema_migrations`.
-On the first start against an older database, the server copies the history from
-`schema_migrations` (with the original apply times), then applies only the migrations that are
-missing. Data is not touched, and the old `schema_migrations` table is kept. If any step fails,
-the database is left as it was, and the server exits with `migration step <step> failed`. Back up
-the file before upgrading, as with any new release.
-
-## Bootstrap an admin, a project and a token
-
-Administration runs on the server host against the database file, without tokens. The first
-user created on an empty store becomes an admin; every later command names the acting user with
-`--as`.
-
-```sh
-spec-store --db store.db user add alice
-spec-store --db store.db user add bob --as alice
-spec-store --db store.db project add demo "Demo project" --as alice
-spec-store --db store.db member set demo bob editor --as alice
-spec-store --db store.db token issue bob --label laptop --as alice
-```
-
-`token issue` prints the token once on stdout and never again. Roles are `owner` (manages
-members, archives specs, writes the constitution), `editor` (creates specs, writes documents,
-marks tasks) and `reader`. Admins read every project but write only through a membership.
-
-Other commands: `token list HANDLE`, `token revoke ID`, `member remove PROJECT HANDLE`,
-`audit list [--project SLUG] [--limit N]`, all with `--as`.
-
-## Connect Claude Code
-
-```sh
-claude mcp add --transport http spec-store https://specs.example.com:7391/mcp \
-  --header "Authorization: Bearer sst_..."
-```
-
-Or, shared with the team through `.mcp.json` in the project repository, with the token read from
-an environment variable (use your own variable name; names of Anthropic credentials are blanked
-by Claude Code):
-
-```json
-{
-  "mcpServers": {
-    "spec-store": {
-      "type": "http",
-      "url": "https://specs.example.com:7391/mcp",
-      "headers": {
-        "Authorization": "Bearer ${SPEC_STORE_TOKEN}"
-      }
-    }
-  }
-}
-```
-
-## Browser view
-
-The same server serves a read-only browser view at `/ui/` (the root `/` redirects there).
-People sign in with their own API token on `/ui/login`; the server exchanges it for a session
-cookie that lasts 30 days or until logout or revocation of the token. The browser can only read:
-projects, specs, documents rendered from markdown with a raw view, tasks with their commits, open
-markers, revision history with diffs, the project's members, and the audit trail (owners for their
-projects, admins for everything). Nothing is written from the browser.
-
-- Behind HTTPS, start the server with `--secure-cookies` so the session cookie is only sent over
-  TLS. Without the flag the cookie works over plain HTTP, which suits loopback testing.
-- To turn commit identifiers of done tasks into links, record the project's repository URL:
-
-```sh
-spec-store --db store.db project set-repo demo https://github.com/acme/demo --as alice
-spec-store --db store.db project set-repo demo --clear --as alice
-```
-
-Admins and owners of the project may set it. Links are built as `<repository URL>/commit/<id>`,
-which fits GitHub, GitLab and Gitea.
-
-## Import and export
-
-Bring an existing SDD tree into a project, or write a project back to files. Both commands run on
-the host that holds the database file. Spec numbers, slugs and the bytes of every document are kept,
-so an import followed by an export reproduces the files.
-
-```sh
-spec-store --db store.db import demo ../my-repo --dry-run --as bob
-spec-store --db store.db import demo ../my-repo --as bob
-spec-store --db store.db export demo ./backup --as bob
-spec-store --db store.db export demo ./backup --spec 3 --force --as bob
-```
-
-- Import reads `docs/constitution.md` and every `specs/NNN-name/` folder with its `spec.md`,
-  `plan.md`, `tasks.md`, `research.md` and `validation.md`. Other entries are skipped and named.
-- Only an owner of the project imports. The import is refused as a whole, with every problem
-  listed, when a folder name is not a spec branch name, a number or slug already exists, a file is
-  not UTF-8 or exceeds 1 MiB, or the project already has a constitution.
-- The spec status comes from the `Status:` line of `spec.md`, falling back to `draft` with a
-  notice. The constitution version comes from its `Version` line or `--constitution-version`.
-- Any member, or an admin, exports. Existing files with the same bytes are left untouched; files
-  that differ stop the export unless `--force` is given. Export never deletes a file.
-
-## Stdio mode
-
-On the server host, or for tests, the same tools are available over stdin and stdout acting for
-one user, without a token:
-
-```sh
-spec-store --db store.db stdio --as bob
-```
-
-## Tools
-
-Projects are addressed by slug and specs by number.
-
-| Tool | Purpose |
+| Path | What it is |
 |---|---|
-| `list_projects`, `list_specs`, `get_active_spec`, `project_status` | discovery and progress |
-| `get_document`, `get_constitution`, `get_template` | reading |
-| `create_spec`, `put_document`, `put_constitution`, `set_spec_status`, `mark_task_done` | writing; `put_*` take `expected_revision` for optimistic locking |
-| `list_tasks`, `list_markers` | derived from the documents |
-| `list_revisions`, `get_revision` | history |
+| `packages/core` | Rust library with every business rule: organizations, projects, specs, revisions, audit, invitations, sessions, Keycloak token checks, email |
+| `packages/testkit` | Test support: per-test PostgreSQL databases, a fake Keycloak, Mailpit helpers |
+| `packages/ui` | Shared design tokens, Tailwind theme, shadcn components and language helpers |
+| `apps/api` | JSON API (axum): browser sign-in, organizations, projects, read views, import and export, invitation emails |
+| `apps/mcp` | MCP server (rmcp over Streamable HTTP) with MCP authorization |
+| `apps/cli` | `spec-store` command-line tool with device sign-in |
+| `apps/app` | Browser app (React 19, React Router 7, Vite) |
+| `apps/landing` | Public landing page (React Router 7, prerendered) |
+| `deploy/` | Dockerfiles, nginx configs, Keycloak theme and realm, PostgreSQL init and backup jobs |
+| `specs/` | The SDD documents of this repository |
 
 ## Development
 
+Prerequisites: Docker, Rust 1.97 with clippy and rustfmt, Node 24, pnpm 10.33 and `libpq`.
+
 ```sh
-cargo test
-cargo clippy --all-targets -- -D warnings && cargo fmt --check
-cargo test --release --test perf -- --ignored
-cargo test --release --test perf_ui -- --ignored
-cargo test --release --test perf_import -- --ignored
+make install     # copies .env.dist to .env, starts PostgreSQL, Keycloak and Mailpit, installs packages
+make dev         # runs the API, the MCP server, the app and the landing page
+make uninstall   # stops everything and removes containers, volumes and the local Keycloak image
+```
+
+`make dev` prints every address. With the defaults from `.env.dist`:
+
+| Service | Address |
+|---|---|
+| Landing | http://localhost:5174 |
+| App | http://localhost:5173 (sign in as `dev` / `${SPEC_STORE_DEV_PASSWORD}`; `ops` / `${SPEC_STORE_OPS_PASSWORD}` is a platform operator) |
+| API | http://localhost:54000 |
+| MCP | http://localhost:54100/mcp |
+| Keycloak admin | http://localhost:58080/admin (`KEYCLOAK_ADMIN_USER` / `KEYCLOAK_ADMIN_PASSWORD`) |
+| Mailpit inbox | http://localhost:58025 |
+
+The app dev server proxies `/api` and `/auth` to the API, so the browser sees a single origin, as
+it does in production. Keycloak imports the realm from `deploy/keycloak/realm/spec-store.json`
+and the test people from `deploy/keycloak/dev/` on its first start; run `make uninstall` and
+`make install` to start over.
+
+## Checks
+
+```sh
+make lint        # clippy, Biome, TypeScript and the OpenAPI drift check
+make fmt-check   # rustfmt and Biome formatting
+make test        # every Rust and TypeScript test (starts PostgreSQL and Mailpit first)
+make e2e         # browser tests against the local stack and Lighthouse on the landing page
+make openapi     # regenerates apps/app/src/api/openapi.json and schema.d.ts after API changes
 ```

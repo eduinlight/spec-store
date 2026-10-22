@@ -10,15 +10,21 @@ docker-up:
 docker-down:
 	$(COMPOSE) down
 
-install: docker-up
+env:
+	@test -f .env || cp .env.dist .env
+
+install: env docker-up
 	pnpm install --frozen-lockfile
 	@echo
 	@echo "spec-store services are ready:"
 	@echo "    postgres  localhost:$${POSTGRES_PORT:-55432}"
 	@echo "    mailpit   http://localhost:$${MAILPIT_UI_PORT:-58025}"
 
+dev: env
+	./scripts/dev.sh
+
 uninstall:
-	$(COMPOSE) down -v --remove-orphans
+	$(COMPOSE) down -v --remove-orphans --rmi local
 
 reinstall: uninstall install
 
@@ -64,4 +70,4 @@ e2e: docker-up
 	pnpm --filter landing build
 	pnpm exec lhci autorun
 
-.PHONY: e2e docker-up docker-down install uninstall reinstall test-services test-sweep openapi openapi-check lint fmt-check test
+.PHONY: env dev e2e docker-up docker-down install uninstall reinstall test-services test-sweep openapi openapi-check lint fmt-check test
