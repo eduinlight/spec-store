@@ -15,6 +15,8 @@ use crate::model::{Caller, StoreError, StoreResult};
 use crate::schema::{self, iso_utc};
 use crate::store::projects::access_in;
 
+pub const PING_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(2);
+
 #[derive(Clone)]
 pub struct Store {
   pool: DbPool,
@@ -65,10 +67,9 @@ impl Store {
   }
 
   pub fn ping(&self) -> StoreResult<()> {
-    self.with_conn(|conn| {
-      diesel::sql_query("SELECT 1").execute(conn)?;
-      Ok(())
-    })
+    let mut conn = self.pool.get_timeout(PING_TIMEOUT)?;
+    diesel::sql_query("SELECT 1").execute(&mut conn)?;
+    Ok(())
   }
 
   pub fn list_audit(&self, project: Option<&str>, limit: usize) -> StoreResult<Vec<AuditEntry>> {
