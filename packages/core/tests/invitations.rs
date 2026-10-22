@@ -41,7 +41,7 @@ fn creating_records_a_pending_invitation_for_seven_days_and_queues_an_email() {
   let days = common::real(
     &f.store,
     &format!(
-      "SELECT EXTRACT(EPOCH FROM (expires_at - created_at)) / 86400 FROM invitations WHERE id = {}",
+      "SELECT (EXTRACT(EPOCH FROM (expires_at - created_at)) / 86400)::float8 FROM invitations WHERE id = {}",
       created.id
     ),
   );

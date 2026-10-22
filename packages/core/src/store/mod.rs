@@ -1,5 +1,7 @@
 pub mod documents;
+pub mod invitations;
 pub mod organizations;
+pub mod outbox;
 pub mod projects;
 pub mod specs;
 pub mod tasks;
