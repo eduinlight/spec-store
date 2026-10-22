@@ -64,7 +64,11 @@ fmt-check:
 
 test: test-services test-sweep
 	cargo test --workspace --locked
+	$(MAKE) test-perf
 	pnpm -r --if-present test
+
+test-perf: test-services
+	cargo test --release --locked -p spec-store-core --test perf --test perf_import -p spec-store-api --test perf_read -p spec-store-cli --test perf_import -- --ignored --nocapture
 
 e2e: docker-up
 	pnpm exec playwright test
@@ -75,4 +79,4 @@ e2e: docker-up
 backup-check: docker-up
 	scripts/backup-check.sh
 
-.PHONY: env dev e2e backup-check docker-up docker-down install uninstall reinstall test-services test-sweep openapi openapi-check lint fmt-check test
+.PHONY: env dev e2e backup-check docker-up docker-down install uninstall reinstall test-services test-sweep openapi openapi-check lint fmt-check test test-perf

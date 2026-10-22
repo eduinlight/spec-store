@@ -109,9 +109,17 @@ pub fn smtp() -> spec_store_core::config::SmtpSettings {
 }
 
 pub async fn app_with(config: ApiConfig, verifier: Option<Verifier>) -> TestApp {
+  app_with_pool(config, verifier, 4).await
+}
+
+pub async fn app_with_pool(
+  config: ApiConfig,
+  verifier: Option<Verifier>,
+  pool_size: u32,
+) -> TestApp {
   let keycloak = FakeKeycloak::start().await;
   let db = TestDb::new(migrate);
-  let store = Store::open_with_size(&db.url, 4).expect("store");
+  let store = Store::open_with_size(&db.url, pool_size).expect("store");
   let verifier = verifier.unwrap_or_else(|| {
     Verifier::new(IdentityConfig {
       issuer: keycloak.issuer(),
