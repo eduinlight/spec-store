@@ -117,10 +117,9 @@ test("the project page shows the constitution, specs, progress and members", asy
     "href",
     "/p/acme/demo/constitution",
   );
-  expect(screen.getByRole("link", { name: /001-first/ })).toHaveAttribute(
-    "href",
-    "/p/acme/demo/specs/1",
-  );
+  for (const link of screen.getAllByRole("link", { name: /001-first/ })) {
+    expect(link).toHaveAttribute("href", "/p/acme/demo/specs/1");
+  }
   expect(screen.getByText("1 of 2 tasks done")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "https://github.com/acme/demo" })).toBeInTheDocument();
   const members = screen.getByRole("list", { name: "Members" });

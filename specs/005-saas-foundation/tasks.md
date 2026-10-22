@@ -93,7 +93,7 @@ Switch group (as in spec 004): T08–T17 change the persistence layer from SQLit
 - [x] T66 (FR-6, FR-21, FR-37) Write `apps/app` tests for the router (a 401 from a loader redirects to `/auth/login?return_to=`), onboarding (no organization shows the create form and pending invitations) and the organization switcher with its project list — Done when: tests written and red
 - [x] T67 (FR-6, FR-21, FR-37) Implement `apps/app/src/main.tsx`, `router.tsx`, `api/client.ts` (openapi-fetch, same-origin, request header), `routes/onboarding.tsx` and `routes/organization.tsx` — Done when: T66 tests green
 - [x] T68 (FR-22) Write `apps/app` tests for the project, spec (tasks table with commit links, markers) and document screens, and for the history, revision, diff and audit screens — Done when: tests written and red
-- [ ] T69 (FR-22) Implement `apps/app/src/routes/{project,spec,document}.tsx` — Done when: the project, spec and document tests of T68 are green
+- [x] T69 (FR-22) Implement `apps/app/src/routes/{project,spec,document}.tsx` — Done when: the project, spec and document tests of T68 are green
 - [ ] T70 (FR-22) Implement `apps/app/src/routes/{history,revision,diff,audit}.tsx` — Done when: all T68 tests green
 - [ ] T71 (FR-12, FR-36, FR-38) Write `apps/app` tests for members and invitations management, invitation acceptance and decline, project creation, project roles, repository URL, the profile's authorized clients with revoke, and the absence of any document-writing control — Done when: tests written and red
 - [ ] T72 (FR-36) Implement `apps/app/src/routes/{members,invitations,invitation-accept,project-new,project-settings}.tsx` — Done when: the management tests of T71 are green
