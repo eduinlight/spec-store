@@ -12,6 +12,10 @@ use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+  if std::env::args().nth(1).as_deref() == Some("openapi") {
+    println!("{}", spec_store_api::router::openapi().to_pretty_json()?);
+    return Ok(());
+  }
   tracing_subscriber::fmt()
     .json()
     .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")))

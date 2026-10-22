@@ -4,13 +4,14 @@ use serde::{Deserialize, Serialize};
 use spec_store_core::store::{AuditEntry, AuditPage};
 
 use crate::auth::Principal;
-use crate::error::ApiError;
+use crate::error::{ApiError, ErrorBody};
 use crate::routes::projects::address;
 use crate::state::AppState;
 
 pub const PAGE_SIZE: usize = 50;
 
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Deserialize, Default, utoipa::IntoParams)]
+#[into_params(parameter_in = Query)]
 pub struct AuditQuery {
   pub project: Option<String>,
   pub org: Option<String>,
@@ -24,7 +25,7 @@ impl AuditQuery {
   }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct EntryOutput {
   pub id: i64,
   pub actor: String,
@@ -49,7 +50,7 @@ impl From<AuditEntry> for EntryOutput {
   }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct PageOutput {
   pub entries: Vec<EntryOutput>,
   pub has_more: bool,
@@ -64,6 +65,13 @@ impl From<AuditPage> for PageOutput {
   }
 }
 
+#[utoipa::path(
+  get,
+  path = "/api/v1/orgs/{org}/audit",
+  tag = "audit",
+  params(("org" = String, Path), AuditQuery),
+  responses((status = 200, body = PageOutput), (status = 401, body = ErrorBody), (status = 403, body = ErrorBody), (status = 404, body = ErrorBody), (status = 422, body = ErrorBody))
+)]
 pub async fn organization(
   State(state): State<AppState>,
   principal: Principal,
@@ -80,6 +88,13 @@ pub async fn organization(
   Ok(Json(page.into()))
 }
 
+#[utoipa::path(
+  get,
+  path = "/api/v1/audit",
+  tag = "audit",
+  params(AuditQuery),
+  responses((status = 200, body = PageOutput), (status = 401, body = ErrorBody), (status = 403, body = ErrorBody), (status = 404, body = ErrorBody), (status = 422, body = ErrorBody))
+)]
 pub async fn global(
   State(state): State<AppState>,
   principal: Principal,
@@ -95,6 +110,13 @@ pub async fn global(
   Ok(Json(page.into()))
 }
 
+#[utoipa::path(
+  get,
+  path = "/api/v1/projects/{org}/{project}/audit",
+  tag = "audit",
+  params(("org" = String, Path), ("project" = String, Path), AuditQuery),
+  responses((status = 200, body = PageOutput), (status = 401, body = ErrorBody), (status = 403, body = ErrorBody), (status = 404, body = ErrorBody), (status = 422, body = ErrorBody))
+)]
 pub async fn project(
   State(state): State<AppState>,
   principal: Principal,

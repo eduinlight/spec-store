@@ -5,24 +5,24 @@ use serde::{Deserialize, Serialize};
 use spec_store_core::store::invitations::{InvitationInfo, InvitationPreview};
 
 use crate::auth::Principal;
-use crate::error::ApiError;
+use crate::error::{ApiError, ErrorBody};
 use crate::state::AppState;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct NewInvitationInput {
   pub email: String,
   #[serde(default)]
   pub language: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct CreatedInvitationOutput {
   pub id: i64,
   pub email: String,
   pub expires_at: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct InvitationOutput {
   pub id: i64,
   pub email: String,
@@ -45,12 +45,12 @@ impl From<InvitationInfo> for InvitationOutput {
   }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct InvitationsOutput {
   pub invitations: Vec<InvitationOutput>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct PreviewOutput {
   pub id: i64,
   pub organization: String,
@@ -75,7 +75,7 @@ impl From<InvitationPreview> for PreviewOutput {
   }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct PreviewsOutput {
   pub invitations: Vec<PreviewOutput>,
 }
@@ -87,6 +87,14 @@ fn language(input: Option<String>) -> String {
   }
 }
 
+#[utoipa::path(
+  post,
+  path = "/api/v1/orgs/{org}/invitations",
+  tag = "invitations",
+  params(("org" = String, Path)),
+  request_body = NewInvitationInput,
+  responses((status = 201, body = CreatedInvitationOutput), (status = 401, body = ErrorBody), (status = 403, body = ErrorBody), (status = 404, body = ErrorBody), (status = 422, body = ErrorBody))
+)]
 pub async fn create(
   State(state): State<AppState>,
   principal: Principal,
@@ -110,6 +118,13 @@ pub async fn create(
   ))
 }
 
+#[utoipa::path(
+  get,
+  path = "/api/v1/orgs/{org}/invitations",
+  tag = "invitations",
+  params(("org" = String, Path)),
+  responses((status = 200, body = InvitationsOutput), (status = 401, body = ErrorBody), (status = 403, body = ErrorBody), (status = 404, body = ErrorBody), (status = 422, body = ErrorBody))
+)]
 pub async fn list(
   State(state): State<AppState>,
   principal: Principal,
@@ -127,6 +142,13 @@ pub async fn list(
   }))
 }
 
+#[utoipa::path(
+  post,
+  path = "/api/v1/orgs/{org}/invitations/{id}/resend",
+  tag = "invitations",
+  params(("org" = String, Path), ("id" = i64, Path)),
+  responses((status = 204), (status = 401, body = ErrorBody), (status = 403, body = ErrorBody), (status = 404, body = ErrorBody), (status = 422, body = ErrorBody))
+)]
 pub async fn resend(
   State(state): State<AppState>,
   principal: Principal,
@@ -140,6 +162,13 @@ pub async fn resend(
   Ok(StatusCode::NO_CONTENT)
 }
 
+#[utoipa::path(
+  delete,
+  path = "/api/v1/orgs/{org}/invitations/{id}",
+  tag = "invitations",
+  params(("org" = String, Path), ("id" = i64, Path)),
+  responses((status = 204), (status = 401, body = ErrorBody), (status = 403, body = ErrorBody), (status = 404, body = ErrorBody), (status = 422, body = ErrorBody))
+)]
 pub async fn revoke(
   State(state): State<AppState>,
   principal: Principal,
@@ -152,6 +181,12 @@ pub async fn revoke(
   Ok(StatusCode::NO_CONTENT)
 }
 
+#[utoipa::path(
+  get,
+  path = "/api/v1/invitations",
+  tag = "invitations",
+  responses((status = 200, body = PreviewsOutput), (status = 401, body = ErrorBody), (status = 403, body = ErrorBody), (status = 404, body = ErrorBody), (status = 422, body = ErrorBody))
+)]
 pub async fn mine(
   State(state): State<AppState>,
   principal: Principal,
@@ -165,6 +200,13 @@ pub async fn mine(
   }))
 }
 
+#[utoipa::path(
+  get,
+  path = "/api/v1/invitations/{token}",
+  tag = "invitations",
+  params(("token" = String, Path)),
+  responses((status = 200, body = PreviewOutput), (status = 401, body = ErrorBody), (status = 403, body = ErrorBody), (status = 404, body = ErrorBody), (status = 422, body = ErrorBody))
+)]
 pub async fn preview(
   State(state): State<AppState>,
   _principal: Principal,
@@ -176,6 +218,13 @@ pub async fn preview(
   Ok(Json(preview.into()))
 }
 
+#[utoipa::path(
+  post,
+  path = "/api/v1/invitations/{token}/accept",
+  tag = "invitations",
+  params(("token" = String, Path)),
+  responses((status = 204), (status = 401, body = ErrorBody), (status = 403, body = ErrorBody), (status = 404, body = ErrorBody), (status = 422, body = ErrorBody))
+)]
 pub async fn accept(
   State(state): State<AppState>,
   principal: Principal,
@@ -189,6 +238,13 @@ pub async fn accept(
   Ok(StatusCode::NO_CONTENT)
 }
 
+#[utoipa::path(
+  post,
+  path = "/api/v1/invitations/{token}/decline",
+  tag = "invitations",
+  params(("token" = String, Path)),
+  responses((status = 204), (status = 401, body = ErrorBody), (status = 403, body = ErrorBody), (status = 404, body = ErrorBody), (status = 422, body = ErrorBody))
+)]
 pub async fn decline(
   State(state): State<AppState>,
   principal: Principal,
@@ -201,6 +257,13 @@ pub async fn decline(
   Ok(StatusCode::NO_CONTENT)
 }
 
+#[utoipa::path(
+  post,
+  path = "/api/v1/me/invitations/{id}/accept",
+  tag = "invitations",
+  params(("id" = i64, Path)),
+  responses((status = 204), (status = 401, body = ErrorBody), (status = 403, body = ErrorBody), (status = 404, body = ErrorBody), (status = 422, body = ErrorBody))
+)]
 pub async fn accept_pending(
   State(state): State<AppState>,
   principal: Principal,
@@ -214,6 +277,13 @@ pub async fn accept_pending(
   Ok(StatusCode::NO_CONTENT)
 }
 
+#[utoipa::path(
+  post,
+  path = "/api/v1/me/invitations/{id}/decline",
+  tag = "invitations",
+  params(("id" = i64, Path)),
+  responses((status = 204), (status = 401, body = ErrorBody), (status = 403, body = ErrorBody), (status = 404, body = ErrorBody), (status = 422, body = ErrorBody))
+)]
 pub async fn decline_pending(
   State(state): State<AppState>,
   principal: Principal,

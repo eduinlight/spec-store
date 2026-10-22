@@ -4,16 +4,16 @@ use axum::http::StatusCode;
 use serde::{Deserialize, Serialize};
 
 use crate::auth::Principal;
-use crate::error::ApiError;
+use crate::error::{ApiError, ErrorBody};
 use crate::state::AppState;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct NewOrganization {
   pub slug: String,
   pub name: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct OrganizationOutput {
   pub slug: String,
   pub name: String,
@@ -21,18 +21,25 @@ pub struct OrganizationOutput {
   pub created_at: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct OrganizationSummaryOutput {
   pub slug: String,
   pub name: String,
   pub role: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct OrganizationsOutput {
   pub organizations: Vec<OrganizationSummaryOutput>,
 }
 
+#[utoipa::path(
+  post,
+  path = "/api/v1/orgs",
+  tag = "organizations",
+  request_body = NewOrganization,
+  responses((status = 201, body = OrganizationOutput), (status = 401, body = ErrorBody), (status = 403, body = ErrorBody), (status = 404, body = ErrorBody), (status = 422, body = ErrorBody))
+)]
 pub async fn create(
   State(state): State<AppState>,
   principal: Principal,
@@ -53,6 +60,12 @@ pub async fn create(
   ))
 }
 
+#[utoipa::path(
+  get,
+  path = "/api/v1/orgs",
+  tag = "organizations",
+  responses((status = 200, body = OrganizationsOutput), (status = 401, body = ErrorBody), (status = 403, body = ErrorBody), (status = 404, body = ErrorBody), (status = 422, body = ErrorBody))
+)]
 pub async fn list(
   State(state): State<AppState>,
   principal: Principal,
@@ -73,6 +86,13 @@ pub async fn list(
   }))
 }
 
+#[utoipa::path(
+  get,
+  path = "/api/v1/orgs/{org}",
+  tag = "organizations",
+  params(("org" = String, Path)),
+  responses((status = 200, body = OrganizationOutput), (status = 401, body = ErrorBody), (status = 403, body = ErrorBody), (status = 404, body = ErrorBody), (status = 422, body = ErrorBody))
+)]
 pub async fn read(
   State(state): State<AppState>,
   principal: Principal,

@@ -5,26 +5,33 @@ use serde::{Deserialize, Serialize};
 use spec_store_core::model::OrgRole;
 
 use crate::auth::Principal;
-use crate::error::ApiError;
+use crate::error::{ApiError, ErrorBody};
 use crate::state::AppState;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct MemberOutput {
   pub handle: String,
   pub name: String,
   pub role: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct MembersOutput {
   pub members: Vec<MemberOutput>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct RoleInput {
   pub role: String,
 }
 
+#[utoipa::path(
+  get,
+  path = "/api/v1/orgs/{org}/members",
+  tag = "organizations",
+  params(("org" = String, Path)),
+  responses((status = 200, body = MembersOutput), (status = 401, body = ErrorBody), (status = 403, body = ErrorBody), (status = 404, body = ErrorBody), (status = 422, body = ErrorBody))
+)]
 pub async fn list(
   State(state): State<AppState>,
   principal: Principal,
@@ -46,6 +53,14 @@ pub async fn list(
   }))
 }
 
+#[utoipa::path(
+  put,
+  path = "/api/v1/orgs/{org}/members/{handle}",
+  tag = "organizations",
+  params(("org" = String, Path), ("handle" = String, Path)),
+  request_body = RoleInput,
+  responses((status = 204), (status = 401, body = ErrorBody), (status = 403, body = ErrorBody), (status = 404, body = ErrorBody), (status = 422, body = ErrorBody))
+)]
 pub async fn set_role(
   State(state): State<AppState>,
   principal: Principal,
@@ -62,6 +77,13 @@ pub async fn set_role(
   Ok(StatusCode::NO_CONTENT)
 }
 
+#[utoipa::path(
+  delete,
+  path = "/api/v1/orgs/{org}/members/{handle}",
+  tag = "organizations",
+  params(("org" = String, Path), ("handle" = String, Path)),
+  responses((status = 204), (status = 401, body = ErrorBody), (status = 403, body = ErrorBody), (status = 404, body = ErrorBody), (status = 422, body = ErrorBody))
+)]
 pub async fn remove(
   State(state): State<AppState>,
   principal: Principal,

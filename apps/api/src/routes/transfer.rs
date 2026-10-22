@@ -6,7 +6,7 @@ use spec_store_core::store::transfer::{ImportOptions, ImportReport, ProjectExpor
 use spec_store_core::tree::ProjectTree;
 
 use crate::auth::Principal;
-use crate::error::ApiError;
+use crate::error::{ApiError, ErrorBody};
 use crate::routes::projects::address;
 use crate::state::AppState;
 
@@ -19,11 +19,20 @@ pub struct ImportInput {
   pub dry_run: bool,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
+#[into_params(parameter_in = Query)]
 pub struct ExportQuery {
   pub spec: Option<i64>,
 }
 
+#[utoipa::path(
+  post,
+  path = "/api/v1/projects/{org}/{project}/import",
+  tag = "transfer",
+  params(("org" = String, Path), ("project" = String, Path)),
+  request_body = Object,
+  responses((status = 200, body = Object), (status = 401, body = ErrorBody), (status = 403, body = ErrorBody), (status = 404, body = ErrorBody), (status = 422, body = ErrorBody))
+)]
 pub async fn import(
   State(state): State<AppState>,
   principal: Principal,
@@ -51,6 +60,13 @@ pub async fn import(
   Ok(Json(report))
 }
 
+#[utoipa::path(
+  get,
+  path = "/api/v1/projects/{org}/{project}/export",
+  tag = "transfer",
+  params(("org" = String, Path), ("project" = String, Path), ExportQuery),
+  responses((status = 200, body = Object), (status = 401, body = ErrorBody), (status = 403, body = ErrorBody), (status = 404, body = ErrorBody), (status = 422, body = ErrorBody))
+)]
 pub async fn export(
   State(state): State<AppState>,
   principal: Principal,

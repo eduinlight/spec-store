@@ -6,6 +6,13 @@ use serde_json::json;
 use spec_store_core::identity::IdentityError;
 use spec_store_core::model::StoreError;
 
+#[derive(Debug, serde::Serialize, utoipa::ToSchema)]
+pub struct ErrorBody {
+  pub code: String,
+  pub message: String,
+  pub current_revision: Option<i64>,
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum ApiError {
   #[error("authentication required")]

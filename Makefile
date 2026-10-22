@@ -30,7 +30,23 @@ test-sweep:
 		[ -n "$$db" ] && $(COMPOSE) exec -T postgres psql -U postgres -d postgres -qc "DROP DATABASE IF EXISTS \"$$db\" WITH (FORCE)" </dev/null; \
 	done; true
 
-lint:
+OPENAPI_JSON := apps/app/src/api/openapi.json
+OPENAPI_TYPES := apps/app/src/api/schema.d.ts
+
+openapi:
+	cargo run -q --locked -p spec-store-api -- openapi > $(OPENAPI_JSON)
+	pnpm --filter app exec openapi-typescript src/api/openapi.json -o src/api/schema.d.ts --silent
+
+openapi-check:
+	@tmp=$$(mktemp -d); \
+	cargo run -q --locked -p spec-store-api -- openapi > $$tmp/openapi.json; \
+	pnpm --filter app exec openapi-typescript $$tmp/openapi.json -o $$tmp/schema.d.ts --silent; \
+	if ! diff -q $$tmp/openapi.json $(OPENAPI_JSON) >/dev/null || ! diff -q $$tmp/schema.d.ts $(OPENAPI_TYPES) >/dev/null; then \
+		echo "the API contract changed: run make openapi and commit the result" >&2; rm -rf $$tmp; exit 1; \
+	fi; \
+	rm -rf $$tmp
+
+lint: openapi-check
 	cargo clippy --workspace --locked --all-targets -- -D warnings
 	pnpm exec biome lint .
 	pnpm -r --if-present typecheck
@@ -43,4 +59,4 @@ test: test-services test-sweep
 	cargo test --workspace --locked
 	pnpm -r --if-present test
 
-.PHONY: docker-up docker-down install uninstall reinstall test-services test-sweep lint fmt-check test
+.PHONY: docker-up docker-down install uninstall reinstall test-services test-sweep openapi openapi-check lint fmt-check test

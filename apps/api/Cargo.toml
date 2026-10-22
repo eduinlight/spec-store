@@ -21,6 +21,8 @@ thiserror = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+utoipa = "6"
+utoipa-axum = "0.3"
 
 [dev-dependencies]
 diesel = { workspace = true }

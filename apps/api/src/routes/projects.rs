@@ -5,16 +5,16 @@ use serde::{Deserialize, Serialize};
 use spec_store_core::model::Role;
 
 use crate::auth::Principal;
-use crate::error::ApiError;
+use crate::error::{ApiError, ErrorBody};
 use crate::state::AppState;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct NewProject {
   pub slug: String,
   pub name: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct ProjectSummaryOutput {
   pub address: String,
   pub slug: String,
@@ -22,12 +22,12 @@ pub struct ProjectSummaryOutput {
   pub role: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct ProjectsOutput {
   pub projects: Vec<ProjectSummaryOutput>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct ProjectOutput {
   pub address: String,
   pub organization: String,
@@ -38,23 +38,23 @@ pub struct ProjectOutput {
   pub created_at: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct ProjectMemberOutput {
   pub handle: String,
   pub role: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct ProjectMembersOutput {
   pub members: Vec<ProjectMemberOutput>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct RoleInput {
   pub role: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct RepositoryInput {
   pub url: String,
 }
@@ -63,6 +63,13 @@ pub fn address(org: &str, project: &str) -> String {
   format!("{org}/{project}")
 }
 
+#[utoipa::path(
+  get,
+  path = "/api/v1/orgs/{org}/projects",
+  tag = "projects",
+  params(("org" = String, Path)),
+  responses((status = 200, body = ProjectsOutput), (status = 401, body = ErrorBody), (status = 403, body = ErrorBody), (status = 404, body = ErrorBody), (status = 422, body = ErrorBody))
+)]
 pub async fn list(
   State(state): State<AppState>,
   principal: Principal,
@@ -108,6 +115,14 @@ async fn read_project(
   })
 }
 
+#[utoipa::path(
+  post,
+  path = "/api/v1/orgs/{org}/projects",
+  tag = "projects",
+  params(("org" = String, Path)),
+  request_body = NewProject,
+  responses((status = 201, body = ProjectOutput), (status = 401, body = ErrorBody), (status = 403, body = ErrorBody), (status = 404, body = ErrorBody), (status = 422, body = ErrorBody))
+)]
 pub async fn create(
   State(state): State<AppState>,
   principal: Principal,
@@ -126,6 +141,13 @@ pub async fn create(
   ))
 }
 
+#[utoipa::path(
+  get,
+  path = "/api/v1/projects/{org}/{project}",
+  tag = "projects",
+  params(("org" = String, Path), ("project" = String, Path)),
+  responses((status = 200, body = ProjectOutput), (status = 401, body = ErrorBody), (status = 403, body = ErrorBody), (status = 404, body = ErrorBody), (status = 422, body = ErrorBody))
+)]
 pub async fn read(
   State(state): State<AppState>,
   principal: Principal,
@@ -136,6 +158,13 @@ pub async fn read(
   ))
 }
 
+#[utoipa::path(
+  get,
+  path = "/api/v1/projects/{org}/{project}/members",
+  tag = "projects",
+  params(("org" = String, Path), ("project" = String, Path)),
+  responses((status = 200, body = ProjectMembersOutput), (status = 401, body = ErrorBody), (status = 403, body = ErrorBody), (status = 404, body = ErrorBody), (status = 422, body = ErrorBody))
+)]
 pub async fn members(
   State(state): State<AppState>,
   principal: Principal,
@@ -157,6 +186,14 @@ pub async fn members(
   }))
 }
 
+#[utoipa::path(
+  put,
+  path = "/api/v1/projects/{org}/{project}/members/{handle}",
+  tag = "projects",
+  params(("org" = String, Path), ("project" = String, Path), ("handle" = String, Path)),
+  request_body = RoleInput,
+  responses((status = 204), (status = 401, body = ErrorBody), (status = 403, body = ErrorBody), (status = 404, body = ErrorBody), (status = 422, body = ErrorBody))
+)]
 pub async fn set_member(
   State(state): State<AppState>,
   principal: Principal,
@@ -174,6 +211,13 @@ pub async fn set_member(
   Ok(StatusCode::NO_CONTENT)
 }
 
+#[utoipa::path(
+  delete,
+  path = "/api/v1/projects/{org}/{project}/members/{handle}",
+  tag = "projects",
+  params(("org" = String, Path), ("project" = String, Path), ("handle" = String, Path)),
+  responses((status = 204), (status = 401, body = ErrorBody), (status = 403, body = ErrorBody), (status = 404, body = ErrorBody), (status = 422, body = ErrorBody))
+)]
 pub async fn remove_member(
   State(state): State<AppState>,
   principal: Principal,
@@ -187,6 +231,14 @@ pub async fn remove_member(
   Ok(StatusCode::NO_CONTENT)
 }
 
+#[utoipa::path(
+  put,
+  path = "/api/v1/projects/{org}/{project}/repository-url",
+  tag = "projects",
+  params(("org" = String, Path), ("project" = String, Path)),
+  request_body = RepositoryInput,
+  responses((status = 204), (status = 401, body = ErrorBody), (status = 403, body = ErrorBody), (status = 404, body = ErrorBody), (status = 422, body = ErrorBody))
+)]
 pub async fn set_repository(
   State(state): State<AppState>,
   principal: Principal,
@@ -201,6 +253,13 @@ pub async fn set_repository(
   Ok(StatusCode::NO_CONTENT)
 }
 
+#[utoipa::path(
+  delete,
+  path = "/api/v1/projects/{org}/{project}/repository-url",
+  tag = "projects",
+  params(("org" = String, Path), ("project" = String, Path)),
+  responses((status = 204), (status = 401, body = ErrorBody), (status = 403, body = ErrorBody), (status = 404, body = ErrorBody), (status = 422, body = ErrorBody))
+)]
 pub async fn clear_repository(
   State(state): State<AppState>,
   principal: Principal,

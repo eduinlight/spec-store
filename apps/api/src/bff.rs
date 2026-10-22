@@ -29,6 +29,11 @@ pub struct CallbackQuery {
   pub state: Option<String>,
 }
 
+#[derive(Debug, serde::Serialize, utoipa::ToSchema)]
+pub struct LogoutOutput {
+  pub logout_url: String,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct BackchannelForm {
   pub logout_token: String,
@@ -141,6 +146,12 @@ pub async fn callback(
   )
 }
 
+#[utoipa::path(
+  post,
+  path = "/auth/logout",
+  tag = "session",
+  responses((status = 200, body = LogoutOutput), (status = 401, body = crate::error::ErrorBody), (status = 403, body = crate::error::ErrorBody))
+)]
 pub async fn logout(
   State(state): State<AppState>,
   headers: HeaderMap,
@@ -170,7 +181,7 @@ pub async fn logout(
     (
       StatusCode::OK,
       [(SET_COOKIE, cleared_session_cookie())],
-      Json(json!({ "logout_url": url })),
+      Json(LogoutOutput { logout_url: url }),
     )
       .into_response(),
   )

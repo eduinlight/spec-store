@@ -18,7 +18,8 @@
       "!apps/api",
       "!apps/mcp",
       "!apps/cli",
-      "!**/schema.d.ts"
+      "!**/schema.d.ts",
+      "!**/openapi.json"
     ]
   },
   "formatter": {

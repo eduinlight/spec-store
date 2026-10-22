@@ -5,10 +5,10 @@ use serde::Serialize;
 use spec_store_core::model::StoreError;
 
 use crate::auth::Principal;
-use crate::error::ApiError;
+use crate::error::{ApiError, ErrorBody};
 use crate::state::AppState;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct AuthorizedClient {
   pub client_id: String,
   pub name: String,
@@ -17,11 +17,17 @@ pub struct AuthorizedClient {
   pub updated_at: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct AuthorizedClients {
   pub clients: Vec<AuthorizedClient>,
 }
 
+#[utoipa::path(
+  get,
+  path = "/api/v1/me/clients",
+  tag = "me",
+  responses((status = 200, body = AuthorizedClients), (status = 401, body = ErrorBody), (status = 403, body = ErrorBody), (status = 404, body = ErrorBody), (status = 422, body = ErrorBody))
+)]
 pub async fn list_clients(
   State(state): State<AppState>,
   principal: Principal,
@@ -45,6 +51,13 @@ pub async fn list_clients(
   }))
 }
 
+#[utoipa::path(
+  delete,
+  path = "/api/v1/me/clients/{client_id}",
+  tag = "me",
+  params(("client_id" = String, Path)),
+  responses((status = 204), (status = 401, body = ErrorBody), (status = 403, body = ErrorBody), (status = 404, body = ErrorBody), (status = 422, body = ErrorBody))
+)]
 pub async fn revoke_client(
   State(state): State<AppState>,
   principal: Principal,
