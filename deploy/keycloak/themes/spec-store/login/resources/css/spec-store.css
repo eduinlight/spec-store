@@ -22,23 +22,24 @@ body,
   font-family: var(--font-sans);
 }
 
-.pf-v5-c-login__main {
+.pf-v5-c-login .pf-v5-c-login__container .pf-v5-c-login__main {
   background: var(--card);
   border: 1px solid var(--border);
-  border-top: 4px solid var(--primary) !important;
+  border-top: 4px solid var(--primary);
   border-radius: var(--radius);
   box-shadow: 0 10px 30px rgb(0 0 0 / 6%);
 }
 
-#kc-header-wrapper {
+.pf-v5-c-login__header #kc-header-wrapper.pf-v5-c-brand {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  color: var(--foreground) !important;
+  --pf-v5-global--Color--light-100: var(--foreground);
+  color: var(--foreground);
   font-weight: 700;
   font-size: 1.5rem;
   letter-spacing: -0.01em;
-  text-transform: none !important;
+  text-transform: none;
 }
 
 #kc-header-wrapper::before {
