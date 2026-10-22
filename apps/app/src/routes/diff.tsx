@@ -43,9 +43,12 @@ export function Diff() {
       <div className="overflow-x-auto rounded-md border font-mono text-xs">
         <table className="w-full">
           <tbody>
-            {data.hunks.flatMap((hunk, hunkIndex) =>
-              hunk.lines.map((line, lineIndex) => (
-                <tr key={`${hunkIndex}-${lineIndex}`} className={tones[line.tag]}>
+            {data.hunks.flatMap((hunk) =>
+              hunk.lines.map((line) => (
+                <tr
+                  key={`${line.old_line ?? "-"}:${line.new_line ?? "-"}`}
+                  className={tones[line.tag]}
+                >
                   <td className="w-12 select-none px-2 text-right text-muted-foreground">
                     {line.old_line ?? ""}
                   </td>
