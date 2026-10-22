@@ -71,7 +71,7 @@ Switch group (as in spec 004): T08–T17 change the persistence layer from SQLit
 - [x] T48 (FR-15) Implement `apps/cli/src/transfer.rs` (`tree::scan` → POST, GET → `tree::plan_export` / `write_export`) and the `import` and `export` commands — Done when: `cli_transfer.rs` green
 
 ## Phase 7 — US-2 (P1) Sign up and sign in through the identity provider
-- [ ] T49 (FR-8) Write `packages/core/tests/users.rs`: first sign-in creates the profile from the verified email, name and username; a later sign-in updates email and name; handle uniqueness — Done when: tests written and red
+- [x] T49 (FR-8) Write `packages/core/tests/users.rs`: first sign-in creates the profile from the verified email, name and username; a later sign-in updates email and name; handle uniqueness — Done when: tests written and red
 - [ ] T50 (FR-8) Complete `upsert_user_from_identity` in `src/store/users.rs` — Done when: T49 tests green
 - [ ] T51 (FR-6, FR-7) Write unit tests for `src/crypto.rs` (seal/open round trip, a tampered ciphertext refused) and `tests/sessions.rs` (create session, find by secret, end, end by identity session id, login attempt refused after 10 minutes) — Done when: tests written and red
 - [ ] T52 (FR-6, FR-7) Implement `src/crypto.rs` (AES-256-GCM with `aws-lc-rs`) and `src/store/sessions.rs` (browser sessions, login attempts, sweep) — Done when: T51 tests green
