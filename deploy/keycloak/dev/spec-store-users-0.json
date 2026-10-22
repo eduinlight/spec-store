@@ -23,10 +23,7 @@
       "lastName": "Operator",
       "enabled": true,
       "emailVerified": true,
-      "realmRoles": [
-        "platform-operator",
-        "default-roles-spec-store"
-      ],
+      "realmRoles": ["platform-operator", "default-roles-spec-store"],
       "credentials": [
         {
           "type": "password",

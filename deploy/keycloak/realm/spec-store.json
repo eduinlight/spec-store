@@ -13,10 +13,7 @@
   "permanentLockout": false,
   "failureFactor": 10,
   "internationalizationEnabled": true,
-  "supportedLocales": [
-    "en",
-    "es"
-  ],
+  "supportedLocales": ["en", "es"],
   "defaultLocale": "en",
   "loginTheme": "${KEYCLOAK_THEME:keycloak.v2}",
   "emailTheme": "${KEYCLOAK_EMAIL_THEME:keycloak}",
@@ -757,12 +754,7 @@
     "spec-store-mcp",
     "offline_access"
   ],
-  "defaultOptionalClientScopes": [
-    "address",
-    "phone",
-    "microprofile-jwt",
-    "organization"
-  ],
+  "defaultOptionalClientScopes": ["address", "phone", "microprofile-jwt", "organization"],
   "components": {
     "org.keycloak.services.clientregistration.policy.ClientRegistrationPolicy": [
       {
@@ -788,17 +780,9 @@
         "providerId": "trusted-hosts",
         "subType": "anonymous",
         "config": {
-          "host-sending-registration-request-must-match": [
-            "false"
-          ],
-          "client-uris-must-match": [
-            "true"
-          ],
-          "trusted-hosts": [
-            "localhost",
-            "127.0.0.1",
-            "claude.ai"
-          ]
+          "host-sending-registration-request-must-match": ["false"],
+          "client-uris-must-match": ["true"],
+          "trusted-hosts": ["localhost", "127.0.0.1", "claude.ai"]
         }
       },
       {
@@ -840,9 +824,7 @@
         "providerId": "allowed-client-templates",
         "subType": "authenticated",
         "config": {
-          "allow-default-scopes": [
-            "true"
-          ]
+          "allow-default-scopes": ["true"]
         }
       },
       {
@@ -856,9 +838,7 @@
         "providerId": "max-clients",
         "subType": "anonymous",
         "config": {
-          "max-clients": [
-            "200"
-          ]
+          "max-clients": ["200"]
         }
       },
       {
@@ -866,9 +846,7 @@
         "providerId": "allowed-client-templates",
         "subType": "anonymous",
         "config": {
-          "allow-default-scopes": [
-            "true"
-          ]
+          "allow-default-scopes": ["true"]
         }
       }
     ]
@@ -889,12 +867,8 @@
       "frontchannelLogout": false,
       "rootUrl": "${APP_URL}",
       "baseUrl": "/",
-      "redirectUris": [
-        "${APP_URL}/auth/callback"
-      ],
-      "webOrigins": [
-        "${APP_URL}"
-      ],
+      "redirectUris": ["${APP_URL}/auth/callback"],
+      "webOrigins": ["${APP_URL}"],
       "attributes": {
         "pkce.code.challenge.method": "S256",
         "post.logout.redirect.uris": "${APP_URL}/*##${LANDING_URL}/*",
@@ -911,9 +885,7 @@
         "acr",
         "spec-store-api"
       ],
-      "optionalClientScopes": [
-        "offline_access"
-      ]
+      "optionalClientScopes": ["offline_access"]
     },
     {
       "clientId": "spec-store-cli",
@@ -951,10 +923,7 @@
       "standardFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": true,
-      "defaultClientScopes": [
-        "basic",
-        "roles"
-      ],
+      "defaultClientScopes": ["basic", "roles"],
       "optionalClientScopes": []
     }
   ],
@@ -964,11 +933,7 @@
       "enabled": true,
       "serviceAccountClientId": "spec-store-api-admin",
       "clientRoles": {
-        "realm-management": [
-          "view-users",
-          "manage-users",
-          "view-clients"
-        ]
+        "realm-management": ["view-users", "manage-users", "view-clients"]
       }
     }
   ]
