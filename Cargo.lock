@@ -2576,6 +2576,7 @@ dependencies = [
  "axum",
  "diesel",
  "http-body-util",
+ "reqwest",
  "rmcp",
  "serde",
  "serde_json",

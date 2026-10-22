@@ -148,6 +148,15 @@ pub struct KeycloakState {
   pub codes: Mutex<HashMap<String, (String, String, String)>>,
   pub refresh_grants: AtomicUsize,
   pub user_attributes: Mutex<HashMap<String, Value>>,
+  pub issued_secrets: Mutex<Vec<String>>,
+}
+
+fn record_secret(state: &KeycloakState, secret: &str) {
+  state
+    .issued_secrets
+    .lock()
+    .expect("issued secrets")
+    .push(secret.to_string());
 }
 
 fn mint_with(spec: &TokenSpec) -> String {
@@ -205,8 +214,11 @@ fn token_pair(state: &KeycloakState, username: &str) -> Value {
   {
     spec = spec.operator();
   }
+  let access = mint_with(&spec);
+  record_secret(state, &access);
+  record_secret(state, &refresh);
   json!({
-    "access_token": mint_with(&spec),
+    "access_token": access,
     "refresh_token": refresh,
     "id_token": id_token(state, username),
     "expires_in": 300,
@@ -248,6 +260,7 @@ async fn device_authorization(
     approved_for: None,
   };
   state.devices.lock().expect("devices").push(grant.clone());
+  record_secret(&state, &grant.device_code);
   let issuer = state.issuer.lock().expect("issuer").clone();
   Json(json!({
     "device_code": grant.device_code,
@@ -483,6 +496,7 @@ impl FakeKeycloak {
       codes: Mutex::new(HashMap::new()),
       refresh_grants: AtomicUsize::new(0),
       user_attributes: Mutex::new(HashMap::new()),
+      issued_secrets: Mutex::new(Vec::new()),
     });
     let app = Router::new()
       .route(
@@ -680,7 +694,18 @@ impl FakeKeycloak {
     if spec.issuer.is_none() {
       spec.issuer = Some(self.issuer());
     }
-    mint_with(&spec)
+    let token = mint_with(&spec);
+    record_secret(&self.state, &token);
+    token
+  }
+
+  pub fn issued_secrets(&self) -> Vec<String> {
+    self
+      .state
+      .issued_secrets
+      .lock()
+      .expect("issued secrets")
+      .clone()
   }
 }
 

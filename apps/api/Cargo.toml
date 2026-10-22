@@ -29,5 +29,6 @@ rmcp = { version = "=3.5.1", features = ["client", "transport-streamable-http-cl
 spec-store-mcp = { path = "../mcp" }
 diesel = { workspace = true }
 http-body-util = "0.1"
+reqwest = { workspace = true }
 spec-store-testkit = { workspace = true }
 tower = { version = "0.5", features = ["util"] }
