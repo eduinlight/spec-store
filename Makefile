@@ -25,6 +25,11 @@ reinstall: uninstall install
 test-services:
 	$(COMPOSE) up -d --wait postgres mailpit
 
+test-sweep:
+	$(COMPOSE) exec -T postgres psql -U postgres -d postgres -tAc "SELECT datname FROM pg_database WHERE datname LIKE 'spec\_store\_test\_%' OR datname LIKE 'spec\_store\_tpl\_%'" | while read -r db; do \
+		[ -n "$$db" ] && $(COMPOSE) exec -T postgres psql -U postgres -d postgres -qc "DROP DATABASE IF EXISTS \"$$db\" WITH (FORCE)" </dev/null; \
+	done; true
+
 lint:
 	cargo clippy --workspace --locked --all-targets -- -D warnings
 	pnpm exec biome lint .
@@ -34,8 +39,8 @@ fmt-check:
 	cargo fmt --all --check
 	pnpm exec biome format .
 
-test: test-services
+test: test-services test-sweep
 	cargo test --workspace --locked
 	pnpm -r --if-present test
 
-.PHONY: docker-up docker-down install uninstall reinstall test-services lint fmt-check test
+.PHONY: docker-up docker-down install uninstall reinstall test-services test-sweep lint fmt-check test

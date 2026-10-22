@@ -1,7 +1,7 @@
 [workspace]
 resolver = "3"
-members = ["packages/core"]
-default-members = ["packages/core"]
+members = ["packages/core", "packages/testkit"]
+default-members = ["packages/core", "packages/testkit"]
 
 [workspace.package]
 version = "0.2.0"
@@ -12,3 +12,5 @@ repository = "https://github.com/eduinlight/spec-store"
 
 [workspace.dependencies]
 spec-store-core = { path = "packages/core" }
+spec-store-testkit = { path = "packages/testkit" }
+diesel = { version = "2.3", default-features = false, features = ["postgres", "r2d2", "chrono"] }

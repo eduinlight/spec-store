@@ -1,0 +1,12 @@
+[package]
+name = "spec-store-testkit"
+description = "Test support for spec-store: per-test PostgreSQL databases and a fake Keycloak"
+publish = false
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+diesel = { workspace = true }
