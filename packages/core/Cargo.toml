@@ -19,3 +19,4 @@ similar = { version = "3", default-features = false, features = ["text"] }
 
 [dev-dependencies]
 spec-store-testkit = { workspace = true }
+tokio = { workspace = true }

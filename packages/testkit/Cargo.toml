@@ -9,4 +9,9 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+axum = { workspace = true }
 diesel = { workspace = true }
+jsonwebtoken = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }

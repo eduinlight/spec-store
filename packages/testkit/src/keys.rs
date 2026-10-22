@@ -1,0 +1,5 @@
+pub const KEY_A_PEM: &str = include_str!("../keys/key-a.pem");
+pub const KEY_B_PEM: &str = include_str!("../keys/key-b.pem");
+pub const KEY_A_MODULUS: &str = "t8dfC4DhpOmyO3v5yojP3SVHIKZbMau_1jarBzaPHoZlrMJ1XJ3qhJBkzErq8E5iZMvxHuCU3Y3xbeMRFe9WrxRkO_JO9re4dh0Oui8kq0KqjCuK8InrcKMdUhoVGoIC-dBWcGtAGjynY-v9M_-PqE_epOpMawVAvjyQJpKG7Dy_7X9SvLmCILn-0uUwOae0Tkc2-9cRuwDJvBKGg0Hv9suTqCzO5ON6nfGfiTBgkr5sG_EZLlVPEjhZvTDl9iVhq476C3aO_HoINnbOlkfzo4dcsolN4nWPg-jJHIE7b_teRm82Fs3quoIzK5Ym8draf-cQ4gpE9m_OkSas019eCw";
+pub const KEY_B_MODULUS: &str = "3UwR5oXOasUC77hoeRUhfYCPLv8QLGMRBS6taOov0MtWXEcQBzMsZWDQXLH8y1A3bZ1uNWL9qjlBr0Pl2VaPuxgMyRT1uq91DXUZ0SAlXnok2vl8ZH1y0PCTycsTfj316WBDlrvair1SfZVeey_w4vQ9-y4gl83WkV0ORVuLlW2UtMdQ-yfQfPXbzfx_iK9iWiULyDDEV5ajwzBnmfXyb1NVeEOX-OOiI8jxnN2abAq0XX2dSMJaUbz_xnlQ1L5030uUweAN60IEeHZZ7t2vqOjrl4kvWrrFqqhCUM1vzJWsdwc1TpOO1U1M5WonjH72ECwfFyf1wjpWX07WrgSy7w";
+pub const EXPONENT: &str = "AQAB";
