@@ -2,6 +2,7 @@ pub mod address;
 pub mod config;
 pub mod db;
 pub mod diff;
+pub mod email;
 pub mod identity;
 pub mod keycloak;
 pub mod markdown;

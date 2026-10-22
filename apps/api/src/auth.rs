@@ -11,6 +11,7 @@ use crate::state::AppState;
 pub struct Principal {
   pub caller: Caller,
   pub identity: Identity,
+  pub email_verified: bool,
 }
 
 pub fn bearer_token(parts: &Parts) -> Option<&str> {
@@ -41,7 +42,11 @@ impl FromRequestParts<AppState> for Principal {
     let caller = state
       .blocking(move |store| store.caller_for(&for_store, is_operator))
       .await?;
-    let principal = Principal { caller, identity };
+    let principal = Principal {
+      caller,
+      identity,
+      email_verified: claims.email_verified,
+    };
     parts.extensions.insert(principal.clone());
     Ok(principal)
   }

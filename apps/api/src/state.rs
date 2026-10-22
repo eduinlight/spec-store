@@ -11,6 +11,13 @@ use crate::error::ApiError;
 pub struct ApiConfig {
   pub allowed_hosts: Vec<String>,
   pub audience: String,
+  pub app_url: String,
+}
+
+impl ApiConfig {
+  pub fn invitation_base_url(&self) -> String {
+    format!("{}/invitations", self.app_url.trim_end_matches('/'))
+  }
 }
 
 #[derive(Clone)]
