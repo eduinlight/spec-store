@@ -25,6 +25,8 @@ utoipa = "6"
 utoipa-axum = "0.3"
 
 [dev-dependencies]
+rmcp = { version = "=3.5.1", features = ["client", "transport-streamable-http-client-reqwest", "reqwest"] }
+spec-store-mcp = { path = "../mcp" }
 diesel = { workspace = true }
 http-body-util = "0.1"
 spec-store-testkit = { workspace = true }
