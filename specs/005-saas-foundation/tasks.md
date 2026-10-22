@@ -66,7 +66,7 @@ Switch group (as in spec 004): T08–T17 change the persistence layer from SQLit
 - [x] T43 (FR-13) Implement `apps/cli/src/login.rs` (device flow with `reqwest`, polling interval, keyring with 0600-file fallback) and `login`, `logout`, `whoami` in `cli.rs` — Done when: T42 tests green
 - [x] T44 (FR-14) Write `apps/cli/tests/cli_commands.rs` with one case per command in plan §6.3 except import/export, running against the in-process API — Done when: tests written and red
 - [x] T45 (FR-14) Implement `apps/cli/src/client.rs` (bearer with transparent refresh, exit code 1 and stderr message on error) and the organization, project and audit commands in `cli.rs` — Done when: T44 tests green
-- [ ] T46 (FR-15) Port `apps/cli/tests/cli_transfer.rs` to the API (spec 003 FR-1–FR-21, byte-identical round trip) and write `apps/api/tests/http_transfer.rs` (import refused with cookie auth, dry run, owner only) — Done when: tests written and red
+- [x] T46 (FR-15) Port `apps/cli/tests/cli_transfer.rs` to the API (spec 003 FR-1–FR-21, byte-identical round trip) and write `apps/api/tests/http_transfer.rs` (import refused with cookie auth, dry run, owner only) — Done when: tests written and red
 - [ ] T47 (FR-15) Implement `apps/api/src/routes/transfer.rs` (bearer only) — Done when: `http_transfer.rs` green
 - [ ] T48 (FR-15) Implement `apps/cli/src/transfer.rs` (`tree::scan` → POST, GET → `tree::plan_export` / `write_export`) and the `import` and `export` commands — Done when: `cli_transfer.rs` green
 

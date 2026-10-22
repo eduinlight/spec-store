@@ -102,6 +102,43 @@ impl TestEnv {
   pub async fn sign_in(&self, username: &str) {
     login_as(self, username).await;
   }
+
+  pub fn use_identity(&self, username: &str) {
+    let access = self.keycloak.mint(&spec_store_testkit::TokenSpec::new(
+      username,
+      "spec-store-api",
+    ));
+    let refresh = self.keycloak.issue_refresh_token(username);
+    let now = std::time::SystemTime::now()
+      .duration_since(std::time::UNIX_EPOCH)
+      .unwrap()
+      .as_secs() as i64;
+    let credentials = serde_json::json!({
+      "issuer": self.keycloak.issuer(),
+      "api": self.api,
+      "access_token": access,
+      "refresh_token": refresh,
+      "expires_at": now + 300,
+      "handle": username,
+    });
+    std::fs::create_dir_all(&self.config_dir).unwrap();
+    std::fs::write(self.credentials_file(), credentials.to_string()).unwrap();
+  }
+
+  pub fn person(&self, handle: &str) -> spec_store_core::model::Caller {
+    self
+      .store
+      .caller_for(
+        &spec_store_core::store::users::Identity {
+          subject: format!("subject-{handle}"),
+          handle: handle.to_string(),
+          email: format!("{handle}@example.com"),
+          name: handle.to_string(),
+        },
+        false,
+      )
+      .unwrap()
+  }
 }
 
 pub async fn login_as(env: &TestEnv, username: &str) -> Output {

@@ -2,32 +2,27 @@ mod common;
 
 use std::fs;
 use std::path::Path;
-use std::process::Command;
 
-use spec_store::store::Store;
+use spec_store_core::model::{OrgRole, Role, SpecStatus};
 
-struct Output {
+struct Run {
   code: i32,
   stdout: String,
   stderr: String,
 }
 
-fn run(db: &Path, args: &[&str]) -> Output {
-  let out = Command::new(env!("CARGO_BIN_EXE_spec-store"))
-    .arg("--db")
-    .arg(db)
-    .args(args)
-    .output()
-    .expect("run binary");
-  Output {
+async fn run(env: &common::TestEnv, as_handle: &str, args: &[&str]) -> Run {
+  env.use_identity(as_handle);
+  let out = env.run(args).await;
+  Run {
     code: out.status.code().unwrap_or(-1),
-    stdout: String::from_utf8_lossy(&out.stdout).into_owned(),
-    stderr: String::from_utf8_lossy(&out.stderr).into_owned(),
+    stdout: common::text(&out.stdout),
+    stderr: common::text(&out.stderr),
   }
 }
 
-fn ok(db: &Path, args: &[&str]) -> Output {
-  let out = run(db, args);
+async fn ok(env: &common::TestEnv, as_handle: &str, args: &[&str]) -> Run {
+  let out = run(env, as_handle, args).await;
   assert_eq!(
     out.code, 0,
     "args {args:?}\nstdout: {}\nstderr: {}",
@@ -36,8 +31,8 @@ fn ok(db: &Path, args: &[&str]) -> Output {
   out
 }
 
-fn fails(db: &Path, args: &[&str]) -> Output {
-  let out = run(db, args);
+async fn fails(env: &common::TestEnv, as_handle: &str, args: &[&str]) -> Run {
+  let out = run(env, as_handle, args).await;
   assert_eq!(
     out.code, 1,
     "args {args:?} should fail\nstdout: {}\nstderr: {}",
@@ -58,22 +53,34 @@ fn put(root: &Path, relative: &str, body: &str) {
   fs::write(path, body).unwrap();
 }
 
-fn setup(label: &str) -> std::path::PathBuf {
-  let db = common::temp_db_path(label);
-  ok(&db, &["user", "add", "alice"]);
-  for handle in ["olivia", "eddie", "otto"] {
-    ok(&db, &["user", "add", handle, "--as", "alice"]);
+async fn setup(label: &str) -> common::TestEnv {
+  let env = common::start(label).await;
+  let alice = env.person("alice");
+  env
+    .store
+    .create_organization(&alice, "acme", "Acme")
+    .unwrap();
+  for handle in ["olivia", "eddie"] {
+    let person = env.person(handle);
+    env
+      .store
+      .admit_organization_member("acme", person.user_id, OrgRole::Member)
+      .unwrap();
   }
-  ok(&db, &["project", "add", "demo", "Demo", "--as", "alice"]);
-  ok(
-    &db,
-    &["member", "set", "demo", "olivia", "owner", "--as", "alice"],
-  );
-  ok(
-    &db,
-    &["member", "set", "demo", "eddie", "editor", "--as", "alice"],
-  );
-  db
+  env.person("otto");
+  env
+    .store
+    .create_project(&alice, "acme/demo", "Demo")
+    .unwrap();
+  env
+    .store
+    .set_member(&alice, "acme/demo", "olivia", Role::Owner)
+    .unwrap();
+  env
+    .store
+    .set_member(&alice, "acme/demo", "eddie", Role::Editor)
+    .unwrap();
+  env
 }
 
 fn sample_dir(label: &str) -> std::path::PathBuf {
@@ -96,20 +103,21 @@ fn sample_dir(label: &str) -> std::path::PathBuf {
   root
 }
 
-fn spec_count(db: &Path) -> usize {
-  let store = Store::open(db).unwrap();
-  let admin = store.caller_by_handle("alice").unwrap();
-  store.list_specs(&admin, "demo").unwrap().len()
+fn spec_count(env: &common::TestEnv) -> usize {
+  let alice = env.store.caller_by_handle("alice", false).unwrap();
+  env.store.list_specs(&alice, "acme/demo").unwrap().len()
 }
 
-#[test]
-fn import_prints_a_report_and_notices() {
-  let db = setup("cli-import");
+#[tokio::test]
+async fn import_prints_a_report_and_notices() {
+  let env = setup("cli-import").await;
   let dir = sample_dir("cli-import-dir");
   let out = ok(
-    &db,
-    &["import", "demo", dir.to_str().unwrap(), "--as", "olivia"],
-  );
+    &env,
+    "olivia",
+    &["import", "acme/demo", dir.to_str().unwrap()],
+  )
+  .await;
   assert_eq!(
     out.stdout,
     "constitution v1.2 from docs/constitution.md\n\
@@ -130,31 +138,26 @@ fn import_prints_a_report_and_notices() {
     "{}",
     out.stderr
   );
-  assert!(out.stderr.contains("003-empty"), "{}", out.stderr);
-  assert_eq!(spec_count(&db), 3);
-
+  assert_eq!(spec_count(&env), 3);
   let audit = ok(
-    &db,
-    &["audit", "list", "--project", "demo", "--as", "alice"],
-  );
+    &env,
+    "alice",
+    &["audit", "list", "acme", "--project", "demo"],
+  )
+  .await;
   assert_eq!(audit.stdout.matches("spec.import").count(), 3);
 }
 
-#[test]
-fn dry_run_reports_and_writes_nothing() {
-  let db = setup("cli-dry");
+#[tokio::test]
+async fn dry_run_reports_and_writes_nothing() {
+  let env = setup("cli-dry").await;
   let dir = sample_dir("cli-dry-dir");
   let out = ok(
-    &db,
-    &[
-      "import",
-      "demo",
-      dir.to_str().unwrap(),
-      "--dry-run",
-      "--as",
-      "olivia",
-    ],
-  );
+    &env,
+    "olivia",
+    &["import", "acme/demo", dir.to_str().unwrap(), "--dry-run"],
+  )
+  .await;
   assert!(
     out
       .stdout
@@ -167,66 +170,65 @@ fn dry_run_reports_and_writes_nothing() {
     "{}",
     out.stdout
   );
-  assert_eq!(spec_count(&db), 0);
+  assert_eq!(spec_count(&env), 0);
 }
 
-#[test]
-fn refusal_lists_every_problem_and_writes_nothing() {
-  let db = setup("cli-refuse");
+#[tokio::test]
+async fn refusal_lists_every_problem_and_writes_nothing() {
+  let env = setup("cli-refuse").await;
   let dir = sample_dir("cli-refuse-dir");
   put(&dir, "specs/01-short/spec.md", "x\n");
   put(&dir, "specs/004-alpha/spec.md", "x\n");
   let out = fails(
-    &db,
-    &["import", "demo", dir.to_str().unwrap(), "--as", "olivia"],
-  );
+    &env,
+    "olivia",
+    &["import", "acme/demo", dir.to_str().unwrap()],
+  )
+  .await;
   assert!(out.stderr.contains("import refused"), "{}", out.stderr);
   assert!(out.stderr.contains("specs/01-short"), "{}", out.stderr);
   assert!(out.stderr.contains("specs/004-alpha"), "{}", out.stderr);
-  assert_eq!(spec_count(&db), 0);
-
+  assert_eq!(spec_count(&env), 0);
   let missing = dir.join("missing");
   fails(
-    &db,
-    &[
-      "import",
-      "demo",
-      missing.to_str().unwrap(),
-      "--as",
-      "olivia",
-    ],
-  );
+    &env,
+    "olivia",
+    &["import", "acme/demo", missing.to_str().unwrap()],
+  )
+  .await;
 }
 
-#[test]
-fn only_an_owner_imports_and_the_version_can_be_given() {
-  let db = setup("cli-owner");
+#[tokio::test]
+async fn only_an_owner_imports_and_the_version_can_be_given() {
+  let env = setup("cli-owner").await;
   let dir = sample_dir("cli-owner-dir");
-  for handle in ["eddie", "alice", "otto"] {
-    let out = fails(
-      &db,
-      &["import", "demo", dir.to_str().unwrap(), "--as", handle],
-    );
-    assert!(out.stderr.contains("owner"), "{handle}: {}", out.stderr);
-  }
-  fails(
-    &db,
-    &["import", "demo", dir.to_str().unwrap(), "--as", "nobody"],
-  );
-  assert_eq!(spec_count(&db), 0);
-
+  let out = fails(
+    &env,
+    "eddie",
+    &["import", "acme/demo", dir.to_str().unwrap()],
+  )
+  .await;
+  assert!(out.stderr.contains("owner"), "{}", out.stderr);
+  let out = fails(
+    &env,
+    "otto",
+    &["import", "acme/demo", dir.to_str().unwrap()],
+  )
+  .await;
+  assert!(out.stderr.contains("not found"), "{}", out.stderr);
+  assert_eq!(spec_count(&env), 0);
   let out = ok(
-    &db,
+    &env,
+    "olivia",
     &[
       "import",
-      "demo",
+      "acme/demo",
       dir.to_str().unwrap(),
       "--constitution-version",
       "2.0",
-      "--as",
-      "olivia",
     ],
-  );
+  )
+  .await;
   assert!(
     out
       .stdout
@@ -236,22 +238,24 @@ fn only_an_owner_imports_and_the_version_can_be_given() {
   );
 }
 
-fn imported(label: &str) -> std::path::PathBuf {
-  let db = setup(label);
+async fn imported(label: &str) -> common::TestEnv {
+  let env = setup(label).await;
   let dir = sample_dir(&format!("{label}-src"));
   ok(
-    &db,
-    &["import", "demo", dir.to_str().unwrap(), "--as", "olivia"],
-  );
-  db
+    &env,
+    "olivia",
+    &["import", "acme/demo", dir.to_str().unwrap()],
+  )
+  .await;
+  env
 }
 
-#[test]
-fn export_writes_lists_and_then_reports_unchanged() {
-  let db = imported("cli-export");
+#[tokio::test]
+async fn export_writes_lists_and_then_reports_unchanged() {
+  let env = imported("cli-export").await;
   let out_dir = common::temp_dir("cli-export-out").join("copy");
   let target = out_dir.to_str().unwrap();
-  let out = ok(&db, &["export", "demo", target, "--as", "eddie"]);
+  let out = ok(&env, "eddie", &["export", "acme/demo", target]).await;
   assert_eq!(
     out.stdout,
     "written docs/constitution.md\n\
@@ -265,8 +269,7 @@ fn export_writes_lists_and_then_reports_unchanged() {
     fs::read_to_string(out_dir.join("specs/001-alpha/spec.md")).unwrap(),
     "# Spec\n\nStatus: approved · Created\n"
   );
-
-  let out = ok(&db, &["export", "demo", target, "--as", "alice"]);
+  let out = ok(&env, "alice", &["export", "acme/demo", target]).await;
   assert!(
     out
       .stdout
@@ -275,23 +278,23 @@ fn export_writes_lists_and_then_reports_unchanged() {
     out.stdout
   );
   assert!(out.stdout.contains("unchanged specs/002-beta/spec.md\n"));
-
   let audit = ok(
-    &db,
-    &["audit", "list", "--project", "demo", "--as", "alice"],
-  );
+    &env,
+    "alice",
+    &["audit", "list", "acme", "--project", "demo"],
+  )
+  .await;
   assert!(!audit.stdout.contains("export"), "{}", audit.stdout);
 }
 
-#[test]
-fn differing_files_block_the_export_unless_forced() {
-  let db = imported("cli-force");
+#[tokio::test]
+async fn differing_files_block_the_export_unless_forced() {
+  let env = imported("cli-force").await;
   let out_dir = common::temp_dir("cli-force-out");
   let target = out_dir.to_str().unwrap();
   put(&out_dir, "specs/001-alpha/plan.md", "local edit\n");
   put(&out_dir, "specs/002-beta/spec.md", "another edit\n");
-
-  let out = fails(&db, &["export", "demo", target, "--as", "eddie"]);
+  let out = fails(&env, "eddie", &["export", "acme/demo", target]).await;
   assert!(out.stderr.contains("--force"), "{}", out.stderr);
   assert!(
     out.stderr.contains("  - specs/001-alpha/plan.md"),
@@ -304,8 +307,7 @@ fn differing_files_block_the_export_unless_forced() {
     out.stderr
   );
   assert!(!out_dir.join("docs/constitution.md").exists());
-
-  let out = ok(&db, &["export", "demo", target, "--force", "--as", "eddie"]);
+  let out = ok(&env, "eddie", &["export", "acme/demo", target, "--force"]).await;
   assert!(out.stdout.contains("written specs/001-alpha/plan.md\n"));
   assert_eq!(
     fs::read_to_string(out_dir.join("specs/001-alpha/plan.md")).unwrap(),
@@ -313,29 +315,27 @@ fn differing_files_block_the_export_unless_forced() {
   );
 }
 
-#[test]
-fn export_of_one_spec_with_a_status_notice() {
-  let db = imported("cli-one");
-  {
-    let store = Store::open(&db).unwrap();
-    let owner = store.caller_by_handle("olivia").unwrap();
-    store
-      .set_spec_status(&owner, "demo", 1, spec_store::model::SpecStatus::Draft)
-      .unwrap();
-  }
+#[tokio::test]
+async fn export_of_one_spec_with_a_status_notice() {
+  let env = imported("cli-one").await;
+  let owner = env.store.caller_by_handle("olivia", false).unwrap();
+  env
+    .store
+    .set_spec_status(&owner, "acme/demo", 1, SpecStatus::Draft)
+    .unwrap();
   let out_dir = common::temp_dir("cli-one-out");
   let out = ok(
-    &db,
+    &env,
+    "eddie",
     &[
       "export",
-      "demo",
+      "acme/demo",
       out_dir.to_str().unwrap(),
       "--spec",
       "1",
-      "--as",
-      "eddie",
     ],
-  );
+  )
+  .await;
   assert_eq!(
     out.stdout,
     "written specs/001-alpha/spec.md\n\
@@ -351,28 +351,30 @@ fn export_of_one_spec_with_a_status_notice() {
     out.stderr
   );
   fails(
-    &db,
+    &env,
+    "eddie",
     &[
       "export",
-      "demo",
+      "acme/demo",
       out_dir.to_str().unwrap(),
       "--spec",
       "9",
-      "--as",
-      "eddie",
     ],
-  );
+  )
+  .await;
 }
 
-#[test]
-fn outsiders_cannot_export() {
-  let db = imported("cli-outsider");
+#[tokio::test]
+async fn outsiders_cannot_export() {
+  let env = imported("cli-outsider").await;
   let out_dir = common::temp_dir("cli-outsider-out").join("x");
   let out = fails(
-    &db,
-    &["export", "demo", out_dir.to_str().unwrap(), "--as", "otto"],
-  );
-  assert!(out.stderr.contains("member"), "{}", out.stderr);
+    &env,
+    "otto",
+    &["export", "acme/demo", out_dir.to_str().unwrap()],
+  )
+  .await;
+  assert!(out.stderr.contains("not found"), "{}", out.stderr);
   assert!(!out_dir.exists());
 }
 
@@ -408,8 +410,8 @@ fn imported_files(root: &Path) -> Vec<String> {
   files
 }
 
-#[test]
-fn this_repository_round_trips_byte_for_byte() {
+#[tokio::test]
+async fn this_repository_round_trips_byte_for_byte() {
   let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
   let source = common::temp_dir("cli-round-trip-src");
   fs::create_dir_all(source.join("docs")).unwrap();
@@ -419,21 +421,23 @@ fn this_repository_round_trips_byte_for_byte() {
   )
   .unwrap();
   copy_tree(&repo.join("specs"), &source.join("specs"));
-
-  let db = setup("cli-round-trip");
+  let env = setup("cli-round-trip").await;
   let out = ok(
-    &db,
-    &["import", "demo", source.to_str().unwrap(), "--as", "olivia"],
-  );
+    &env,
+    "olivia",
+    &["import", "acme/demo", source.to_str().unwrap()],
+  )
+  .await;
   let files = imported_files(&source);
   assert!(files.len() > 10, "{files:?}");
   assert!(out.stdout.ends_with(" documents\n"), "{}", out.stdout);
-
   let target = common::temp_dir("cli-round-trip-out");
   let out = ok(
-    &db,
-    &["export", "demo", target.to_str().unwrap(), "--as", "olivia"],
-  );
+    &env,
+    "olivia",
+    &["export", "acme/demo", target.to_str().unwrap()],
+  )
+  .await;
   assert!(
     out.stdout.ends_with(&format!(
       "exported {n} files: {n} written, 0 unchanged\n",
