@@ -107,7 +107,7 @@ Switch group (as in spec 004): T08–T17 change the persistence layer from SQLit
 
 ## Phase 10 — US-8 (P2) One repository, one entry point
 - [x] T78 (FR-26) Complete `docker-compose.yml` (themed Keycloak with `deploy/keycloak/realm/dev-users.json` seeding a verified test person; mailpit), add a `make dev` target running api, mcp, app and landing, and write the README development section — Done when: on a fresh clone, `make install && make dev` lets the seeded person sign in to the app, and `make uninstall` removes every container and volume
-- [ ] T79 (FR-27) Check each gate target against an injected failure in every package (one Rust crate, one TS app), and record the results in `specs/005-saas-foundation/evidence/gate.md` — Done when: the evidence shows a non-zero exit for each injected failure and zero after reverting
+- [x] T79 (FR-27) Check each gate target against an injected failure in every package (one Rust crate, one TS app), and record the results in `specs/005-saas-foundation/evidence/gate.md` — Done when: the evidence shows a non-zero exit for each injected failure and zero after reverting
 - [ ] T80 (FR-28) Write `.github/workflows/ci.yml` (self-hosted runner, `ensure-tools`, `make lint`, `make fmt-check`, `make test`, on push to main and tags) — Done when: a run on main is green and a pushed commit with a clippy warning makes the run fail
 
 ## Phase 11 — US-9 (P2) Automatic deployments
