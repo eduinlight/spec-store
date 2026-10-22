@@ -2,8 +2,9 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use spec_store_api::{ApiConfig, AppState, router};
-use spec_store_core::config::{DatabaseSettings, Env, identity_from_env};
+use spec_store_core::config::{DatabaseSettings, Env, admin_from_env, identity_from_env};
 use spec_store_core::identity::Verifier;
+use spec_store_core::keycloak::KeycloakAdmin;
 use spec_store_core::store::Store;
 use tracing_subscriber::EnvFilter;
 
@@ -29,7 +30,13 @@ async fn main() -> anyhow::Result<()> {
     tokio::task::spawn_blocking(move || Store::open_with_size(&database.url, database.pool_size))
       .await?
       .context("opening the database and applying migrations")?;
-  let state = AppState::new(store, Arc::new(Verifier::new(identity)), config);
+  let mut state = AppState::new(store, Arc::new(Verifier::new(identity)), config);
+  match admin_from_env(&env)? {
+    Some(admin) => state = state.with_keycloak_admin(Arc::new(KeycloakAdmin::new(admin))),
+    None => tracing::warn!(
+      "KEYCLOAK_ADMIN_CLIENT_SECRET is not set: authorized clients cannot be listed or revoked"
+    ),
+  }
   let listener = tokio::net::TcpListener::bind(&bind)
     .await
     .with_context(|| format!("binding {bind}"))?;

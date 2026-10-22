@@ -1425,6 +1425,7 @@ dependencies = [
  "rustls-platform-verifier",
  "serde",
  "serde_json",
+ "serde_urlencoded",
  "sync_wrapper",
  "tokio",
  "tokio-rustls",
@@ -1900,6 +1901,7 @@ name = "spec-store-core"
 version = "0.2.0"
 dependencies = [
  "base64 0.22.1",
+ "chrono",
  "diesel",
  "diesel_migrations",
  "jsonwebtoken",

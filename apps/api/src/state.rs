@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use spec_store_core::identity::Verifier;
+use spec_store_core::keycloak::KeycloakAdmin;
 use spec_store_core::model::StoreResult;
 use spec_store_core::store::Store;
 
@@ -17,6 +18,7 @@ pub struct AppState {
   pub store: Store,
   pub verifier: Arc<Verifier>,
   pub config: Arc<ApiConfig>,
+  pub keycloak_admin: Option<Arc<KeycloakAdmin>>,
 }
 
 impl AppState {
@@ -25,7 +27,21 @@ impl AppState {
       store,
       verifier,
       config: Arc::new(config),
+      keycloak_admin: None,
     }
+  }
+
+  pub fn with_keycloak_admin(mut self, admin: Arc<KeycloakAdmin>) -> AppState {
+    self.keycloak_admin = Some(admin);
+    self
+  }
+
+  pub fn admin(&self) -> Result<Arc<KeycloakAdmin>, ApiError> {
+    self.keycloak_admin.clone().ok_or_else(|| {
+      ApiError::Store(spec_store_core::model::StoreError::Unavailable(
+        "the identity provider administration".into(),
+      ))
+    })
   }
 
   pub async fn blocking<T, F>(&self, work: F) -> Result<T, ApiError>

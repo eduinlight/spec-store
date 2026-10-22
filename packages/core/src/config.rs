@@ -1,4 +1,5 @@
 use crate::identity::IdentityConfig;
+use crate::keycloak::AdminConfig;
 
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum ConfigError {
@@ -90,6 +91,33 @@ pub fn identity_from_env(env: &Env) -> ConfigResult<IdentityConfig> {
   Ok(config)
 }
 
+pub fn split_issuer(issuer: &str) -> ConfigResult<(String, String)> {
+  let issuer = issuer.trim_end_matches('/');
+  issuer
+    .rsplit_once("/realms/")
+    .filter(|(base, realm)| !base.is_empty() && !realm.is_empty() && !realm.contains('/'))
+    .map(|(base, realm)| (base.to_string(), realm.to_string()))
+    .ok_or_else(|| ConfigError::Invalid {
+      name: "KEYCLOAK_ISSUER".into(),
+      detail: format!("{issuer:?} is not of the form <keycloak url>/realms/<realm>"),
+    })
+}
+
+pub fn admin_from_env(env: &Env) -> ConfigResult<Option<AdminConfig>> {
+  let Some(client_secret) = env.optional("KEYCLOAK_ADMIN_CLIENT_SECRET") else {
+    return Ok(None);
+  };
+  let (public_base, realm) = split_issuer(&env.required("KEYCLOAK_ISSUER")?)?;
+  Ok(Some(AdminConfig {
+    base_url: env.optional("KEYCLOAK_INTERNAL_URL").unwrap_or(public_base),
+    realm,
+    client_id: env
+      .optional("KEYCLOAK_ADMIN_CLIENT_ID")
+      .unwrap_or_else(|| "spec-store-api-admin".into()),
+    client_secret,
+  }))
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SmtpSettings {
   pub host: String,
@@ -153,6 +181,20 @@ mod tests {
       identity.jwks_url,
       "https://auth.example/realms/spec-store/protocol/openid-connect/certs"
     );
+  }
+
+  #[test]
+  fn admin_settings_derive_from_the_issuer() {
+    let values = env(&[
+      ("KEYCLOAK_ISSUER", "https://auth.example/realms/spec-store"),
+      ("KEYCLOAK_ADMIN_CLIENT_SECRET", "s"),
+    ]);
+    let env = Env::from_fn(|k| values.get(k).cloned());
+    let admin = admin_from_env(&env).unwrap().unwrap();
+    assert_eq!(admin.base_url, "https://auth.example");
+    assert_eq!(admin.realm, "spec-store");
+    assert_eq!(admin.client_id, "spec-store-api-admin");
+    assert!(split_issuer("https://auth.example/spec-store").is_err());
   }
 
   #[test]
