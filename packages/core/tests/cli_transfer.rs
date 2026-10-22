@@ -410,7 +410,7 @@ fn imported_files(root: &Path) -> Vec<String> {
 
 #[test]
 fn this_repository_round_trips_byte_for_byte() {
-  let repo = Path::new(env!("CARGO_MANIFEST_DIR"));
+  let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
   let source = common::temp_dir("cli-round-trip-src");
   fs::create_dir_all(source.join("docs")).unwrap();
   fs::copy(
