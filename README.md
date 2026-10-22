@@ -6,6 +6,54 @@ Keycloak; agents connect over MCP by approving the client in the browser; a CLI 
 organizations, projects, import and export from the terminal. Every document write is an
 append-only revision with an audit entry, stored in PostgreSQL.
 
+## Architecture
+
+```
+ browser ── app / landing (nginx) ──┐
+                                    ├── api (axum) ──┐
+ spec-store CLI ── bearer token ────┘                ├── packages/core ── PostgreSQL
+ AI agent ── MCP over HTTP ───────────── mcp (rmcp) ─┘
+                 └──────── Keycloak (sign-in, MCP and device authorization) ────────┘
+```
+
+- `packages/core` holds every rule. The API, the MCP server and the CLI's server side call it, so an
+  operation behaves the same way and fails with the same error everywhere.
+- The browser app never holds a token. The API signs the person in with Keycloak, keeps the tokens
+  sealed in PostgreSQL and gives the browser an HTTP-only session cookie.
+- The CLI signs in with a device code and keeps its tokens in the system keychain.
+- Agents find the authorization server through the MCP server's protected-resource metadata, and the
+  person approves them in the browser.
+- Invitation emails go through an outbox table in PostgreSQL, so a write and its email commit
+  together.
+
+## Using spec-store
+
+### CLI
+
+```sh
+cargo install --locked --git https://github.com/eduinlight/spec-store spec-store-cli
+spec-store login                      # opens the browser with a device code
+spec-store org create acme "Acme"
+spec-store project create acme/demo "Demo"
+spec-store import acme/demo .         # docs/constitution.md and specs/NNN-name/*.md
+spec-store export acme/demo ./out
+```
+
+`--api`, `--issuer` and `--client-id` (or `SPEC_STORE_API`, `SPEC_STORE_ISSUER`,
+`SPEC_STORE_CLIENT_ID`) point the CLI at another environment. They default to production.
+
+### MCP
+
+Add the server to an MCP client as a Streamable HTTP server:
+
+```sh
+claude mcp add --transport http spec-store https://mcp-spec-store.eduindev.com/mcp
+```
+
+On the first call, the server answers with where to authorize. The client opens Keycloak in the
+browser, the person signs in and approves the client, and the agent then acts with that person's
+access. Revoke an approved agent from the profile page in the app.
+
 ## Repository layout
 
 | Path | What it is |

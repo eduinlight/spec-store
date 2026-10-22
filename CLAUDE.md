@@ -1,12 +1,17 @@
 # spec-store
 
-Remote, multi-project store for Spec Driven Development documents (constitution, spec, plan, tasks, research, validation) exposed to AI agents through an MCP server, so the documents no longer live in each project's repository. One Rust binary serves the Streamable HTTP MCP endpoint, a read-only web UI and a JSON API for the CLI, with a single SQLite file as the only state. Documents are markdown with append-only revisions; the server indexes FRs, tasks, status and markers for queries.
+Hosted, multi-tenant store for Spec Driven Development documents (constitution, spec, plan, tasks, research, validation). Organizations own projects; people sign in through Keycloak; AI agents connect to the MCP server with MCP authorization; the `spec-store` CLI signs in with a device code. A Rust workspace holds the business rules (`packages/core`), the JSON API (`apps/api`), the MCP server (`apps/mcp`) and the CLI (`apps/cli`); the browser app (`apps/app`) and the landing page (`apps/landing`) are React. PostgreSQL is the only state. Documents are markdown with append-only revisions; the server indexes FRs, tasks, status and markers for queries.
 
 ## Commands
 
-- Run: `cargo run -- serve`
-- Tests: `cargo test`
-- Lint: `cargo clippy --all-targets -- -D warnings && cargo fmt --check`
+- Install: `make install` (creates `.env`, starts PostgreSQL, Keycloak and Mailpit, installs packages)
+- Run: `make dev` (API, MCP server, app and landing page against the compose services)
+- Tests: `make test` (every Rust and TypeScript test, plus the release performance checks)
+- Lint: `make lint` (clippy, Biome, TypeScript and the OpenAPI drift check)
+- Format check: `make fmt-check`
+- Browser tests: `make e2e` (Playwright, Lighthouse and the backup restore check)
+- API contract: `make openapi` after changing an API route
+- Remove everything: `make uninstall`
 
 ## Methodology: Spec Driven Development
 
@@ -39,9 +44,9 @@ Mandatory rules for the agent:
 ## Style
 
 - Code, identifiers, commit messages, documentation and messages to the user in English.
-- Rust stable toolchain, edition 2024, `rustfmt` with `tab_spaces = 2` (two-space indentation everywhere).
+- Rust stable toolchain, edition 2024, `rustfmt` with `tab_spaces = 2`; TypeScript formatted and linted by Biome; two-space indentation everywhere.
 - Errors are typed with `thiserror` in libraries and `anyhow` only in the binary entry point.
-- SQLite is the only persistent state; schema changes go through numbered migrations.
+- PostgreSQL is the only persistent state; schema changes go through numbered Diesel migrations in `packages/core/migrations`.
 - Every write to a document creates a revision and an audit entry; nothing is updated in place.
 
 ## Checklist before considering a task finished
