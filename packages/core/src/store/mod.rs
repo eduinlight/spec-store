@@ -4,6 +4,7 @@ pub mod invitations;
 pub mod organizations;
 pub mod outbox;
 pub mod projects;
+pub mod sessions;
 pub mod specs;
 pub mod tasks;
 pub mod transfer;

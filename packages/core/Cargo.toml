@@ -8,6 +8,7 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+aws-lc-rs = "1.18"
 chrono = { workspace = true }
 jsonwebtoken = { workspace = true }
 lettre = { workspace = true }
