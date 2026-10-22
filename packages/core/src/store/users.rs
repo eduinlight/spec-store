@@ -107,6 +107,24 @@ impl Store {
     })
   }
 
+  pub fn user_by_id(&self, id: i64) -> StoreResult<User> {
+    self.with_conn(|conn| {
+      users::table
+        .filter(users::id.eq(id))
+        .select((
+          users::id,
+          users::handle,
+          users::email,
+          users::name,
+          iso_utc(users::created_at),
+        ))
+        .first::<UserRow>(conn)
+        .optional()?
+        .map(to_user)
+        .ok_or_else(|| StoreError::NotFound(format!("user {id}")))
+    })
+  }
+
   pub fn caller_for(&self, identity: &Identity, is_operator: bool) -> StoreResult<Caller> {
     let user = self.upsert_user_from_identity(identity)?;
     Ok(Caller {

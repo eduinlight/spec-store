@@ -3,6 +3,7 @@ use axum::extract::DefaultBodyLimit;
 use axum::middleware;
 use axum::routing::{delete, get, post, put};
 
+use crate::bff;
 use crate::health::{live, ready};
 use crate::hosts::check_host;
 use crate::routes::clients::{list_clients, revoke_client};
@@ -17,6 +18,10 @@ pub fn router(state: AppState) -> Router {
   Router::new()
     .route("/healthz", get(live))
     .route("/readyz", get(ready))
+    .route("/auth/login", get(bff::login))
+    .route("/auth/callback", get(bff::callback))
+    .route("/auth/logout", post(bff::logout))
+    .route("/auth/backchannel-logout", post(bff::backchannel_logout))
     .route("/api/v1/me", get(me))
     .route("/api/v1/me/clients", get(list_clients))
     .route("/api/v1/me/clients/{client_id}", delete(revoke_client))

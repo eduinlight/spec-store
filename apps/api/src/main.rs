@@ -25,6 +25,12 @@ async fn main() -> anyhow::Result<()> {
       .optional("API_AUDIENCE")
       .unwrap_or_else(|| "spec-store-api".into()),
     app_url: env.required("APP_URL")?,
+    landing_url: env.required("LANDING_URL")?,
+    app_client_id: env
+      .optional("KEYCLOAK_APP_CLIENT_ID")
+      .unwrap_or_else(|| "spec-store-app".into()),
+    app_client_secret: env.required("KEYCLOAK_APP_CLIENT_SECRET")?,
+    session_key: env.required("SESSION_SEALING_KEY")?,
   };
   let smtp = SmtpSettings::from_env(&env)?;
   let bind = env
@@ -34,7 +40,8 @@ async fn main() -> anyhow::Result<()> {
     tokio::task::spawn_blocking(move || Store::open_with_size(&database.url, database.pool_size))
       .await?
       .context("opening the database and applying migrations")?;
-  let mut state = AppState::new(store, Arc::new(Verifier::new(identity)), config);
+  let mut state = AppState::try_new(store, Arc::new(Verifier::new(identity)), config)
+    .context("SESSION_SEALING_KEY must be 32 bytes in base64")?;
   match admin_from_env(&env)? {
     Some(admin) => state = state.with_keycloak_admin(Arc::new(KeycloakAdmin::new(admin))),
     None => tracing::warn!(

@@ -61,6 +61,10 @@ pub async fn start(label: &str) -> TestEnv {
       allowed_hosts: Vec::new(),
       audience: "spec-store-api".into(),
       app_url: "https://app.example.test".into(),
+      landing_url: "https://example.test".into(),
+      app_client_id: "spec-store-app".into(),
+      app_client_secret: "app-secret".into(),
+      session_key: spec_store_core::crypto::Sealer::generate_key(),
     },
   );
   let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();

@@ -7,6 +7,7 @@ use crate::secrets::{hash_token, random_secret};
 use crate::store::Store;
 
 pub const LOGIN_ATTEMPT_SECONDS: i64 = 600;
+pub const REFRESH_LEASE_SECONDS: i64 = 15;
 const SESSION_PREFIX: &str = "ses_";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -133,6 +134,22 @@ impl Store {
           .execute(conn)?;
       }
       Ok(())
+    })
+  }
+
+  pub fn claim_session_refresh(&self, id: i64) -> StoreResult<bool> {
+    self.with_conn(|conn| {
+      Ok(
+        diesel::update(
+          browser_sessions::table
+            .filter(browser_sessions::id.eq(id))
+            .filter(browser_sessions::access_expires_at.le(diesel::dsl::now))
+            .filter(browser_sessions::ended_at.is_null()),
+        )
+        .set(browser_sessions::access_expires_at.eq(expiry_in(REFRESH_LEASE_SECONDS)))
+        .execute(conn)?
+          == 1,
+      )
     })
   }
 

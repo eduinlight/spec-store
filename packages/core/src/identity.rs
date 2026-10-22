@@ -95,6 +95,18 @@ struct KeySet {
   loaded_at: Option<Instant>,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct LogoutClaims {
+  #[serde(default)]
+  pub sid: Option<String>,
+  #[serde(default)]
+  pub sub: Option<String>,
+  #[serde(default)]
+  pub events: serde_json::Value,
+}
+
+pub const BACKCHANNEL_LOGOUT_EVENT: &str = "http://schemas.openid.net/event/backchannel-logout";
+
 pub struct Verifier {
   config: IdentityConfig,
   http: reqwest::Client,
@@ -196,6 +208,37 @@ impl Verifier {
       .await
       .0
       .ok_or_else(|| IdentityError::Invalid(format!("unknown signing key {kid:?}")))
+  }
+
+  pub async fn verify_logout_token(
+    &self,
+    token: &str,
+    audience: &str,
+  ) -> Result<LogoutClaims, IdentityError> {
+    let header = decode_header(token).map_err(|e| IdentityError::Invalid(e.to_string()))?;
+    let kid = header
+      .kid
+      .ok_or_else(|| IdentityError::Invalid("token has no key id".into()))?;
+    let key = self.key_for(&kid).await?;
+    let mut validation = Validation::new(Algorithm::RS256);
+    validation.leeway = 0;
+    validation.set_audience(&[audience]);
+    validation.set_issuer(&[&self.config.issuer]);
+    validation.set_required_spec_claims(&["iss", "aud"]);
+    let claims = decode::<LogoutClaims>(token, &key, &validation)
+      .map(|data| data.claims)
+      .map_err(|e| IdentityError::Invalid(e.to_string()))?;
+    if claims.events.get(BACKCHANNEL_LOGOUT_EVENT).is_none() {
+      return Err(IdentityError::Invalid(
+        "not a back-channel logout token".into(),
+      ));
+    }
+    if claims.sid.is_none() && claims.sub.is_none() {
+      return Err(IdentityError::Invalid(
+        "logout token names no session".into(),
+      ));
+    }
+    Ok(claims)
   }
 
   pub async fn verify(&self, token: &str, audience: &str) -> Result<Claims, IdentityError> {

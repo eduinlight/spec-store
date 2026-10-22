@@ -21,6 +21,8 @@ pub struct AdminConfig {
 pub enum KeycloakError {
   #[error("{0} not found")]
   NotFound(String),
+  #[error("the identity provider refused the grant")]
+  InvalidGrant,
   #[error("identity provider unavailable: {0}")]
   Unavailable(String),
   #[error("identity provider refused the request: {0}")]
@@ -31,6 +33,7 @@ impl From<KeycloakError> for StoreError {
   fn from(error: KeycloakError) -> StoreError {
     match error {
       KeycloakError::NotFound(what) => StoreError::NotFound(what),
+      KeycloakError::InvalidGrant => StoreError::Unauthenticated,
       KeycloakError::Unavailable(detail) | KeycloakError::Rejected(detail) => {
         tracing::warn!(%detail, "identity provider call failed");
         StoreError::Unavailable("the identity provider".into())
@@ -216,9 +219,176 @@ impl KeycloakAdmin {
   }
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct OidcTokens {
+  pub access_token: String,
+  #[serde(default)]
+  pub refresh_token: Option<String>,
+  #[serde(default)]
+  pub id_token: Option<String>,
+  #[serde(default)]
+  pub expires_in: i64,
+}
+
+pub fn pkce_pair() -> (String, String) {
+  use base64::Engine;
+  use sha2::Digest;
+  let verifier = crate::secrets::random_secret("");
+  let challenge = base64::engine::general_purpose::URL_SAFE_NO_PAD
+    .encode(sha2::Sha256::digest(verifier.as_bytes()));
+  (verifier, challenge)
+}
+
+fn query(pairs: &[(&str, &str)]) -> String {
+  pairs
+    .iter()
+    .map(|(k, v)| format!("{k}={}", encode_segment(v)))
+    .collect::<Vec<_>>()
+    .join("&")
+}
+
+pub struct OidcClient {
+  issuer: String,
+  client_id: String,
+  client_secret: String,
+  http: reqwest::Client,
+}
+
+pub struct AuthorizeRequest<'a> {
+  pub redirect_uri: &'a str,
+  pub state: &'a str,
+  pub code_challenge: &'a str,
+  pub ui_locales: &'a str,
+  pub register: bool,
+}
+
+impl OidcClient {
+  pub fn new(issuer: &str, client_id: &str, client_secret: &str) -> OidcClient {
+    OidcClient {
+      issuer: issuer.trim_end_matches('/').to_string(),
+      client_id: client_id.to_string(),
+      client_secret: client_secret.to_string(),
+      http: reqwest::Client::builder()
+        .timeout(HTTP_TIMEOUT)
+        .build()
+        .expect("http client"),
+    }
+  }
+
+  pub fn client_id(&self) -> &str {
+    &self.client_id
+  }
+
+  fn endpoint(&self, path: &str) -> String {
+    format!("{}/protocol/openid-connect{path}", self.issuer)
+  }
+
+  pub fn authorize_url(&self, request: &AuthorizeRequest<'_>) -> String {
+    let path = if request.register {
+      "/registrations"
+    } else {
+      "/auth"
+    };
+    format!(
+      "{}?{}",
+      self.endpoint(path),
+      query(&[
+        ("response_type", "code"),
+        ("client_id", &self.client_id),
+        ("redirect_uri", request.redirect_uri),
+        ("scope", "openid profile email"),
+        ("state", request.state),
+        ("code_challenge", request.code_challenge),
+        ("code_challenge_method", "S256"),
+        ("ui_locales", request.ui_locales),
+      ])
+    )
+  }
+
+  pub fn end_session_url(
+    &self,
+    id_token: &str,
+    post_logout_redirect_uri: &str,
+    ui_locales: &str,
+  ) -> String {
+    format!(
+      "{}?{}",
+      self.endpoint("/logout"),
+      query(&[
+        ("client_id", &self.client_id),
+        ("id_token_hint", id_token),
+        ("post_logout_redirect_uri", post_logout_redirect_uri),
+        ("ui_locales", ui_locales),
+      ])
+    )
+  }
+
+  async fn token_request(&self, form: &[(&str, &str)]) -> Result<OidcTokens, KeycloakError> {
+    let response = self
+      .http
+      .post(self.endpoint("/token"))
+      .form(form)
+      .send()
+      .await
+      .map_err(unavailable)?;
+    if response.status().is_success() {
+      return response.json().await.map_err(unavailable);
+    }
+    if response.status() == reqwest::StatusCode::BAD_REQUEST {
+      return Err(KeycloakError::InvalidGrant);
+    }
+    Err(KeycloakError::Rejected(format!(
+      "token request answered {}",
+      response.status()
+    )))
+  }
+
+  pub async fn exchange_code(
+    &self,
+    code: &str,
+    redirect_uri: &str,
+    verifier: &str,
+  ) -> Result<OidcTokens, KeycloakError> {
+    self
+      .token_request(&[
+        ("grant_type", "authorization_code"),
+        ("client_id", &self.client_id),
+        ("client_secret", &self.client_secret),
+        ("code", code),
+        ("redirect_uri", redirect_uri),
+        ("code_verifier", verifier),
+      ])
+      .await
+  }
+
+  pub async fn refresh(&self, refresh_token: &str) -> Result<OidcTokens, KeycloakError> {
+    self
+      .token_request(&[
+        ("grant_type", "refresh_token"),
+        ("client_id", &self.client_id),
+        ("client_secret", &self.client_secret),
+        ("refresh_token", refresh_token),
+      ])
+      .await
+  }
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  #[test]
+  fn pkce_challenges_match_their_verifiers() {
+    use base64::Engine;
+    use sha2::Digest;
+    let (verifier, challenge) = pkce_pair();
+    assert!(verifier.len() >= 43);
+    assert_eq!(
+      challenge,
+      base64::engine::general_purpose::URL_SAFE_NO_PAD
+        .encode(sha2::Sha256::digest(verifier.as_bytes()))
+    );
+  }
 
   #[test]
   fn encodes_path_segments_and_formats_times() {

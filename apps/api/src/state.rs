@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
+use spec_store_core::crypto::{CryptoError, Sealer};
 use spec_store_core::identity::Verifier;
-use spec_store_core::keycloak::KeycloakAdmin;
+use spec_store_core::keycloak::{KeycloakAdmin, OidcClient};
 use spec_store_core::model::StoreResult;
 use spec_store_core::store::Store;
 
@@ -12,11 +13,19 @@ pub struct ApiConfig {
   pub allowed_hosts: Vec<String>,
   pub audience: String,
   pub app_url: String,
+  pub landing_url: String,
+  pub app_client_id: String,
+  pub app_client_secret: String,
+  pub session_key: String,
 }
 
 impl ApiConfig {
   pub fn invitation_base_url(&self) -> String {
     format!("{}/invitations", self.app_url.trim_end_matches('/'))
+  }
+
+  pub fn callback_url(&self) -> String {
+    format!("{}/auth/callback", self.app_url.trim_end_matches('/'))
   }
 }
 
@@ -26,16 +35,34 @@ pub struct AppState {
   pub verifier: Arc<Verifier>,
   pub config: Arc<ApiConfig>,
   pub keycloak_admin: Option<Arc<KeycloakAdmin>>,
+  pub sealer: Arc<Sealer>,
+  pub oidc: Arc<OidcClient>,
 }
 
 impl AppState {
-  pub fn new(store: Store, verifier: Arc<Verifier>, config: ApiConfig) -> AppState {
-    AppState {
+  pub fn try_new(
+    store: Store,
+    verifier: Arc<Verifier>,
+    config: ApiConfig,
+  ) -> Result<AppState, CryptoError> {
+    let sealer = Sealer::from_base64(&config.session_key)?;
+    let oidc = OidcClient::new(
+      &verifier.config().issuer,
+      &config.app_client_id,
+      &config.app_client_secret,
+    );
+    Ok(AppState {
       store,
       verifier,
       config: Arc::new(config),
       keycloak_admin: None,
-    }
+      sealer: Arc::new(sealer),
+      oidc: Arc::new(oidc),
+    })
+  }
+
+  pub fn new(store: Store, verifier: Arc<Verifier>, config: ApiConfig) -> AppState {
+    AppState::try_new(store, verifier, config).expect("a valid SESSION_SEALING_KEY")
   }
 
   pub fn with_keycloak_admin(mut self, admin: Arc<KeycloakAdmin>) -> AppState {
