@@ -11,6 +11,7 @@ docker-down:
 	$(COMPOSE) down
 
 install: docker-up
+	pnpm install --frozen-lockfile
 	@echo
 	@echo "spec-store services are ready:"
 	@echo "    postgres  localhost:$${POSTGRES_PORT:-55432}"
@@ -21,4 +22,20 @@ uninstall:
 
 reinstall: uninstall install
 
-.PHONY: docker-up docker-down install uninstall reinstall
+test-services:
+	$(COMPOSE) up -d --wait postgres mailpit
+
+lint:
+	cargo clippy --workspace --locked --all-targets -- -D warnings
+	pnpm exec biome lint .
+	pnpm -r --if-present typecheck
+
+fmt-check:
+	cargo fmt --all --check
+	pnpm exec biome format .
+
+test: test-services
+	cargo test --workspace --locked
+	pnpm -r --if-present test
+
+.PHONY: docker-up docker-down install uninstall reinstall test-services lint fmt-check test
