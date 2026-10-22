@@ -10,3 +10,4 @@
 !target/release/spec-store-mcp
 !target/linux/release/spec-store-api
 !target/linux/release/spec-store-mcp
+!deploy/backup/*.sh

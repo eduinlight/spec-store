@@ -70,5 +70,9 @@ e2e: docker-up
 	pnpm exec playwright test
 	pnpm --filter landing build
 	pnpm exec lhci autorun
+	scripts/backup-check.sh
 
-.PHONY: env dev e2e docker-up docker-down install uninstall reinstall test-services test-sweep openapi openapi-check lint fmt-check test
+backup-check: docker-up
+	scripts/backup-check.sh
+
+.PHONY: env dev e2e backup-check docker-up docker-down install uninstall reinstall test-services test-sweep openapi openapi-check lint fmt-check test
