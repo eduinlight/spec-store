@@ -1,5 +1,6 @@
 -include .env
 
+DATABASE_URL ?= postgres://platform:${PLATFORM_DB_PASSWORD}@localhost:55432/platform
 export DATABASE_URL
 
 COMPOSE := docker compose

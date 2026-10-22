@@ -172,3 +172,10 @@ Versions were read from crates.io, npm and the official release pages on 2026-10
 - Source: `rmcp-3.5.1/src/transport/streamable_http_server/tower.rs` lines 78–212
 - Decision: the MCP server runs with `legacy_session_mode(false)` and `json_response(true)`; identity is checked on every request by the axum middleware, so no per-session state exists. Rejected: an external session store (a new shared service) and sticky sessions at the ingress (breaks on pod restarts).
 
+## R25 — Where the pipeline runs
+
+- Question: can spec-store use the homelab self-hosted runners that lightchat uses (R21)?
+- Finding: the runners are registered to the `eduinlight-org` organization (`gh api orgs/eduinlight-org/actions/runners`: `self-hosted, Linux, homelab`), while this repository is the personal, public `eduinlight/spec-store` (no repository runners). Organization runners only serve organization repositories. GitHub-hosted runners are free for public repositories and provide Docker, so `make test` can start the same compose services as on the development machine.
+- Source: `gh api repos/eduinlight/spec-store/actions/runners` (0 runners), `gh repo view` (PUBLIC), https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners
+- Decision: workflows run on `ubuntu-24.04` GitHub-hosted runners and call the same `make` targets; images are pushed to `ghcr.io/eduinlight/spec-store-<deliverable>`. Rejected: moving the repository into the organization (not requested) and running services as workflow service containers (the pipeline would differ from local runs).
+
