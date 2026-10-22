@@ -24,6 +24,7 @@ pub struct AuthorizedClients {
 
 #[utoipa::path(
   get,
+  operation_id = "clients_list_clients",
   path = "/api/v1/me/clients",
   tag = "me",
   responses((status = 200, body = AuthorizedClients), (status = 401, body = ErrorBody), (status = 403, body = ErrorBody), (status = 404, body = ErrorBody), (status = 422, body = ErrorBody))
@@ -53,6 +54,7 @@ pub async fn list_clients(
 
 #[utoipa::path(
   delete,
+  operation_id = "clients_revoke_client",
   path = "/api/v1/me/clients/{client_id}",
   tag = "me",
   params(("client_id" = String, Path)),

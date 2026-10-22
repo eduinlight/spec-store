@@ -11,7 +11,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["global"];
+        get: operations["audit_global"];
         put?: never;
         post?: never;
         delete?: never;
@@ -27,7 +27,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["mine"];
+        get: operations["invitations_mine"];
         put?: never;
         post?: never;
         delete?: never;
@@ -43,7 +43,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["preview"];
+        get: operations["invitations_preview"];
         put?: never;
         post?: never;
         delete?: never;
@@ -61,7 +61,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["accept"];
+        post: operations["invitations_accept"];
         delete?: never;
         options?: never;
         head?: never;
@@ -77,7 +77,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["decline"];
+        post: operations["invitations_decline"];
         delete?: never;
         options?: never;
         head?: never;
@@ -91,7 +91,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["me"];
+        get: operations["me_me"];
         put?: never;
         post?: never;
         delete?: never;
@@ -107,7 +107,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_clients"];
+        get: operations["clients_list_clients"];
         put?: never;
         post?: never;
         delete?: never;
@@ -126,7 +126,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete: operations["revoke_client"];
+        delete: operations["clients_revoke_client"];
         options?: never;
         head?: never;
         patch?: never;
@@ -141,7 +141,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["accept_pending"];
+        post: operations["invitations_accept_pending"];
         delete?: never;
         options?: never;
         head?: never;
@@ -157,7 +157,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["decline_pending"];
+        post: operations["invitations_decline_pending"];
         delete?: never;
         options?: never;
         head?: never;
@@ -172,7 +172,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put: operations["set_language"];
+        put: operations["me_set_language"];
         post?: never;
         delete?: never;
         options?: never;
@@ -187,9 +187,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list"];
+        get: operations["organizations_list"];
         put?: never;
-        post: operations["create"];
+        post: operations["organizations_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -203,7 +203,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["read"];
+        get: operations["organizations_read"];
         put?: never;
         post?: never;
         delete?: never;
@@ -219,7 +219,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["organization"];
+        get: operations["audit_organization"];
         put?: never;
         post?: never;
         delete?: never;
@@ -235,9 +235,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list"];
+        get: operations["invitations_list"];
         put?: never;
-        post: operations["create"];
+        post: operations["invitations_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -254,7 +254,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete: operations["revoke"];
+        delete: operations["invitations_revoke"];
         options?: never;
         head?: never;
         patch?: never;
@@ -269,7 +269,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["resend"];
+        post: operations["invitations_resend"];
         delete?: never;
         options?: never;
         head?: never;
@@ -283,7 +283,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list"];
+        get: operations["members_list"];
         put?: never;
         post?: never;
         delete?: never;
@@ -300,9 +300,9 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put: operations["set_role"];
+        put: operations["members_set_role"];
         post?: never;
-        delete: operations["remove"];
+        delete: operations["members_remove"];
         options?: never;
         head?: never;
         patch?: never;
@@ -315,9 +315,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list"];
+        get: operations["projects_list"];
         put?: never;
-        post: operations["create"];
+        post: operations["projects_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -331,7 +331,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["read"];
+        get: operations["projects_read"];
         put?: never;
         post?: never;
         delete?: never;
@@ -347,7 +347,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["project"];
+        get: operations["audit_project"];
         put?: never;
         post?: never;
         delete?: never;
@@ -363,7 +363,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["constitution"];
+        get: operations["documents_constitution"];
         put?: never;
         post?: never;
         delete?: never;
@@ -379,7 +379,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["export"];
+        get: operations["transfer_export"];
         put?: never;
         post?: never;
         delete?: never;
@@ -397,7 +397,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["import"];
+        post: operations["transfer_import"];
         delete?: never;
         options?: never;
         head?: never;
@@ -411,7 +411,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["members"];
+        get: operations["projects_members"];
         put?: never;
         post?: never;
         delete?: never;
@@ -428,9 +428,9 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put: operations["set_member"];
+        put: operations["projects_set_member"];
         post?: never;
-        delete: operations["remove_member"];
+        delete: operations["projects_remove_member"];
         options?: never;
         head?: never;
         patch?: never;
@@ -444,9 +444,9 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put: operations["set_repository"];
+        put: operations["projects_set_repository"];
         post?: never;
-        delete: operations["clear_repository"];
+        delete: operations["projects_clear_repository"];
         options?: never;
         head?: never;
         patch?: never;
@@ -459,7 +459,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list"];
+        get: operations["history_list"];
         put?: never;
         post?: never;
         delete?: never;
@@ -475,7 +475,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["read"];
+        get: operations["history_read"];
         put?: never;
         post?: never;
         delete?: never;
@@ -491,7 +491,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["diff"];
+        get: operations["history_diff"];
         put?: never;
         post?: never;
         delete?: never;
@@ -507,7 +507,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list"];
+        get: operations["specs_list"];
         put?: never;
         post?: never;
         delete?: never;
@@ -523,7 +523,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["read"];
+        get: operations["specs_read"];
         put?: never;
         post?: never;
         delete?: never;
@@ -539,7 +539,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["read"];
+        get: operations["documents_read"];
         put?: never;
         post?: never;
         delete?: never;
@@ -555,7 +555,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["markers"];
+        get: operations["specs_markers"];
         put?: never;
         post?: never;
         delete?: never;
@@ -571,7 +571,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["tasks"];
+        get: operations["specs_tasks"];
         put?: never;
         post?: never;
         delete?: never;
@@ -587,7 +587,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["status"];
+        get: operations["specs_status"];
         put?: never;
         post?: never;
         delete?: never;
@@ -605,7 +605,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["logout"];
+        post: operations["bff_logout"];
         delete?: never;
         options?: never;
         head?: never;
@@ -866,7 +866,7 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    global: {
+    audit_global: {
         parameters: {
             query?: {
                 project?: string;
@@ -922,7 +922,7 @@ export interface operations {
             };
         };
     };
-    mine: {
+    invitations_mine: {
         parameters: {
             query?: never;
             header?: never;
@@ -973,7 +973,7 @@ export interface operations {
             };
         };
     };
-    preview: {
+    invitations_preview: {
         parameters: {
             query?: never;
             header?: never;
@@ -1026,7 +1026,7 @@ export interface operations {
             };
         };
     };
-    accept: {
+    invitations_accept: {
         parameters: {
             query?: never;
             header?: never;
@@ -1077,7 +1077,7 @@ export interface operations {
             };
         };
     };
-    decline: {
+    invitations_decline: {
         parameters: {
             query?: never;
             header?: never;
@@ -1128,7 +1128,7 @@ export interface operations {
             };
         };
     };
-    me: {
+    me_me: {
         parameters: {
             query?: never;
             header?: never;
@@ -1179,7 +1179,7 @@ export interface operations {
             };
         };
     };
-    list_clients: {
+    clients_list_clients: {
         parameters: {
             query?: never;
             header?: never;
@@ -1230,7 +1230,7 @@ export interface operations {
             };
         };
     };
-    revoke_client: {
+    clients_revoke_client: {
         parameters: {
             query?: never;
             header?: never;
@@ -1281,7 +1281,7 @@ export interface operations {
             };
         };
     };
-    accept_pending: {
+    invitations_accept_pending: {
         parameters: {
             query?: never;
             header?: never;
@@ -1332,7 +1332,7 @@ export interface operations {
             };
         };
     };
-    decline_pending: {
+    invitations_decline_pending: {
         parameters: {
             query?: never;
             header?: never;
@@ -1383,7 +1383,7 @@ export interface operations {
             };
         };
     };
-    set_language: {
+    me_set_language: {
         parameters: {
             query?: never;
             header?: never;
@@ -1420,7 +1420,7 @@ export interface operations {
             };
         };
     };
-    list: {
+    organizations_list: {
         parameters: {
             query?: never;
             header?: never;
@@ -1471,7 +1471,7 @@ export interface operations {
             };
         };
     };
-    create: {
+    organizations_create: {
         parameters: {
             query?: never;
             header?: never;
@@ -1526,7 +1526,7 @@ export interface operations {
             };
         };
     };
-    read: {
+    organizations_read: {
         parameters: {
             query?: never;
             header?: never;
@@ -1579,7 +1579,7 @@ export interface operations {
             };
         };
     };
-    organization: {
+    audit_organization: {
         parameters: {
             query?: {
                 project?: string;
@@ -1637,7 +1637,7 @@ export interface operations {
             };
         };
     };
-    list: {
+    invitations_list: {
         parameters: {
             query?: never;
             header?: never;
@@ -1690,7 +1690,7 @@ export interface operations {
             };
         };
     };
-    create: {
+    invitations_create: {
         parameters: {
             query?: never;
             header?: never;
@@ -1747,7 +1747,7 @@ export interface operations {
             };
         };
     };
-    revoke: {
+    invitations_revoke: {
         parameters: {
             query?: never;
             header?: never;
@@ -1799,7 +1799,7 @@ export interface operations {
             };
         };
     };
-    resend: {
+    invitations_resend: {
         parameters: {
             query?: never;
             header?: never;
@@ -1851,7 +1851,7 @@ export interface operations {
             };
         };
     };
-    list: {
+    members_list: {
         parameters: {
             query?: never;
             header?: never;
@@ -1904,7 +1904,7 @@ export interface operations {
             };
         };
     };
-    set_role: {
+    members_set_role: {
         parameters: {
             query?: never;
             header?: never;
@@ -1960,7 +1960,7 @@ export interface operations {
             };
         };
     };
-    remove: {
+    members_remove: {
         parameters: {
             query?: never;
             header?: never;
@@ -2012,7 +2012,7 @@ export interface operations {
             };
         };
     };
-    list: {
+    projects_list: {
         parameters: {
             query?: never;
             header?: never;
@@ -2065,7 +2065,7 @@ export interface operations {
             };
         };
     };
-    create: {
+    projects_create: {
         parameters: {
             query?: never;
             header?: never;
@@ -2122,7 +2122,7 @@ export interface operations {
             };
         };
     };
-    read: {
+    projects_read: {
         parameters: {
             query?: never;
             header?: never;
@@ -2176,7 +2176,7 @@ export interface operations {
             };
         };
     };
-    project: {
+    audit_project: {
         parameters: {
             query?: {
                 project?: string;
@@ -2235,7 +2235,7 @@ export interface operations {
             };
         };
     };
-    constitution: {
+    documents_constitution: {
         parameters: {
             query?: never;
             header?: never;
@@ -2273,7 +2273,7 @@ export interface operations {
             };
         };
     };
-    export: {
+    transfer_export: {
         parameters: {
             query?: {
                 spec?: number;
@@ -2329,7 +2329,7 @@ export interface operations {
             };
         };
     };
-    import: {
+    transfer_import: {
         parameters: {
             query?: never;
             header?: never;
@@ -2387,7 +2387,7 @@ export interface operations {
             };
         };
     };
-    members: {
+    projects_members: {
         parameters: {
             query?: never;
             header?: never;
@@ -2441,7 +2441,7 @@ export interface operations {
             };
         };
     };
-    set_member: {
+    projects_set_member: {
         parameters: {
             query?: never;
             header?: never;
@@ -2498,7 +2498,7 @@ export interface operations {
             };
         };
     };
-    remove_member: {
+    projects_remove_member: {
         parameters: {
             query?: never;
             header?: never;
@@ -2551,7 +2551,7 @@ export interface operations {
             };
         };
     };
-    set_repository: {
+    projects_set_repository: {
         parameters: {
             query?: never;
             header?: never;
@@ -2607,7 +2607,7 @@ export interface operations {
             };
         };
     };
-    clear_repository: {
+    projects_clear_repository: {
         parameters: {
             query?: never;
             header?: never;
@@ -2659,7 +2659,7 @@ export interface operations {
             };
         };
     };
-    list: {
+    history_list: {
         parameters: {
             query: {
                 spec?: number;
@@ -2708,7 +2708,7 @@ export interface operations {
             };
         };
     };
-    read: {
+    history_read: {
         parameters: {
             query?: never;
             header?: never;
@@ -2747,7 +2747,7 @@ export interface operations {
             };
         };
     };
-    diff: {
+    history_diff: {
         parameters: {
             query?: never;
             header?: never;
@@ -2786,7 +2786,7 @@ export interface operations {
             };
         };
     };
-    list: {
+    specs_list: {
         parameters: {
             query?: never;
             header?: never;
@@ -2824,7 +2824,7 @@ export interface operations {
             };
         };
     };
-    read: {
+    specs_read: {
         parameters: {
             query?: never;
             header?: never;
@@ -2863,7 +2863,7 @@ export interface operations {
             };
         };
     };
-    read: {
+    documents_read: {
         parameters: {
             query?: never;
             header?: never;
@@ -2911,7 +2911,7 @@ export interface operations {
             };
         };
     };
-    markers: {
+    specs_markers: {
         parameters: {
             query?: never;
             header?: never;
@@ -2950,7 +2950,7 @@ export interface operations {
             };
         };
     };
-    tasks: {
+    specs_tasks: {
         parameters: {
             query?: never;
             header?: never;
@@ -2989,7 +2989,7 @@ export interface operations {
             };
         };
     };
-    status: {
+    specs_status: {
         parameters: {
             query?: never;
             header?: never;
@@ -3027,7 +3027,7 @@ export interface operations {
             };
         };
     };
-    logout: {
+    bff_logout: {
         parameters: {
             query?: never;
             header?: never;

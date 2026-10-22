@@ -27,6 +27,7 @@ pub struct RoleInput {
 
 #[utoipa::path(
   get,
+  operation_id = "members_list",
   path = "/api/v1/orgs/{org}/members",
   tag = "organizations",
   params(("org" = String, Path)),
@@ -55,6 +56,7 @@ pub async fn list(
 
 #[utoipa::path(
   put,
+  operation_id = "members_set_role",
   path = "/api/v1/orgs/{org}/members/{handle}",
   tag = "organizations",
   params(("org" = String, Path), ("handle" = String, Path)),
@@ -79,6 +81,7 @@ pub async fn set_role(
 
 #[utoipa::path(
   delete,
+  operation_id = "members_remove",
   path = "/api/v1/orgs/{org}/members/{handle}",
   tag = "organizations",
   params(("org" = String, Path), ("handle" = String, Path)),

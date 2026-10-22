@@ -67,6 +67,7 @@ impl From<AuditPage> for PageOutput {
 
 #[utoipa::path(
   get,
+  operation_id = "audit_organization",
   path = "/api/v1/orgs/{org}/audit",
   tag = "audit",
   params(("org" = String, Path), AuditQuery),
@@ -90,6 +91,7 @@ pub async fn organization(
 
 #[utoipa::path(
   get,
+  operation_id = "audit_global",
   path = "/api/v1/audit",
   tag = "audit",
   params(AuditQuery),
@@ -112,6 +114,7 @@ pub async fn global(
 
 #[utoipa::path(
   get,
+  operation_id = "audit_project",
   path = "/api/v1/projects/{org}/{project}/audit",
   tag = "audit",
   params(("org" = String, Path), ("project" = String, Path), AuditQuery),

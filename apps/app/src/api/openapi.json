@@ -19,7 +19,7 @@
         "tags": [
           "audit"
         ],
-        "operationId": "global",
+        "operationId": "audit_global",
         "parameters": [
           {
             "name": "project",
@@ -110,7 +110,7 @@
         "tags": [
           "invitations"
         ],
-        "operationId": "mine",
+        "operationId": "invitations_mine",
         "responses": {
           "200": {
             "content": {
@@ -165,7 +165,7 @@
         "tags": [
           "invitations"
         ],
-        "operationId": "preview",
+        "operationId": "invitations_preview",
         "parameters": [
           {
             "name": "token",
@@ -230,7 +230,7 @@
         "tags": [
           "invitations"
         ],
-        "operationId": "accept",
+        "operationId": "invitations_accept",
         "parameters": [
           {
             "name": "token",
@@ -287,7 +287,7 @@
         "tags": [
           "invitations"
         ],
-        "operationId": "decline",
+        "operationId": "invitations_decline",
         "parameters": [
           {
             "name": "token",
@@ -344,7 +344,7 @@
         "tags": [
           "me"
         ],
-        "operationId": "me",
+        "operationId": "me_me",
         "responses": {
           "200": {
             "content": {
@@ -399,7 +399,7 @@
         "tags": [
           "me"
         ],
-        "operationId": "list_clients",
+        "operationId": "clients_list_clients",
         "responses": {
           "200": {
             "content": {
@@ -454,7 +454,7 @@
         "tags": [
           "me"
         ],
-        "operationId": "revoke_client",
+        "operationId": "clients_revoke_client",
         "parameters": [
           {
             "name": "client_id",
@@ -511,7 +511,7 @@
         "tags": [
           "invitations"
         ],
-        "operationId": "accept_pending",
+        "operationId": "invitations_accept_pending",
         "parameters": [
           {
             "name": "id",
@@ -569,7 +569,7 @@
         "tags": [
           "invitations"
         ],
-        "operationId": "decline_pending",
+        "operationId": "invitations_decline_pending",
         "parameters": [
           {
             "name": "id",
@@ -627,7 +627,7 @@
         "tags": [
           "me"
         ],
-        "operationId": "set_language",
+        "operationId": "me_set_language",
         "requestBody": {
           "content": {
             "application/json": {
@@ -666,7 +666,7 @@
         "tags": [
           "organizations"
         ],
-        "operationId": "list",
+        "operationId": "organizations_list",
         "responses": {
           "200": {
             "content": {
@@ -719,7 +719,7 @@
         "tags": [
           "organizations"
         ],
-        "operationId": "create",
+        "operationId": "organizations_create",
         "requestBody": {
           "content": {
             "application/json": {
@@ -784,7 +784,7 @@
         "tags": [
           "organizations"
         ],
-        "operationId": "read",
+        "operationId": "organizations_read",
         "parameters": [
           {
             "name": "org",
@@ -849,7 +849,7 @@
         "tags": [
           "audit"
         ],
-        "operationId": "organization",
+        "operationId": "audit_organization",
         "parameters": [
           {
             "name": "org",
@@ -948,7 +948,7 @@
         "tags": [
           "invitations"
         ],
-        "operationId": "list",
+        "operationId": "invitations_list",
         "parameters": [
           {
             "name": "org",
@@ -1011,7 +1011,7 @@
         "tags": [
           "invitations"
         ],
-        "operationId": "create",
+        "operationId": "invitations_create",
         "parameters": [
           {
             "name": "org",
@@ -1086,7 +1086,7 @@
         "tags": [
           "invitations"
         ],
-        "operationId": "revoke",
+        "operationId": "invitations_revoke",
         "parameters": [
           {
             "name": "org",
@@ -1152,7 +1152,7 @@
         "tags": [
           "invitations"
         ],
-        "operationId": "resend",
+        "operationId": "invitations_resend",
         "parameters": [
           {
             "name": "org",
@@ -1218,7 +1218,7 @@
         "tags": [
           "organizations"
         ],
-        "operationId": "list",
+        "operationId": "members_list",
         "parameters": [
           {
             "name": "org",
@@ -1283,7 +1283,7 @@
         "tags": [
           "organizations"
         ],
-        "operationId": "set_role",
+        "operationId": "members_set_role",
         "parameters": [
           {
             "name": "org",
@@ -1356,7 +1356,7 @@
         "tags": [
           "organizations"
         ],
-        "operationId": "remove",
+        "operationId": "members_remove",
         "parameters": [
           {
             "name": "org",
@@ -1421,7 +1421,7 @@
         "tags": [
           "projects"
         ],
-        "operationId": "list",
+        "operationId": "projects_list",
         "parameters": [
           {
             "name": "org",
@@ -1484,7 +1484,7 @@
         "tags": [
           "projects"
         ],
-        "operationId": "create",
+        "operationId": "projects_create",
         "parameters": [
           {
             "name": "org",
@@ -1559,7 +1559,7 @@
         "tags": [
           "projects"
         ],
-        "operationId": "read",
+        "operationId": "projects_read",
         "parameters": [
           {
             "name": "org",
@@ -1632,7 +1632,7 @@
         "tags": [
           "audit"
         ],
-        "operationId": "project",
+        "operationId": "audit_project",
         "parameters": [
           {
             "name": "org",
@@ -1739,7 +1739,7 @@
         "tags": [
           "documents"
         ],
-        "operationId": "constitution",
+        "operationId": "documents_constitution",
         "parameters": [
           {
             "name": "org",
@@ -1794,7 +1794,7 @@
         "tags": [
           "transfer"
         ],
-        "operationId": "export",
+        "operationId": "transfer_export",
         "parameters": [
           {
             "name": "org",
@@ -1876,7 +1876,7 @@
         "tags": [
           "transfer"
         ],
-        "operationId": "import",
+        "operationId": "transfer_import",
         "parameters": [
           {
             "name": "org",
@@ -1959,7 +1959,7 @@
         "tags": [
           "projects"
         ],
-        "operationId": "members",
+        "operationId": "projects_members",
         "parameters": [
           {
             "name": "org",
@@ -2032,7 +2032,7 @@
         "tags": [
           "projects"
         ],
-        "operationId": "set_member",
+        "operationId": "projects_set_member",
         "parameters": [
           {
             "name": "org",
@@ -2113,7 +2113,7 @@
         "tags": [
           "projects"
         ],
-        "operationId": "remove_member",
+        "operationId": "projects_remove_member",
         "parameters": [
           {
             "name": "org",
@@ -2186,7 +2186,7 @@
         "tags": [
           "projects"
         ],
-        "operationId": "set_repository",
+        "operationId": "projects_set_repository",
         "parameters": [
           {
             "name": "org",
@@ -2259,7 +2259,7 @@
         "tags": [
           "projects"
         ],
-        "operationId": "clear_repository",
+        "operationId": "projects_clear_repository",
         "parameters": [
           {
             "name": "org",
@@ -2324,7 +2324,7 @@
         "tags": [
           "history"
         ],
-        "operationId": "list",
+        "operationId": "history_list",
         "parameters": [
           {
             "name": "org",
@@ -2405,7 +2405,7 @@
         "tags": [
           "history"
         ],
-        "operationId": "read",
+        "operationId": "history_read",
         "parameters": [
           {
             "name": "org",
@@ -2469,7 +2469,7 @@
         "tags": [
           "history"
         ],
-        "operationId": "diff",
+        "operationId": "history_diff",
         "parameters": [
           {
             "name": "org",
@@ -2533,7 +2533,7 @@
         "tags": [
           "specs"
         ],
-        "operationId": "list",
+        "operationId": "specs_list",
         "parameters": [
           {
             "name": "org",
@@ -2588,7 +2588,7 @@
         "tags": [
           "specs"
         ],
-        "operationId": "read",
+        "operationId": "specs_read",
         "parameters": [
           {
             "name": "org",
@@ -2652,7 +2652,7 @@
         "tags": [
           "documents"
         ],
-        "operationId": "read",
+        "operationId": "documents_read",
         "parameters": [
           {
             "name": "org",
@@ -2733,7 +2733,7 @@
         "tags": [
           "specs"
         ],
-        "operationId": "markers",
+        "operationId": "specs_markers",
         "parameters": [
           {
             "name": "org",
@@ -2797,7 +2797,7 @@
         "tags": [
           "specs"
         ],
-        "operationId": "tasks",
+        "operationId": "specs_tasks",
         "parameters": [
           {
             "name": "org",
@@ -2861,7 +2861,7 @@
         "tags": [
           "specs"
         ],
-        "operationId": "status",
+        "operationId": "specs_status",
         "parameters": [
           {
             "name": "org",
@@ -2916,7 +2916,7 @@
         "tags": [
           "session"
         ],
-        "operationId": "logout",
+        "operationId": "bff_logout",
         "responses": {
           "200": {
             "content": {

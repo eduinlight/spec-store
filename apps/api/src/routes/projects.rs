@@ -65,6 +65,7 @@ pub fn address(org: &str, project: &str) -> String {
 
 #[utoipa::path(
   get,
+  operation_id = "projects_list",
   path = "/api/v1/orgs/{org}/projects",
   tag = "projects",
   params(("org" = String, Path)),
@@ -117,6 +118,7 @@ async fn read_project(
 
 #[utoipa::path(
   post,
+  operation_id = "projects_create",
   path = "/api/v1/orgs/{org}/projects",
   tag = "projects",
   params(("org" = String, Path)),
@@ -143,6 +145,7 @@ pub async fn create(
 
 #[utoipa::path(
   get,
+  operation_id = "projects_read",
   path = "/api/v1/projects/{org}/{project}",
   tag = "projects",
   params(("org" = String, Path), ("project" = String, Path)),
@@ -160,6 +163,7 @@ pub async fn read(
 
 #[utoipa::path(
   get,
+  operation_id = "projects_members",
   path = "/api/v1/projects/{org}/{project}/members",
   tag = "projects",
   params(("org" = String, Path), ("project" = String, Path)),
@@ -188,6 +192,7 @@ pub async fn members(
 
 #[utoipa::path(
   put,
+  operation_id = "projects_set_member",
   path = "/api/v1/projects/{org}/{project}/members/{handle}",
   tag = "projects",
   params(("org" = String, Path), ("project" = String, Path), ("handle" = String, Path)),
@@ -213,6 +218,7 @@ pub async fn set_member(
 
 #[utoipa::path(
   delete,
+  operation_id = "projects_remove_member",
   path = "/api/v1/projects/{org}/{project}/members/{handle}",
   tag = "projects",
   params(("org" = String, Path), ("project" = String, Path), ("handle" = String, Path)),
@@ -233,6 +239,7 @@ pub async fn remove_member(
 
 #[utoipa::path(
   put,
+  operation_id = "projects_set_repository",
   path = "/api/v1/projects/{org}/{project}/repository-url",
   tag = "projects",
   params(("org" = String, Path), ("project" = String, Path)),
@@ -255,6 +262,7 @@ pub async fn set_repository(
 
 #[utoipa::path(
   delete,
+  operation_id = "projects_clear_repository",
   path = "/api/v1/projects/{org}/{project}/repository-url",
   tag = "projects",
   params(("org" = String, Path), ("project" = String, Path)),

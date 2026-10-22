@@ -54,6 +54,7 @@ pub struct DiffOutput {
 
 #[utoipa::path(
   get,
+  operation_id = "history_list",
   path = "/api/v1/projects/{org}/{project}/revisions",
   tag = "history",
   params(("org" = String, Path), ("project" = String, Path), HistoryQuery),
@@ -80,6 +81,7 @@ pub async fn list(
 
 #[utoipa::path(
   get,
+  operation_id = "history_read",
   path = "/api/v1/projects/{org}/{project}/revisions/{id}",
   tag = "history",
   params(("org" = String, Path), ("project" = String, Path), ("id" = i64, Path)),
@@ -120,6 +122,7 @@ fn tag(tag: DiffTag) -> &'static str {
 
 #[utoipa::path(
   get,
+  operation_id = "history_diff",
   path = "/api/v1/projects/{org}/{project}/revisions/{id}/diff",
   tag = "history",
   params(("org" = String, Path), ("project" = String, Path), ("id" = i64, Path)),

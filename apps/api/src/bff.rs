@@ -148,6 +148,7 @@ pub async fn callback(
 
 #[utoipa::path(
   post,
+  operation_id = "bff_logout",
   path = "/auth/logout",
   tag = "session",
   responses((status = 200, body = LogoutOutput), (status = 401, body = crate::error::ErrorBody), (status = 403, body = crate::error::ErrorBody))

@@ -89,6 +89,7 @@ fn language(input: Option<String>) -> String {
 
 #[utoipa::path(
   post,
+  operation_id = "invitations_create",
   path = "/api/v1/orgs/{org}/invitations",
   tag = "invitations",
   params(("org" = String, Path)),
@@ -120,6 +121,7 @@ pub async fn create(
 
 #[utoipa::path(
   get,
+  operation_id = "invitations_list",
   path = "/api/v1/orgs/{org}/invitations",
   tag = "invitations",
   params(("org" = String, Path)),
@@ -144,6 +146,7 @@ pub async fn list(
 
 #[utoipa::path(
   post,
+  operation_id = "invitations_resend",
   path = "/api/v1/orgs/{org}/invitations/{id}/resend",
   tag = "invitations",
   params(("org" = String, Path), ("id" = i64, Path)),
@@ -164,6 +167,7 @@ pub async fn resend(
 
 #[utoipa::path(
   delete,
+  operation_id = "invitations_revoke",
   path = "/api/v1/orgs/{org}/invitations/{id}",
   tag = "invitations",
   params(("org" = String, Path), ("id" = i64, Path)),
@@ -183,6 +187,7 @@ pub async fn revoke(
 
 #[utoipa::path(
   get,
+  operation_id = "invitations_mine",
   path = "/api/v1/invitations",
   tag = "invitations",
   responses((status = 200, body = PreviewsOutput), (status = 401, body = ErrorBody), (status = 403, body = ErrorBody), (status = 404, body = ErrorBody), (status = 422, body = ErrorBody))
@@ -202,6 +207,7 @@ pub async fn mine(
 
 #[utoipa::path(
   get,
+  operation_id = "invitations_preview",
   path = "/api/v1/invitations/{token}",
   tag = "invitations",
   params(("token" = String, Path)),
@@ -220,6 +226,7 @@ pub async fn preview(
 
 #[utoipa::path(
   post,
+  operation_id = "invitations_accept",
   path = "/api/v1/invitations/{token}/accept",
   tag = "invitations",
   params(("token" = String, Path)),
@@ -240,6 +247,7 @@ pub async fn accept(
 
 #[utoipa::path(
   post,
+  operation_id = "invitations_decline",
   path = "/api/v1/invitations/{token}/decline",
   tag = "invitations",
   params(("token" = String, Path)),
@@ -259,6 +267,7 @@ pub async fn decline(
 
 #[utoipa::path(
   post,
+  operation_id = "invitations_accept_pending",
   path = "/api/v1/me/invitations/{id}/accept",
   tag = "invitations",
   params(("id" = i64, Path)),
@@ -279,6 +288,7 @@ pub async fn accept_pending(
 
 #[utoipa::path(
   post,
+  operation_id = "invitations_decline_pending",
   path = "/api/v1/me/invitations/{id}/decline",
   tag = "invitations",
   params(("id" = i64, Path)),

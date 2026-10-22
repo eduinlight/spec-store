@@ -45,6 +45,7 @@ pub struct ConstitutionOutput {
 
 #[utoipa::path(
   get,
+  operation_id = "documents_read",
   path = "/api/v1/projects/{org}/{project}/specs/{number}/documents/{kind}",
   tag = "documents",
   params(("org" = String, Path), ("project" = String, Path), ("number" = i64, Path), ("kind" = String, Path)),
@@ -71,6 +72,7 @@ pub async fn read(
 
 #[utoipa::path(
   get,
+  operation_id = "documents_constitution",
   path = "/api/v1/projects/{org}/{project}/constitution",
   tag = "documents",
   params(("org" = String, Path), ("project" = String, Path)),

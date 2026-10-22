@@ -23,6 +23,7 @@ pub struct Me {
 
 #[utoipa::path(
   get,
+  operation_id = "me_me",
   path = "/api/v1/me",
   tag = "me",
   responses((status = 200, body = Me), (status = 401, body = ErrorBody), (status = 403, body = ErrorBody), (status = 404, body = ErrorBody), (status = 422, body = ErrorBody))
@@ -43,6 +44,7 @@ pub struct LanguageInput {
 
 #[utoipa::path(
   put,
+  operation_id = "me_set_language",
   path = "/api/v1/me/language",
   tag = "me",
   request_body = LanguageInput,

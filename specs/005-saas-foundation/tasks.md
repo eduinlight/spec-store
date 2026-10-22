@@ -91,7 +91,7 @@ Switch group (as in spec 004): T08–T17 change the persistence layer from SQLit
 - [x] T64 (FR-23, FR-24) Implement `apps/app/src/lib/{i18n,language,dates}.ts`, `src/i18n/{en,es}.ts` (`es` typed as the `en` shape) and `src/components/Markdown.tsx` — Done when: T63 tests green
 - [x] T65 (FR-9, FR-24) Write `apps/api/tests/http_language.rs` (`PUT /api/v1/me/language` sets the cookie and the Keycloak `locale` attribute) and implement it in `routes/me.rs` and `core::keycloak` — Done when: `http_language.rs` green
 - [x] T66 (FR-6, FR-21, FR-37) Write `apps/app` tests for the router (a 401 from a loader redirects to `/auth/login?return_to=`), onboarding (no organization shows the create form and pending invitations) and the organization switcher with its project list — Done when: tests written and red
-- [ ] T67 (FR-6, FR-21, FR-37) Implement `apps/app/src/main.tsx`, `router.tsx`, `api/client.ts` (openapi-fetch, same-origin, request header), `routes/onboarding.tsx` and `routes/organization.tsx` — Done when: T66 tests green
+- [x] T67 (FR-6, FR-21, FR-37) Implement `apps/app/src/main.tsx`, `router.tsx`, `api/client.ts` (openapi-fetch, same-origin, request header), `routes/onboarding.tsx` and `routes/organization.tsx` — Done when: T66 tests green
 - [ ] T68 (FR-22) Write `apps/app` tests for the project, spec (tasks table with commit links, markers) and document screens, and for the history, revision, diff and audit screens — Done when: tests written and red
 - [ ] T69 (FR-22) Implement `apps/app/src/routes/{project,spec,document}.tsx` — Done when: the project, spec and document tests of T68 are green
 - [ ] T70 (FR-22) Implement `apps/app/src/routes/{history,revision,diff,audit}.tsx` — Done when: all T68 tests green

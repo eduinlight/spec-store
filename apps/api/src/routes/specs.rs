@@ -151,6 +151,7 @@ pub struct StatusOutput {
 
 #[utoipa::path(
   get,
+  operation_id = "specs_status",
   path = "/api/v1/projects/{org}/{project}/status",
   tag = "specs",
   params(("org" = String, Path), ("project" = String, Path)),
@@ -175,6 +176,7 @@ pub async fn status(
 
 #[utoipa::path(
   get,
+  operation_id = "specs_list",
   path = "/api/v1/projects/{org}/{project}/specs",
   tag = "specs",
   params(("org" = String, Path), ("project" = String, Path)),
@@ -197,6 +199,7 @@ pub async fn list(
 
 #[utoipa::path(
   get,
+  operation_id = "specs_read",
   path = "/api/v1/projects/{org}/{project}/specs/{number}",
   tag = "specs",
   params(("org" = String, Path), ("project" = String, Path), ("number" = i64, Path)),
@@ -223,6 +226,7 @@ pub async fn read(
 
 #[utoipa::path(
   get,
+  operation_id = "specs_tasks",
   path = "/api/v1/projects/{org}/{project}/specs/{number}/tasks",
   tag = "specs",
   params(("org" = String, Path), ("project" = String, Path), ("number" = i64, Path)),
@@ -250,6 +254,7 @@ pub async fn tasks(
 
 #[utoipa::path(
   get,
+  operation_id = "specs_markers",
   path = "/api/v1/projects/{org}/{project}/specs/{number}/markers",
   tag = "specs",
   params(("org" = String, Path), ("project" = String, Path), ("number" = i64, Path)),

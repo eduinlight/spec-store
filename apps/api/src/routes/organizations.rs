@@ -35,6 +35,7 @@ pub struct OrganizationsOutput {
 
 #[utoipa::path(
   post,
+  operation_id = "organizations_create",
   path = "/api/v1/orgs",
   tag = "organizations",
   request_body = NewOrganization,
@@ -62,6 +63,7 @@ pub async fn create(
 
 #[utoipa::path(
   get,
+  operation_id = "organizations_list",
   path = "/api/v1/orgs",
   tag = "organizations",
   responses((status = 200, body = OrganizationsOutput), (status = 401, body = ErrorBody), (status = 403, body = ErrorBody), (status = 404, body = ErrorBody), (status = 422, body = ErrorBody))
@@ -88,6 +90,7 @@ pub async fn list(
 
 #[utoipa::path(
   get,
+  operation_id = "organizations_read",
   path = "/api/v1/orgs/{org}",
   tag = "organizations",
   params(("org" = String, Path)),

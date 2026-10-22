@@ -27,6 +27,7 @@ pub struct ExportQuery {
 
 #[utoipa::path(
   post,
+  operation_id = "transfer_import",
   path = "/api/v1/projects/{org}/{project}/import",
   tag = "transfer",
   params(("org" = String, Path), ("project" = String, Path)),
@@ -62,6 +63,7 @@ pub async fn import(
 
 #[utoipa::path(
   get,
+  operation_id = "transfer_export",
   path = "/api/v1/projects/{org}/{project}/export",
   tag = "transfer",
   params(("org" = String, Path), ("project" = String, Path), ExportQuery),
