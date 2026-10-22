@@ -1,11 +1,11 @@
+use diesel::pg::PgConnection;
 use diesel::prelude::*;
-use diesel::sqlite::SqliteConnection;
 
 use crate::model::{
   Caller, DocumentKind, SpecStatus, StoreError, StoreResult, allowed_targets, transition_allowed,
   validate_slug,
 };
-use crate::schema::{documents, specs};
+use crate::schema::{documents, projects, specs};
 use crate::store::projects::access_in;
 use crate::store::{Store, audit};
 
@@ -61,7 +61,7 @@ fn to_spec_row(raw: RawSpecRow) -> StoreResult<SpecRow> {
 }
 
 pub fn spec_by_number(
-  conn: &mut SqliteConnection,
+  conn: &mut PgConnection,
   project_id: i64,
   project_slug: &str,
   number: i64,
@@ -80,7 +80,7 @@ pub fn spec_by_number(
   }
 }
 
-pub fn kinds_of(conn: &mut SqliteConnection, spec_id: i64) -> StoreResult<Vec<DocumentKind>> {
+pub fn kinds_of(conn: &mut PgConnection, spec_id: i64) -> StoreResult<Vec<DocumentKind>> {
   let raw: Vec<String> = documents::table
     .filter(documents::spec_id.eq(spec_id))
     .select(documents::kind)
@@ -98,7 +98,7 @@ pub fn kinds_of(conn: &mut SqliteConnection, spec_id: i64) -> StoreResult<Vec<Do
   Ok(kinds)
 }
 
-fn summarize(conn: &mut SqliteConnection, row: SpecRow) -> StoreResult<SpecSummary> {
+fn summarize(conn: &mut PgConnection, row: SpecRow) -> StoreResult<SpecSummary> {
   Ok(SpecSummary {
     kinds: kinds_of(conn, row.id)?,
     number: row.number,
@@ -108,17 +108,14 @@ fn summarize(conn: &mut SqliteConnection, row: SpecRow) -> StoreResult<SpecSumma
   })
 }
 
-pub fn list_specs_in(
-  conn: &mut SqliteConnection,
-  project_id: i64,
-) -> StoreResult<Vec<SpecSummary>> {
+pub fn list_specs_in(conn: &mut PgConnection, project_id: i64) -> StoreResult<Vec<SpecSummary>> {
   spec_rows_in(conn, project_id)?
     .into_iter()
     .map(|row| summarize(conn, row))
     .collect()
 }
 
-pub fn spec_rows_in(conn: &mut SqliteConnection, project_id: i64) -> StoreResult<Vec<SpecRow>> {
+pub fn spec_rows_in(conn: &mut PgConnection, project_id: i64) -> StoreResult<Vec<SpecRow>> {
   let rows: Vec<RawSpecRow> = specs::table
     .filter(specs::project_id.eq(project_id))
     .select(SPEC_COLUMNS)
@@ -127,10 +124,7 @@ pub fn spec_rows_in(conn: &mut SqliteConnection, project_id: i64) -> StoreResult
   rows.into_iter().map(to_spec_row).collect()
 }
 
-pub fn active_spec_in(
-  conn: &mut SqliteConnection,
-  project_id: i64,
-) -> StoreResult<Option<SpecRow>> {
+pub fn active_spec_in(conn: &mut PgConnection, project_id: i64) -> StoreResult<Option<SpecRow>> {
   let raw: Option<RawSpecRow> = specs::table
     .filter(specs::project_id.eq(project_id))
     .filter(specs::status.ne("archived"))
@@ -180,6 +174,11 @@ impl Store {
         return Err(StoreError::Forbidden);
       }
       validate_slug(slug)?;
+      projects::table
+        .filter(projects::id.eq(access.project_id))
+        .select(projects::id)
+        .for_update()
+        .first::<i64>(tx)?;
       let duplicate: i64 = specs::table
         .filter(specs::project_id.eq(access.project_id))
         .filter(specs::slug.eq(slug))

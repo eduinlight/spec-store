@@ -1,24 +1,29 @@
 mod common;
 
 use diesel::connection::SimpleConnection;
-use spec_store_core::model::StoreError;
+use spec_store_core::model::{Role, StoreError};
 use spec_store_core::store::{Store, audit};
 
-fn store() -> Store {
-  Store::open(common::temp_db_path("store-audit")).expect("open store")
-}
-
 fn insert_user(store: &Store, handle: &str) -> i64 {
-  common::insert(
-    store,
-    &format!("INSERT INTO users (handle, is_admin) VALUES ('{handle}', 1)"),
-  )
+  common::person(store, handle).user_id
 }
 
 fn insert_project(store: &Store, slug: &str) -> i64 {
+  let org = common::int(
+    store,
+    "SELECT count(*) FROM organizations WHERE slug = 'acme'",
+  );
+  if org == 0 {
+    common::exec(
+      store,
+      "INSERT INTO organizations (slug, name) VALUES ('acme', 'Acme')",
+    );
+  }
   common::insert(
     store,
-    &format!("INSERT INTO projects (slug, name) VALUES ('{slug}', '{slug}')"),
+    &format!(
+      "INSERT INTO projects (organization_id, slug, name) SELECT id, '{slug}', '{slug}' FROM organizations WHERE slug = 'acme' RETURNING id"
+    ),
   )
 }
 
@@ -28,16 +33,18 @@ fn count_users(store: &Store) -> i64 {
 
 #[test]
 fn with_tx_commits_on_ok() {
-  let store = store();
+  let store = common::test_store();
   insert_user(&store, "alice");
   assert_eq!(count_users(&store), 1);
 }
 
 #[test]
 fn with_tx_rolls_back_on_error() {
-  let store = store();
+  let store = common::test_store();
   let result: Result<(), StoreError> = store.with_tx(|tx| {
-    tx.batch_execute("INSERT INTO users (handle, is_admin) VALUES ('bob', 0)")?;
+    tx.batch_execute(
+      "INSERT INTO users (identity_subject, handle, email, name) VALUES ('s', 'bob', 'b@x', 'Bob')",
+    )?;
     Err(StoreError::Validation("abort".into()))
   });
   assert!(matches!(result, Err(StoreError::Validation(_))));
@@ -46,7 +53,7 @@ fn with_tx_rolls_back_on_error() {
 
 #[test]
 fn audit_records_actor_project_action_target_and_time() {
-  let store = store();
+  let store = common::test_store();
   let alice = insert_user(&store, "alice");
   let project = insert_project(&store, "demo");
   store
@@ -63,7 +70,8 @@ fn audit_records_actor_project_action_target_and_time() {
   assert_eq!(entries[0].actor, "alice");
   assert_eq!(entries[0].project, None);
   assert_eq!(entries[1].action, "project.create");
-  assert_eq!(entries[1].project.as_deref(), Some("demo"));
+  assert_eq!(entries[1].project.as_deref(), Some("acme/demo"));
+  assert_eq!(entries[1].organization.as_deref(), Some("acme"));
   assert!(
     entries[1].created_at.ends_with('Z'),
     "{}",
@@ -77,7 +85,7 @@ fn audit_records_actor_project_action_target_and_time() {
 
 #[test]
 fn list_audit_filters_by_project_and_limit() {
-  let store = store();
+  let store = common::test_store();
   let alice = insert_user(&store, "alice");
   let demo = insert_project(&store, "demo");
   let other = insert_project(&store, "other");
@@ -90,49 +98,48 @@ fn list_audit_filters_by_project_and_limit() {
     .with_tx(|tx| audit(tx, alice, Some(other), "doc.put", "x"))
     .unwrap();
 
-  let demo_entries = store.list_audit(Some("demo"), 10).unwrap();
+  let demo_entries = store.list_audit(Some("acme/demo"), 10).unwrap();
   assert_eq!(demo_entries.len(), 3);
   assert!(
     demo_entries
       .iter()
-      .all(|e| e.project.as_deref() == Some("demo"))
+      .all(|e| e.project.as_deref() == Some("acme/demo"))
   );
 
   let limited = store.list_audit(None, 2).unwrap();
   assert_eq!(limited.len(), 2);
   assert_eq!(limited[0].target, "x");
 
-  let unknown = store.list_audit(Some("missing"), 10).unwrap();
+  let unknown = store.list_audit(Some("acme/missing"), 10).unwrap();
   assert!(unknown.is_empty());
 }
 
 #[test]
 fn list_audit_page_is_authorized_and_paged() {
-  use spec_store_core::model::Role;
-  let store = store();
-  store.create_user(None, "root", false).unwrap();
-  let admin = store.caller_by_handle("root").unwrap();
-  for h in ["owner", "editor"] {
-    store.create_user(Some(&admin), h, false).unwrap();
-  }
-  store.create_project(&admin, "demo", "Demo").unwrap();
-  store.create_project(&admin, "other", "Other").unwrap();
+  let store = common::test_store();
+  let root = common::person(&store, "root");
+  common::organization(&store, &root, common::ORG);
+  let owner = common::person(&store, "owner");
+  let editor = common::person(&store, "editor");
+  let operator = common::operator(&store, "ops");
+  common::join(&store, &root, common::ORG, &owner);
+  common::join(&store, &root, common::ORG, &editor);
+  store.create_project(&root, "acme/demo", "Demo").unwrap();
+  store.create_project(&root, "acme/other", "Other").unwrap();
   store
-    .set_member(&admin, "demo", "owner", Role::Owner)
+    .set_member(&root, "acme/demo", "owner", Role::Owner)
     .unwrap();
   store
-    .set_member(&admin, "demo", "editor", Role::Editor)
+    .set_member(&root, "acme/demo", "editor", Role::Editor)
     .unwrap();
-  let owner = store.caller_by_handle("owner").unwrap();
-  let editor = store.caller_by_handle("editor").unwrap();
   for i in 0..5 {
     store
-      .create_spec(&editor, "demo", &format!("spec-{i}"))
+      .create_spec(&editor, "acme/demo", &format!("spec-{i}"))
       .unwrap();
   }
 
   let first = store
-    .list_audit_page(&owner, Some("demo"), None, 2)
+    .list_audit_page(&owner, Some("acme/demo"), None, 2)
     .unwrap();
   assert_eq!(first.entries.len(), 2);
   assert!(first.has_more);
@@ -143,7 +150,7 @@ fn list_audit_page_is_authorized_and_paged() {
     first
       .entries
       .iter()
-      .all(|e| e.project.as_deref() == Some("demo"))
+      .all(|e| e.project.as_deref() == Some("acme/demo"))
   );
 
   let mut seen = first.entries.len();
@@ -151,7 +158,7 @@ fn list_audit_page_is_authorized_and_paged() {
   let mut has_more = first.has_more;
   while has_more {
     let page = store
-      .list_audit_page(&owner, Some("demo"), cursor, 2)
+      .list_audit_page(&owner, Some("acme/demo"), cursor, 2)
       .unwrap();
     assert!(!page.entries.is_empty());
     assert!(page.entries.iter().all(|e| Some(e.id) < cursor));
@@ -159,7 +166,7 @@ fn list_audit_page_is_authorized_and_paged() {
     cursor = page.entries.last().map(|e| e.id);
     has_more = page.has_more;
   }
-  let total = store.list_audit(Some("demo"), 100).unwrap().len();
+  let total = store.list_audit(Some("acme/demo"), 100).unwrap().len();
   assert_eq!(seen, total, "pagination walks every entry exactly once");
   assert!(
     total >= 7,
@@ -171,48 +178,48 @@ fn list_audit_page_is_authorized_and_paged() {
     Err(StoreError::Forbidden)
   ));
   assert!(matches!(
-    store.list_audit_page(&owner, Some("other"), None, 10),
-    Err(StoreError::Forbidden)
+    store.list_audit_page(&owner, Some("acme/other"), None, 10),
+    Err(StoreError::NotFound(_))
   ));
   assert!(matches!(
-    store.list_audit_page(&editor, Some("demo"), None, 10),
+    store.list_audit_page(&editor, Some("acme/demo"), None, 10),
     Err(StoreError::Forbidden)
   ));
 
-  let global = store.list_audit_page(&admin, None, None, 100).unwrap();
+  let global = store.list_audit_page(&operator, None, None, 100).unwrap();
   assert!(!global.has_more);
   assert!(
     global.entries.iter().any(|e| e.project.is_none()),
-    "user.create has no project"
+    "organization entries have no project"
   );
   assert!(
     global
       .entries
       .iter()
-      .any(|e| e.project.as_deref() == Some("demo"))
+      .any(|e| e.project.as_deref() == Some("acme/demo"))
   );
   assert!(
     global
       .entries
       .iter()
-      .any(|e| e.project.as_deref() == Some("other"))
+      .any(|e| e.project.as_deref() == Some("acme/other"))
   );
   let other = store
-    .list_audit_page(&admin, Some("other"), None, 100)
+    .list_audit_page(&operator, Some("acme/other"), None, 100)
     .unwrap();
   assert!(!other.entries.is_empty());
   assert!(
     other
       .entries
       .iter()
-      .all(|e| e.project.as_deref() == Some("other"))
+      .all(|e| e.project.as_deref() == Some("acme/other"))
   );
   assert!(matches!(
-    store.list_audit_page(&admin, Some("missing"), None, 10),
+    store.list_audit_page(&operator, Some("acme/missing"), None, 10),
     Err(StoreError::NotFound(_))
   ));
   assert!(matches!(
-    store.list_audit_page(&owner, Some("missing"), None, 10),
-    Err(StoreError::Forbidden)
+    store.list_audit_page(&owner, Some("acme/missing"), None, 10),
+    Err(StoreError::NotFound(_))
   ));
 }

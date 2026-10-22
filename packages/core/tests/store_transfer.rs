@@ -1,15 +1,16 @@
 mod common;
 
+use spec_store_core::store::Store;
+
 use std::fs;
 use std::path::Path;
 
 use spec_store_core::model::{Caller, DocumentKind, Role, SpecStatus, StoreError};
-use spec_store_core::store::Store;
 use spec_store_core::store::transfer::{ImportOptions, ImportReport, StatusNotice};
 use spec_store_core::tree::{ProjectTree, scan};
 
 struct Fixture {
-  store: Store,
+  store: common::TestStore,
   admin: Caller,
   owner: Caller,
   editor: Caller,
@@ -18,28 +19,33 @@ struct Fixture {
 }
 
 fn fixture() -> Fixture {
-  let store = Store::open(common::temp_db_path("store-transfer")).unwrap();
-  store.create_user(None, "root", false).unwrap();
-  let admin = store.caller_by_handle("root").unwrap();
-  for handle in ["olivia", "eddie", "rita", "otto"] {
-    store.create_user(Some(&admin), handle, false).unwrap();
-  }
-  store.create_project(&admin, "demo", "Demo").unwrap();
+  let store = common::test_store();
+  let root = common::person(&store, "root");
+  common::organization(&store, &root, common::ORG);
+  let people: Vec<Caller> = ["olivia", "eddie", "rita"]
+    .iter()
+    .map(|h| {
+      let caller = common::person(&store, h);
+      common::join(&store, &root, common::ORG, &caller);
+      caller
+    })
+    .collect();
+  store.create_project(&root, "acme/demo", "Demo").unwrap();
   store
-    .set_member(&admin, "demo", "olivia", Role::Owner)
+    .set_member(&root, "acme/demo", "olivia", Role::Owner)
     .unwrap();
   store
-    .set_member(&admin, "demo", "eddie", Role::Editor)
+    .set_member(&root, "acme/demo", "eddie", Role::Editor)
     .unwrap();
   store
-    .set_member(&admin, "demo", "rita", Role::Reader)
+    .set_member(&root, "acme/demo", "rita", Role::Reader)
     .unwrap();
   Fixture {
-    owner: store.caller_by_handle("olivia").unwrap(),
-    editor: store.caller_by_handle("eddie").unwrap(),
-    reader: store.caller_by_handle("rita").unwrap(),
-    outsider: store.caller_by_handle("otto").unwrap(),
-    admin,
+    admin: common::operator(&store, "ops"),
+    outsider: common::person(&store, "otto"),
+    owner: people[0].clone(),
+    editor: people[1].clone(),
+    reader: people[2].clone(),
     store,
   }
 }
@@ -80,7 +86,7 @@ fn counts(store: &Store) -> Vec<i64> {
 
 fn import(f: &Fixture, tree: &ProjectTree) -> ImportReport {
   f.store
-    .import_tree(&f.owner, "demo", tree, &ImportOptions::default())
+    .import_tree(&f.owner, "acme/demo", tree, &ImportOptions::default())
     .unwrap()
 }
 
@@ -106,7 +112,7 @@ fn owner_imports_numbers_slugs_statuses_and_exact_bodies() {
   );
   assert_eq!(report.status_fallbacks, vec!["002-beta".to_string()]);
 
-  let specs = f.store.list_specs(&f.owner, "demo").unwrap();
+  let specs = f.store.list_specs(&f.owner, "acme/demo").unwrap();
   let summary: Vec<(i64, &str, SpecStatus, &str)> = specs
     .iter()
     .map(|s| (s.number, s.slug.as_str(), s.status, s.branch.as_str()))
@@ -122,28 +128,28 @@ fn owner_imports_numbers_slugs_statuses_and_exact_bodies() {
 
   let spec = f
     .store
-    .get_document(&f.reader, "demo", 1, DocumentKind::Spec)
+    .get_document(&f.reader, "acme/demo", 1, DocumentKind::Spec)
     .unwrap();
   assert_eq!(spec.body, ALPHA_SPEC);
   assert_eq!(spec.revision.author, "olivia");
   assert_eq!(spec.revision.message, "import specs/001-alpha/spec.md");
   let tasks = f
     .store
-    .get_document(&f.reader, "demo", 1, DocumentKind::Tasks)
+    .get_document(&f.reader, "acme/demo", 1, DocumentKind::Tasks)
     .unwrap();
   assert_eq!(tasks.body, ALPHA_TASKS);
   let archived = f
     .store
-    .get_document(&f.reader, "demo", 5, DocumentKind::Spec)
+    .get_document(&f.reader, "acme/demo", 5, DocumentKind::Spec)
     .unwrap();
   assert_eq!(archived.body, "Status: archived\n");
 
-  let constitution = f.store.get_constitution(&f.reader, "demo").unwrap();
+  let constitution = f.store.get_constitution(&f.reader, "acme/demo").unwrap();
   assert_eq!(constitution.body, CONSTITUTION);
   assert_eq!(constitution.version, "1.2");
   assert_eq!(constitution.revision.message, "import docs/constitution.md");
 
-  let audit = f.store.list_audit(Some("demo"), 100).unwrap();
+  let audit = f.store.list_audit(Some("acme/demo"), 100).unwrap();
   let count = |action: &str| audit.iter().filter(|e| e.action == action).count();
   assert_eq!(count("spec.import"), 3);
   assert_eq!(count("document.put"), 5);
@@ -161,7 +167,10 @@ fn owner_imports_numbers_slugs_statuses_and_exact_bodies() {
 fn next_spec_after_import_is_one_above_the_highest() {
   let f = fixture();
   import(&f, &sample_tree("transfer-next"));
-  let created = f.store.create_spec(&f.editor, "demo", "delta").unwrap();
+  let created = f
+    .store
+    .create_spec(&f.editor, "acme/demo", "delta")
+    .unwrap();
   assert_eq!(created.number, 6);
   assert_eq!(created.branch, "006-delta");
 }
@@ -178,11 +187,12 @@ fn constitution_version_comes_from_the_option_or_is_required() {
   let tree = scan(&root).unwrap();
 
   let before = counts(&f.store);
-  let message =
-    validation_message(
-      f.store
-        .import_tree(&f.owner, "demo", &tree, &ImportOptions::default()),
-    );
+  let message = validation_message(f.store.import_tree(
+    &f.owner,
+    "acme/demo",
+    &tree,
+    &ImportOptions::default(),
+  ));
   assert!(message.contains("docs/constitution.md"), "{message}");
   assert_eq!(counts(&f.store), before);
 
@@ -190,7 +200,7 @@ fn constitution_version_comes_from_the_option_or_is_required() {
     .store
     .import_tree(
       &f.owner,
-      "demo",
+      "acme/demo",
       &tree,
       &ImportOptions {
         constitution_version: Some("3.0".into()),
@@ -200,7 +210,10 @@ fn constitution_version_comes_from_the_option_or_is_required() {
     .unwrap();
   assert_eq!(report.constitution_version.as_deref(), Some("3.0"));
   assert_eq!(
-    f.store.get_constitution(&f.owner, "demo").unwrap().version,
+    f.store
+      .get_constitution(&f.owner, "acme/demo")
+      .unwrap()
+      .version,
     "3.0"
   );
 
@@ -209,7 +222,7 @@ fn constitution_version_comes_from_the_option_or_is_required() {
     .store
     .import_tree(
       &f.owner,
-      "demo",
+      "acme/demo",
       &sample_tree("transfer-override"),
       &ImportOptions {
         constitution_version: Some("9.9".into()),
@@ -223,15 +236,15 @@ fn constitution_version_comes_from_the_option_or_is_required() {
 #[test]
 fn conflicts_with_existing_data_are_all_listed_and_nothing_is_written() {
   let f = fixture();
-  f.store.create_spec(&f.owner, "demo", "beta").unwrap();
+  f.store.create_spec(&f.owner, "acme/demo", "beta").unwrap();
   f.store
-    .put_constitution(&f.owner, "demo", "# Existing\n", "1.0", "init", None)
+    .put_constitution(&f.owner, "acme/demo", "# Existing\n", "1.0", "init", None)
     .unwrap();
   let before = counts(&f.store);
 
   let message = validation_message(f.store.import_tree(
     &f.owner,
-    "demo",
+    "acme/demo",
     &sample_tree("transfer-conflict"),
     &ImportOptions::default(),
   ));
@@ -250,11 +263,12 @@ fn tree_problems_refuse_the_import() {
     .problems
     .push("specs/01-x: folder name is not valid".into());
   let before = counts(&f.store);
-  let message =
-    validation_message(
-      f.store
-        .import_tree(&f.owner, "demo", &tree, &ImportOptions::default()),
-    );
+  let message = validation_message(f.store.import_tree(
+    &f.owner,
+    "acme/demo",
+    &tree,
+    &ImportOptions::default(),
+  ));
   assert!(message.contains("specs/01-x"), "{message}");
   assert_eq!(counts(&f.store), before);
 }
@@ -264,10 +278,10 @@ fn only_owners_import() {
   let f = fixture();
   let tree = sample_tree("transfer-roles");
   let before = counts(&f.store);
-  for caller in [&f.editor, &f.reader, &f.admin, &f.outsider] {
+  for caller in [&f.editor, &f.reader, &f.admin] {
     let result = f
       .store
-      .import_tree(caller, "demo", &tree, &ImportOptions::default());
+      .import_tree(caller, "acme/demo", &tree, &ImportOptions::default());
     assert!(
       matches!(result, Err(StoreError::Forbidden)),
       "{}: {result:?}",
@@ -276,7 +290,12 @@ fn only_owners_import() {
   }
   assert!(matches!(
     f.store
-      .import_tree(&f.admin, "nope", &tree, &ImportOptions::default()),
+      .import_tree(&f.outsider, "acme/demo", &tree, &ImportOptions::default()),
+    Err(StoreError::NotFound(_))
+  ));
+  assert!(matches!(
+    f.store
+      .import_tree(&f.admin, "acme/nope", &tree, &ImportOptions::default()),
     Err(StoreError::NotFound(_))
   ));
   assert_eq!(counts(&f.store), before);
@@ -290,7 +309,7 @@ fn dry_run_reports_without_writing() {
     .store
     .import_tree(
       &f.owner,
-      "demo",
+      "acme/demo",
       &sample_tree("transfer-dry"),
       &ImportOptions {
         constitution_version: None,
@@ -314,17 +333,23 @@ fn a_failure_in_the_middle_leaves_the_store_unchanged() {
   let tree = scan(&root).unwrap();
   common::exec(
     &f.store,
-    "CREATE TRIGGER abort_marked BEFORE INSERT ON revisions
-     WHEN NEW.body LIKE '%ABORT-IMPORT%'
-     BEGIN SELECT RAISE(ABORT, 'forced failure'); END;",
+    "CREATE FUNCTION abort_marked() RETURNS trigger LANGUAGE plpgsql AS $$
+     BEGIN RAISE EXCEPTION 'forced failure'; END $$;
+     CREATE TRIGGER abort_marked BEFORE INSERT ON revisions
+     FOR EACH ROW WHEN (NEW.body LIKE '%ABORT-IMPORT%') EXECUTE FUNCTION abort_marked();",
   );
   let before = counts(&f.store);
   let result = f
     .store
-    .import_tree(&f.owner, "demo", &tree, &ImportOptions::default());
+    .import_tree(&f.owner, "acme/demo", &tree, &ImportOptions::default());
   assert!(matches!(result, Err(StoreError::Database(_))), "{result:?}");
   assert_eq!(counts(&f.store), before);
-  assert!(f.store.list_specs(&f.owner, "demo").unwrap().is_empty());
+  assert!(
+    f.store
+      .list_specs(&f.owner, "acme/demo")
+      .unwrap()
+      .is_empty()
+  );
 }
 
 fn imported() -> Fixture {
@@ -339,14 +364,14 @@ fn export_returns_current_bodies_in_layout_order_for_readers_and_admins() {
   f.store
     .put_document(
       &f.editor,
-      "demo",
+      "acme/demo",
       1,
       DocumentKind::Plan,
       "# Plan v2\n",
       "edit",
       Some(
         f.store
-          .get_document(&f.editor, "demo", 1, DocumentKind::Plan)
+          .get_document(&f.editor, "acme/demo", 1, DocumentKind::Plan)
           .unwrap()
           .revision
           .id,
@@ -356,7 +381,7 @@ fn export_returns_current_bodies_in_layout_order_for_readers_and_admins() {
   let before = counts(&f.store);
 
   for caller in [&f.reader, &f.admin, &f.owner] {
-    let export = f.store.export_documents(caller, "demo", None).unwrap();
+    let export = f.store.export_documents(caller, "acme/demo", None).unwrap();
     let files: Vec<(&str, &str)> = export
       .files
       .iter()
@@ -383,7 +408,10 @@ fn export_returns_current_bodies_in_layout_order_for_readers_and_admins() {
 #[test]
 fn export_paths_stay_inside_the_layout() {
   let f = imported();
-  let export = f.store.export_documents(&f.reader, "demo", None).unwrap();
+  let export = f
+    .store
+    .export_documents(&f.reader, "acme/demo", None)
+    .unwrap();
   for file in &export.files {
     let path = file.relative_path.as_str();
     let inside = path == "docs/constitution.md"
@@ -400,7 +428,7 @@ fn export_of_one_spec_and_unknown_spec() {
   let f = imported();
   let export = f
     .store
-    .export_documents(&f.reader, "demo", Some(1))
+    .export_documents(&f.reader, "acme/demo", Some(1))
     .unwrap();
   let paths: Vec<&str> = export
     .files
@@ -416,7 +444,7 @@ fn export_of_one_spec_and_unknown_spec() {
     ]
   );
   assert!(matches!(
-    f.store.export_documents(&f.reader, "demo", Some(9)),
+    f.store.export_documents(&f.reader, "acme/demo", Some(9)),
     Err(StoreError::NotFound(_))
   ));
 }
@@ -425,8 +453,8 @@ fn export_of_one_spec_and_unknown_spec() {
 fn outsiders_cannot_export() {
   let f = imported();
   assert!(matches!(
-    f.store.export_documents(&f.outsider, "demo", None),
-    Err(StoreError::Forbidden)
+    f.store.export_documents(&f.outsider, "acme/demo", None),
+    Err(StoreError::NotFound(_))
   ));
 }
 
@@ -434,12 +462,15 @@ fn outsiders_cannot_export() {
 fn status_mismatch_produces_a_notice_and_keeps_the_bytes() {
   let f = imported();
   f.store
-    .set_spec_status(&f.owner, "demo", 1, SpecStatus::Draft)
+    .set_spec_status(&f.owner, "acme/demo", 1, SpecStatus::Draft)
     .unwrap();
   f.store
-    .set_spec_status(&f.owner, "demo", 2, SpecStatus::Clarified)
+    .set_spec_status(&f.owner, "acme/demo", 2, SpecStatus::Clarified)
     .unwrap();
-  let export = f.store.export_documents(&f.reader, "demo", None).unwrap();
+  let export = f
+    .store
+    .export_documents(&f.reader, "acme/demo", None)
+    .unwrap();
   assert_eq!(
     export.notices,
     vec![StatusNotice {
@@ -454,7 +485,10 @@ fn status_mismatch_produces_a_notice_and_keeps_the_bytes() {
 #[test]
 fn empty_project_exports_nothing() {
   let f = fixture();
-  let export = f.store.export_documents(&f.owner, "demo", None).unwrap();
+  let export = f
+    .store
+    .export_documents(&f.owner, "acme/demo", None)
+    .unwrap();
   assert!(export.files.is_empty());
   assert!(export.notices.is_empty());
 }

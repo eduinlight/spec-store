@@ -31,25 +31,34 @@ fn percentile(mut samples: Vec<Duration>, p: f64) -> Duration {
 #[test]
 #[ignore = "performance check, run with --release and --ignored"]
 fn p95_read_under_100ms() {
-  let store = Store::open(common::temp_db_path("perf")).unwrap();
-  store.create_user(None, "root", false).unwrap();
-  let admin = store.caller_by_handle("root").unwrap();
-  store.create_user(Some(&admin), "editor", false).unwrap();
-  store.create_project(&admin, "demo", "Demo").unwrap();
+  let test_store = common::test_store_with_pool(spec_store_core::db::POOL_SIZE);
+  let store: Store = test_store.store.clone();
+  let root = common::person(&store, "root");
+  common::organization(&store, &root, common::ORG);
+  let editor = common::person(&store, "editor");
+  common::join(&store, &root, common::ORG, &editor);
+  store.create_project(&root, "acme/demo", "Demo").unwrap();
   store
-    .set_member(&admin, "demo", "editor", Role::Editor)
+    .set_member(&root, "acme/demo", "editor", Role::Editor)
     .unwrap();
-  let editor = store.caller_by_handle("editor").unwrap();
-  store.create_spec(&editor, "demo", "large").unwrap();
+  store.create_spec(&editor, "acme/demo", "large").unwrap();
   let body = large_spec();
   assert!(body.len() >= BODY_BYTES);
   store
-    .put_document(&editor, "demo", 1, DocumentKind::Spec, &body, "large", None)
+    .put_document(
+      &editor,
+      "acme/demo",
+      1,
+      DocumentKind::Spec,
+      &body,
+      "large",
+      None,
+    )
     .unwrap();
   store
     .put_document(
       &editor,
-      "demo",
+      "acme/demo",
       1,
       DocumentKind::Tasks,
       &body.replace("- **FR-", "- [ ] T01 (FR-1) FR-"),
@@ -67,9 +76,9 @@ fn p95_read_under_100ms() {
         for _ in 0..READS_PER_THREAD {
           let start = Instant::now();
           let doc = store
-            .get_document(&caller, "demo", 1, DocumentKind::Spec)
+            .get_document(&caller, "acme/demo", 1, DocumentKind::Spec)
             .unwrap();
-          store.project_status(&caller, "demo").unwrap();
+          store.project_status(&caller, "acme/demo").unwrap();
           samples.push(start.elapsed());
           assert!(doc.body.len() >= BODY_BYTES);
         }

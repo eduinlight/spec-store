@@ -1,7 +1,6 @@
 mod common;
 
 use spec_store_core::model::{Caller, DocumentKind, Role, SpecStatus, StoreError};
-use spec_store_core::store::Store;
 
 const TASKS: &str = "# Tasks — Spec 001
 
@@ -14,35 +13,39 @@ const TASKS: &str = "# Tasks — Spec 001
 ";
 
 struct Fixture {
-  store: Store,
+  store: common::TestStore,
   owner: Caller,
   editor: Caller,
   reader: Caller,
 }
 
 fn fixture() -> Fixture {
-  let store = Store::open(common::temp_db_path("store-tasks")).unwrap();
-  store.create_user(None, "root", false).unwrap();
-  let admin = store.caller_by_handle("root").unwrap();
-  for h in ["owner", "editor", "reader"] {
-    store.create_user(Some(&admin), h, false).unwrap();
-  }
-  store.create_project(&admin, "demo", "Demo").unwrap();
+  let store = common::test_store();
+  let root = common::person(&store, "root");
+  common::organization(&store, &root, common::ORG);
+  let people: Vec<Caller> = ["owner", "editor", "reader"]
+    .iter()
+    .map(|h| {
+      let caller = common::person(&store, h);
+      common::join(&store, &root, common::ORG, &caller);
+      caller
+    })
+    .collect();
+  store.create_project(&root, "acme/demo", "Demo").unwrap();
   store
-    .set_member(&admin, "demo", "owner", Role::Owner)
+    .set_member(&root, "acme/demo", "owner", Role::Owner)
     .unwrap();
   store
-    .set_member(&admin, "demo", "editor", Role::Editor)
+    .set_member(&root, "acme/demo", "editor", Role::Editor)
     .unwrap();
   store
-    .set_member(&admin, "demo", "reader", Role::Reader)
+    .set_member(&root, "acme/demo", "reader", Role::Reader)
     .unwrap();
-  let editor = store.caller_by_handle("editor").unwrap();
-  store.create_spec(&editor, "demo", "first").unwrap();
+  store.create_spec(&people[1], "acme/demo", "first").unwrap();
   Fixture {
-    owner: store.caller_by_handle("owner").unwrap(),
-    reader: store.caller_by_handle("reader").unwrap(),
-    editor,
+    owner: people[0].clone(),
+    editor: people[1].clone(),
+    reader: people[2].clone(),
     store,
   }
 }
@@ -51,7 +54,7 @@ fn put_tasks(f: &Fixture, body: &str) -> i64 {
   f.store
     .put_document(
       &f.editor,
-      "demo",
+      "acme/demo",
       1,
       DocumentKind::Tasks,
       body,
@@ -67,7 +70,7 @@ fn mark_done_rewrites_line_with_commit() {
   let first = put_tasks(&f, TASKS);
   let marked = f
     .store
-    .mark_task_done(&f.editor, "demo", 1, "T01", "abc1234")
+    .mark_task_done(&f.editor, "acme/demo", 1, "T01", "abc1234")
     .unwrap();
   assert!(marked.revision_id > first);
   assert_eq!(
@@ -77,7 +80,7 @@ fn mark_done_rewrites_line_with_commit() {
 
   let doc = f
     .store
-    .get_document(&f.reader, "demo", 1, DocumentKind::Tasks)
+    .get_document(&f.reader, "acme/demo", 1, DocumentKind::Tasks)
     .unwrap();
   assert_eq!(doc.revision.id, marked.revision_id);
   assert!(doc.body.contains(&marked.line), "{}", doc.body);
@@ -89,7 +92,7 @@ fn mark_done_rewrites_line_with_commit() {
   );
   assert_eq!(doc.revision.author, "editor");
 
-  let audit = f.store.list_audit(Some("demo"), 10).unwrap();
+  let audit = f.store.list_audit(Some("acme/demo"), 10).unwrap();
   assert!(
     audit
       .iter()
@@ -97,7 +100,7 @@ fn mark_done_rewrites_line_with_commit() {
   );
 
   f.store
-    .mark_task_done(&f.owner, "demo", 1, "T02", &"f".repeat(40))
+    .mark_task_done(&f.owner, "acme/demo", 1, "T02", &"f".repeat(40))
     .unwrap();
 }
 
@@ -106,30 +109,31 @@ fn mark_done_rejects_unknown_done_or_bad_commit() {
   let f = fixture();
   assert!(matches!(
     f.store
-      .mark_task_done(&f.editor, "demo", 1, "T01", "abc1234"),
+      .mark_task_done(&f.editor, "acme/demo", 1, "T01", "abc1234"),
     Err(StoreError::NotFound(_))
   ));
   put_tasks(&f, TASKS);
   assert!(matches!(
     f.store
-      .mark_task_done(&f.editor, "demo", 1, "T09", "abc1234"),
+      .mark_task_done(&f.editor, "acme/demo", 1, "T09", "abc1234"),
     Err(StoreError::NotFound(_))
   ));
   for bad in ["xyz", "ABC1234", "abc123", &"a".repeat(41)] {
     assert!(
       matches!(
-        f.store.mark_task_done(&f.editor, "demo", 1, "T01", bad),
+        f.store
+          .mark_task_done(&f.editor, "acme/demo", 1, "T01", bad),
         Err(StoreError::Validation(_))
       ),
       "{bad:?}"
     );
   }
   f.store
-    .mark_task_done(&f.editor, "demo", 1, "T01", "abc1234")
+    .mark_task_done(&f.editor, "acme/demo", 1, "T01", "abc1234")
     .unwrap();
   match f
     .store
-    .mark_task_done(&f.editor, "demo", 1, "T01", "abc1234")
+    .mark_task_done(&f.editor, "acme/demo", 1, "T01", "abc1234")
     .unwrap_err()
   {
     StoreError::Validation(msg) => assert!(msg.contains("already"), "{msg}"),
@@ -137,22 +141,22 @@ fn mark_done_rejects_unknown_done_or_bad_commit() {
   }
   assert!(matches!(
     f.store
-      .mark_task_done(&f.reader, "demo", 1, "T02", "abc1234"),
+      .mark_task_done(&f.reader, "acme/demo", 1, "T02", "abc1234"),
     Err(StoreError::Forbidden)
   ));
   assert!(matches!(
     f.store
-      .mark_task_done(&f.editor, "demo", 2, "T02", "abc1234"),
+      .mark_task_done(&f.editor, "acme/demo", 2, "T02", "abc1234"),
     Err(StoreError::NotFound(_))
   ));
 
   let revisions_before: i64 = common::int(&f.store, "SELECT count(*) FROM revisions");
   f.store
-    .set_spec_status(&f.owner, "demo", 1, SpecStatus::Archived)
+    .set_spec_status(&f.owner, "acme/demo", 1, SpecStatus::Archived)
     .unwrap();
   assert!(matches!(
     f.store
-      .mark_task_done(&f.editor, "demo", 1, "T02", "abc1234"),
+      .mark_task_done(&f.editor, "acme/demo", 1, "T02", "abc1234"),
     Err(StoreError::Forbidden)
   ));
   let revisions_after: i64 = common::int(&f.store, "SELECT count(*) FROM revisions");
@@ -171,13 +175,13 @@ fn mark_done_refuses_malformed_or_duplicate_task_lines() {
   );
   assert!(matches!(
     f.store
-      .mark_task_done(&f.editor, "demo", 1, "T03", "abc1234"),
+      .mark_task_done(&f.editor, "acme/demo", 1, "T03", "abc1234"),
     Err(StoreError::Malformed(_))
   ));
   f.store
     .put_document(
       &f.editor,
-      "demo",
+      "acme/demo",
       1,
       DocumentKind::Tasks,
       &format!("{TASKS}- [ ] T04 broken\n"),
@@ -187,7 +191,7 @@ fn mark_done_refuses_malformed_or_duplicate_task_lines() {
     .unwrap();
   assert!(matches!(
     f.store
-      .mark_task_done(&f.editor, "demo", 1, "T01", "abc1234"),
+      .mark_task_done(&f.editor, "acme/demo", 1, "T01", "abc1234"),
     Err(StoreError::Malformed(_))
   ));
 }
@@ -200,15 +204,18 @@ const PLAN_WITH_MARKER: &str =
 fn list_tasks_pending_filter_and_malformed() {
   let f = fixture();
   assert!(matches!(
-    f.store.list_tasks(&f.reader, "demo", 1, false),
+    f.store.list_tasks(&f.reader, "acme/demo", 1, false),
     Err(StoreError::NotFound(_))
   ));
   put_tasks(&f, &format!("{TASKS}- [ ] T04 broken line\n"));
   f.store
-    .mark_task_done(&f.editor, "demo", 1, "T01", "abc1234")
+    .mark_task_done(&f.editor, "acme/demo", 1, "T01", "abc1234")
     .ok();
 
-  let all = f.store.list_tasks(&f.reader, "demo", 1, false).unwrap();
+  let all = f
+    .store
+    .list_tasks(&f.reader, "acme/demo", 1, false)
+    .unwrap();
   let ids: Vec<&str> = all.tasks.iter().map(|t| t.id.as_str()).collect();
   assert_eq!(ids, vec!["T01", "T02", "T03"]);
   assert_eq!(all.malformed.len(), 1);
@@ -220,7 +227,7 @@ fn list_tasks_pending_filter_and_malformed() {
 
   let doc = f.store.put_document(
     &f.editor,
-    "demo",
+    "acme/demo",
     1,
     DocumentKind::Tasks,
     TASKS,
@@ -230,14 +237,14 @@ fn list_tasks_pending_filter_and_malformed() {
   assert!(doc.is_err(), "existing document needs expected revision");
   let current = f
     .store
-    .get_document(&f.editor, "demo", 1, DocumentKind::Tasks)
+    .get_document(&f.editor, "acme/demo", 1, DocumentKind::Tasks)
     .unwrap()
     .revision
     .id;
   f.store
     .put_document(
       &f.editor,
-      "demo",
+      "acme/demo",
       1,
       DocumentKind::Tasks,
       TASKS,
@@ -246,13 +253,16 @@ fn list_tasks_pending_filter_and_malformed() {
     )
     .unwrap();
   f.store
-    .mark_task_done(&f.editor, "demo", 1, "T01", "abc1234")
+    .mark_task_done(&f.editor, "acme/demo", 1, "T01", "abc1234")
     .unwrap();
-  let pending = f.store.list_tasks(&f.reader, "demo", 1, true).unwrap();
+  let pending = f.store.list_tasks(&f.reader, "acme/demo", 1, true).unwrap();
   let ids: Vec<&str> = pending.tasks.iter().map(|t| t.id.as_str()).collect();
   assert_eq!(ids, vec!["T02", "T03"]);
   assert!(pending.malformed.is_empty());
-  let all = f.store.list_tasks(&f.reader, "demo", 1, false).unwrap();
+  let all = f
+    .store
+    .list_tasks(&f.reader, "acme/demo", 1, false)
+    .unwrap();
   assert!(all.tasks[0].done);
   assert_eq!(all.tasks[0].commit.as_deref(), Some("abc1234"));
 }
@@ -262,14 +272,14 @@ fn list_markers_across_documents() {
   let f = fixture();
   assert!(
     f.store
-      .list_markers(&f.reader, "demo", 1)
+      .list_markers(&f.reader, "acme/demo", 1)
       .unwrap()
       .is_empty()
   );
   f.store
     .put_document(
       &f.editor,
-      "demo",
+      "acme/demo",
       1,
       DocumentKind::Plan,
       PLAN_WITH_MARKER,
@@ -280,7 +290,7 @@ fn list_markers_across_documents() {
   f.store
     .put_document(
       &f.editor,
-      "demo",
+      "acme/demo",
       1,
       DocumentKind::Spec,
       SPEC_WITH_MARKERS,
@@ -290,7 +300,7 @@ fn list_markers_across_documents() {
     .unwrap();
   put_tasks(&f, TASKS);
 
-  let markers = f.store.list_markers(&f.reader, "demo", 1).unwrap();
+  let markers = f.store.list_markers(&f.reader, "acme/demo", 1).unwrap();
   assert_eq!(markers.len(), 3);
   assert_eq!(markers[0].document_kind, DocumentKind::Spec);
   assert_eq!(
@@ -307,7 +317,7 @@ fn list_markers_across_documents() {
   );
   assert_eq!(markers[2].text, "rmcp version");
   assert!(matches!(
-    f.store.list_markers(&f.reader, "demo", 2),
+    f.store.list_markers(&f.reader, "acme/demo", 2),
     Err(StoreError::NotFound(_))
   ));
 }
@@ -315,7 +325,7 @@ fn list_markers_across_documents() {
 #[test]
 fn project_status_counts_phase_next_and_markers() {
   let f = fixture();
-  let status = f.store.project_status(&f.reader, "demo").unwrap();
+  let status = f.store.project_status(&f.reader, "acme/demo").unwrap();
   assert_eq!(status.constitution_version, None);
   assert_eq!(status.specs.len(), 1);
   let active = status.active.expect("spec 001 is active");
@@ -326,12 +336,12 @@ fn project_status_counts_phase_next_and_markers() {
   assert_eq!(active.markers, 0);
 
   f.store
-    .put_constitution(&f.owner, "demo", "# C\n", "1.0", "ratified", None)
+    .put_constitution(&f.owner, "acme/demo", "# C\n", "1.0", "ratified", None)
     .unwrap();
   f.store
     .put_document(
       &f.editor,
-      "demo",
+      "acme/demo",
       1,
       DocumentKind::Spec,
       SPEC_WITH_MARKERS,
@@ -341,10 +351,10 @@ fn project_status_counts_phase_next_and_markers() {
     .unwrap();
   put_tasks(&f, TASKS);
   f.store
-    .mark_task_done(&f.editor, "demo", 1, "T01", "abc1234")
+    .mark_task_done(&f.editor, "acme/demo", 1, "T01", "abc1234")
     .unwrap();
 
-  let status = f.store.project_status(&f.reader, "demo").unwrap();
+  let status = f.store.project_status(&f.reader, "acme/demo").unwrap();
   assert_eq!(status.constitution_version.as_deref(), Some("1.0"));
   assert_eq!(
     status.specs[0].kinds,
@@ -359,9 +369,9 @@ fn project_status_counts_phase_next_and_markers() {
   assert_eq!(active.markers, 2);
 
   f.store
-    .set_spec_status(&f.owner, "demo", 1, SpecStatus::Archived)
+    .set_spec_status(&f.owner, "acme/demo", 1, SpecStatus::Archived)
     .unwrap();
-  let status = f.store.project_status(&f.reader, "demo").unwrap();
+  let status = f.store.project_status(&f.reader, "acme/demo").unwrap();
   assert!(status.active.is_none());
   assert_eq!(status.specs.len(), 1);
 }
@@ -371,14 +381,14 @@ fn status_reflects_last_write() {
   let f = fixture();
   put_tasks(&f, TASKS);
   f.store
-    .mark_task_done(&f.editor, "demo", 1, "T01", "abc1234")
+    .mark_task_done(&f.editor, "acme/demo", 1, "T01", "abc1234")
     .unwrap();
   f.store
-    .mark_task_done(&f.editor, "demo", 1, "T02", "abc1235")
+    .mark_task_done(&f.editor, "acme/demo", 1, "T02", "abc1235")
     .unwrap();
   let active = f
     .store
-    .project_status(&f.editor, "demo")
+    .project_status(&f.editor, "acme/demo")
     .unwrap()
     .active
     .unwrap();
@@ -387,7 +397,7 @@ fn status_reflects_last_write() {
 
   let current = f
     .store
-    .get_document(&f.editor, "demo", 1, DocumentKind::Tasks)
+    .get_document(&f.editor, "acme/demo", 1, DocumentKind::Tasks)
     .unwrap()
     .revision
     .id;
@@ -395,7 +405,7 @@ fn status_reflects_last_write() {
   f.store
     .put_document(
       &f.editor,
-      "demo",
+      "acme/demo",
       1,
       DocumentKind::Tasks,
       &all_done,
@@ -405,7 +415,7 @@ fn status_reflects_last_write() {
     .unwrap();
   let active = f
     .store
-    .project_status(&f.editor, "demo")
+    .project_status(&f.editor, "acme/demo")
     .unwrap()
     .active
     .unwrap();
@@ -414,7 +424,7 @@ fn status_reflects_last_write() {
   assert_eq!(active.current_phase, None);
   assert!(
     f.store
-      .list_tasks(&f.editor, "demo", 1, true)
+      .list_tasks(&f.editor, "acme/demo", 1, true)
       .unwrap()
       .tasks
       .is_empty()
@@ -424,19 +434,22 @@ fn status_reflects_last_write() {
 #[test]
 fn project_overview_summarises_every_visible_project() {
   let f = fixture();
-  let admin = f.store.caller_by_handle("root").unwrap();
+  let root = f.store.caller_by_handle("root", false).unwrap();
+  let admin = common::operator(&f.store, "ops");
   put_tasks(&f, TASKS);
   f.store
-    .mark_task_done(&f.editor, "demo", 1, "T01", "abc1234")
+    .mark_task_done(&f.editor, "acme/demo", 1, "T01", "abc1234")
     .unwrap();
   f.store
-    .put_constitution(&f.owner, "demo", "# C", "1.2", "m", None)
+    .put_constitution(&f.owner, "acme/demo", "# C", "1.2", "m", None)
     .unwrap();
-  f.store.create_spec(&f.editor, "demo", "second").unwrap();
+  f.store
+    .create_spec(&f.editor, "acme/demo", "second")
+    .unwrap();
   f.store
     .put_document(
       &f.editor,
-      "demo",
+      "acme/demo",
       2,
       DocumentKind::Spec,
       "# S\n\n[NEEDS CLARIFICATION: a?]\n",
@@ -444,15 +457,19 @@ fn project_overview_summarises_every_visible_project() {
       None,
     )
     .unwrap();
-  f.store.create_project(&admin, "other", "Other").unwrap();
-  f.store.create_project(&admin, "third", "Third").unwrap();
   f.store
-    .set_member(&admin, "third", "reader", Role::Reader)
+    .create_project(&root, "acme/other", "Other")
+    .unwrap();
+  f.store
+    .create_project(&root, "acme/third", "Third")
+    .unwrap();
+  f.store
+    .set_member(&root, "acme/third", "reader", Role::Reader)
     .unwrap();
 
   let reader_view = f.store.project_overview(&f.reader).unwrap();
   let slugs: Vec<&str> = reader_view.iter().map(|p| p.slug.as_str()).collect();
-  assert_eq!(slugs, vec!["demo", "third"]);
+  assert_eq!(slugs, vec!["acme/demo", "acme/third"]);
   let demo = &reader_view[0];
   assert_eq!(demo.name, "Demo");
   assert_eq!(demo.role, Some(Role::Reader));
@@ -471,11 +488,11 @@ fn project_overview_summarises_every_visible_project() {
 
   let admin_view = f.store.project_overview(&admin).unwrap();
   let slugs: Vec<&str> = admin_view.iter().map(|p| p.slug.as_str()).collect();
-  assert_eq!(slugs, vec!["demo", "other", "third"]);
+  assert_eq!(slugs, vec!["acme/demo", "acme/other", "acme/third"]);
   assert!(admin_view.iter().all(|p| p.role.is_none()));
 
   f.store
-    .set_spec_status(&f.owner, "demo", 2, SpecStatus::Archived)
+    .set_spec_status(&f.owner, "acme/demo", 2, SpecStatus::Archived)
     .unwrap();
   let after = f.store.project_overview(&f.editor).unwrap();
   let active = after[0].active.as_ref().unwrap();

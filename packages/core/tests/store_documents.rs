@@ -1,10 +1,9 @@
 mod common;
 
 use spec_store_core::model::{Caller, DocumentKind, Role, StoreError};
-use spec_store_core::store::Store;
 
 struct Fixture {
-  store: Store,
+  store: common::TestStore,
   owner: Caller,
   editor: Caller,
   reader: Caller,
@@ -12,21 +11,26 @@ struct Fixture {
 }
 
 fn fixture() -> Fixture {
-  let store = Store::open(common::temp_db_path("store-documents")).unwrap();
-  store.create_user(None, "root", false).unwrap();
-  let admin = store.caller_by_handle("root").unwrap();
-  for h in ["owner", "editor", "reader", "outsider"] {
-    store.create_user(Some(&admin), h, false).unwrap();
-  }
-  store.create_project(&admin, "demo", "Demo").unwrap();
+  let store = common::test_store();
+  let root = common::person(&store, "root");
+  common::organization(&store, &root, common::ORG);
+  let people: Vec<Caller> = ["owner", "editor", "reader"]
+    .iter()
+    .map(|h| {
+      let caller = common::person(&store, h);
+      common::join(&store, &root, common::ORG, &caller);
+      caller
+    })
+    .collect();
+  store.create_project(&root, "acme/demo", "Demo").unwrap();
   store
-    .set_member(&admin, "demo", "owner", Role::Owner)
+    .set_member(&root, "acme/demo", "owner", Role::Owner)
     .unwrap();
   store
-    .set_member(&admin, "demo", "editor", Role::Editor)
+    .set_member(&root, "acme/demo", "editor", Role::Editor)
     .unwrap();
   store
-    .set_member(&admin, "demo", "reader", Role::Reader)
+    .set_member(&root, "acme/demo", "reader", Role::Reader)
     .unwrap();
   common::exec(
     &store,
@@ -34,10 +38,10 @@ fn fixture() -> Fixture {
      VALUES ((SELECT id FROM projects WHERE slug = 'demo'), 1, 'first', 'draft', '001-first')",
   );
   Fixture {
-    owner: store.caller_by_handle("owner").unwrap(),
-    editor: store.caller_by_handle("editor").unwrap(),
-    reader: store.caller_by_handle("reader").unwrap(),
-    outsider: store.caller_by_handle("outsider").unwrap(),
+    outsider: common::person(&store, "outsider"),
+    owner: people[0].clone(),
+    editor: people[1].clone(),
+    reader: people[2].clone(),
     store,
   }
 }
@@ -49,7 +53,7 @@ fn get_document_and_distinct_not_found() {
     .store
     .put_document(
       &f.editor,
-      "demo",
+      "acme/demo",
       1,
       DocumentKind::Spec,
       "# Spec 001\n",
@@ -60,7 +64,7 @@ fn get_document_and_distinct_not_found() {
 
   let doc = f
     .store
-    .get_document(&f.reader, "demo", 1, DocumentKind::Spec)
+    .get_document(&f.reader, "acme/demo", 1, DocumentKind::Spec)
     .unwrap();
   assert_eq!(doc.body, "# Spec 001\n");
   assert_eq!(doc.revision.id, id);
@@ -70,7 +74,7 @@ fn get_document_and_distinct_not_found() {
 
   match f
     .store
-    .get_document(&f.reader, "demo", 2, DocumentKind::Spec)
+    .get_document(&f.reader, "acme/demo", 2, DocumentKind::Spec)
     .unwrap_err()
   {
     StoreError::NotFound(what) => assert!(what.contains("spec 002"), "{what}"),
@@ -78,7 +82,7 @@ fn get_document_and_distinct_not_found() {
   }
   match f
     .store
-    .get_document(&f.reader, "demo", 1, DocumentKind::Plan)
+    .get_document(&f.reader, "acme/demo", 1, DocumentKind::Plan)
     .unwrap_err()
   {
     StoreError::NotFound(what) => {
@@ -92,20 +96,24 @@ fn get_document_and_distinct_not_found() {
   }
   assert!(matches!(
     f.store
-      .get_document(&f.reader, "demo", 1, DocumentKind::Constitution),
+      .get_document(&f.reader, "acme/demo", 1, DocumentKind::Constitution),
     Err(StoreError::Validation(_))
   ));
   assert!(matches!(
     f.store
-      .get_document(&f.outsider, "demo", 1, DocumentKind::Spec),
-    Err(StoreError::Forbidden)
+      .get_document(&f.outsider, "acme/demo", 1, DocumentKind::Spec),
+    Err(StoreError::NotFound(_))
   ));
 }
 
 #[test]
 fn get_constitution_and_not_found() {
   let f = fixture();
-  match f.store.get_constitution(&f.reader, "demo").unwrap_err() {
+  match f
+    .store
+    .get_constitution(&f.reader, "acme/demo")
+    .unwrap_err()
+  {
     StoreError::NotFound(what) => assert!(what.contains("constitution"), "{what}"),
     other => panic!("expected not found, got {other:?}"),
   }
@@ -114,22 +122,22 @@ fn get_constitution_and_not_found() {
     .store
     .put_constitution(
       &f.owner,
-      "demo",
+      "acme/demo",
       "# Constitution\n",
       "1.0",
       "ratified",
       None,
     )
     .unwrap();
-  let constitution = f.store.get_constitution(&f.reader, "demo").unwrap();
+  let constitution = f.store.get_constitution(&f.reader, "acme/demo").unwrap();
   assert_eq!(constitution.body, "# Constitution\n");
   assert_eq!(constitution.version, "1.0");
   assert_eq!(constitution.revision.id, id);
   assert_eq!(constitution.revision.author, "owner");
   assert_eq!(constitution.revision.version.as_deref(), Some("1.0"));
   assert!(matches!(
-    f.store.get_constitution(&f.outsider, "demo"),
-    Err(StoreError::Forbidden)
+    f.store.get_constitution(&f.outsider, "acme/demo"),
+    Err(StoreError::NotFound(_))
   ));
 }
 
@@ -140,7 +148,7 @@ fn put_creates_document_and_revision() {
     .store
     .put_document(
       &f.editor,
-      "demo",
+      "acme/demo",
       1,
       DocumentKind::Tasks,
       "v1",
@@ -152,7 +160,7 @@ fn put_creates_document_and_revision() {
     .store
     .put_document(
       &f.editor,
-      "demo",
+      "acme/demo",
       1,
       DocumentKind::Tasks,
       "v2",
@@ -164,7 +172,7 @@ fn put_creates_document_and_revision() {
 
   let doc = f
     .store
-    .get_document(&f.editor, "demo", 1, DocumentKind::Tasks)
+    .get_document(&f.editor, "acme/demo", 1, DocumentKind::Tasks)
     .unwrap();
   assert_eq!(doc.body, "v2");
   assert_eq!(doc.revision.id, second);
@@ -177,7 +185,7 @@ fn put_creates_document_and_revision() {
   assert_eq!(documents, 1);
   assert_eq!(revisions, 2);
 
-  let audit = f.store.list_audit(Some("demo"), 10).unwrap();
+  let audit = f.store.list_audit(Some("acme/demo"), 10).unwrap();
   assert!(
     audit
       .iter()
@@ -185,14 +193,21 @@ fn put_creates_document_and_revision() {
   );
 
   assert!(matches!(
-    f.store
-      .put_document(&f.editor, "demo", 2, DocumentKind::Spec, "x", "m", None),
+    f.store.put_document(
+      &f.editor,
+      "acme/demo",
+      2,
+      DocumentKind::Spec,
+      "x",
+      "m",
+      None
+    ),
     Err(StoreError::NotFound(_))
   ));
   assert!(matches!(
     f.store.put_document(
       &f.editor,
-      "demo",
+      "acme/demo",
       1,
       DocumentKind::Constitution,
       "x",
@@ -204,7 +219,7 @@ fn put_creates_document_and_revision() {
 }
 
 fn admin(f: &Fixture) -> Caller {
-  f.store.caller_by_handle("root").unwrap()
+  common::operator(&f.store, "ops")
 }
 
 #[test]
@@ -214,7 +229,7 @@ fn put_requires_matching_expected_revision() {
     .store
     .put_document(
       &f.editor,
-      "demo",
+      "acme/demo",
       1,
       DocumentKind::Spec,
       "v1",
@@ -226,7 +241,7 @@ fn put_requires_matching_expected_revision() {
     .store
     .put_document(
       &f.editor,
-      "demo",
+      "acme/demo",
       1,
       DocumentKind::Spec,
       "v2",
@@ -242,7 +257,7 @@ fn put_requires_matching_expected_revision() {
     .store
     .put_document(
       &f.editor,
-      "demo",
+      "acme/demo",
       1,
       DocumentKind::Spec,
       "v2",
@@ -254,7 +269,7 @@ fn put_requires_matching_expected_revision() {
     .store
     .put_document(
       &f.editor,
-      "demo",
+      "acme/demo",
       1,
       DocumentKind::Spec,
       "v3",
@@ -268,13 +283,13 @@ fn put_requires_matching_expected_revision() {
   }
   let doc = f
     .store
-    .get_document(&f.editor, "demo", 1, DocumentKind::Spec)
+    .get_document(&f.editor, "acme/demo", 1, DocumentKind::Spec)
     .unwrap();
   assert_eq!(doc.body, "v2", "nothing stored on conflict");
   assert!(matches!(
     f.store.put_document(
       &f.editor,
-      "demo",
+      "acme/demo",
       1,
       DocumentKind::Plan,
       "p",
@@ -289,45 +304,81 @@ fn put_requires_matching_expected_revision() {
 fn reader_and_archived_cannot_write() {
   let f = fixture();
   assert!(matches!(
-    f.store
-      .put_document(&f.reader, "demo", 1, DocumentKind::Spec, "x", "m", None),
+    f.store.put_document(
+      &f.reader,
+      "acme/demo",
+      1,
+      DocumentKind::Spec,
+      "x",
+      "m",
+      None
+    ),
     Err(StoreError::Forbidden)
   ));
   assert!(matches!(
-    f.store
-      .put_document(&admin(&f), "demo", 1, DocumentKind::Spec, "x", "m", None),
+    f.store.put_document(
+      &admin(&f),
+      "acme/demo",
+      1,
+      DocumentKind::Spec,
+      "x",
+      "m",
+      None
+    ),
     Err(StoreError::Forbidden)
   ));
   assert!(matches!(
-    f.store
-      .put_document(&f.outsider, "demo", 1, DocumentKind::Spec, "x", "m", None),
-    Err(StoreError::Forbidden)
+    f.store.put_document(
+      &f.outsider,
+      "acme/demo",
+      1,
+      DocumentKind::Spec,
+      "x",
+      "m",
+      None
+    ),
+    Err(StoreError::NotFound(_))
   ));
 
   f.store
-    .put_document(&f.editor, "demo", 1, DocumentKind::Spec, "x", "m", None)
+    .put_document(
+      &f.editor,
+      "acme/demo",
+      1,
+      DocumentKind::Spec,
+      "x",
+      "m",
+      None,
+    )
     .unwrap();
   f.store
     .set_spec_status(
       &f.owner,
-      "demo",
+      "acme/demo",
       1,
       spec_store_core::model::SpecStatus::Archived,
     )
     .unwrap();
   assert!(matches!(
-    f.store
-      .put_document(&f.editor, "demo", 1, DocumentKind::Plan, "p", "m", None),
+    f.store.put_document(
+      &f.editor,
+      "acme/demo",
+      1,
+      DocumentKind::Plan,
+      "p",
+      "m",
+      None
+    ),
     Err(StoreError::Forbidden)
   ));
   assert!(matches!(
     f.store
-      .put_document(&f.owner, "demo", 1, DocumentKind::Plan, "p", "m", None),
+      .put_document(&f.owner, "acme/demo", 1, DocumentKind::Plan, "p", "m", None),
     Err(StoreError::Forbidden)
   ));
   assert_eq!(
     f.store
-      .get_document(&f.reader, "demo", 1, DocumentKind::Spec)
+      .get_document(&f.reader, "acme/demo", 1, DocumentKind::Spec)
       .unwrap()
       .body,
     "x",
@@ -340,41 +391,47 @@ fn constitution_owner_only_and_version_must_change() {
   let f = fixture();
   assert!(matches!(
     f.store
-      .put_constitution(&f.editor, "demo", "c", "1.0", "m", None),
+      .put_constitution(&f.editor, "acme/demo", "c", "1.0", "m", None),
     Err(StoreError::Forbidden)
   ));
   assert!(matches!(
     f.store
-      .put_constitution(&f.reader, "demo", "c", "1.0", "m", None),
+      .put_constitution(&f.reader, "acme/demo", "c", "1.0", "m", None),
     Err(StoreError::Forbidden)
   ));
   assert!(matches!(
     f.store
-      .put_constitution(&admin(&f), "demo", "c", "1.0", "m", None),
+      .put_constitution(&admin(&f), "acme/demo", "c", "1.0", "m", None),
     Err(StoreError::Forbidden)
   ));
   let first = f
     .store
-    .put_constitution(&f.owner, "demo", "c1", "1.0", "ratified", None)
+    .put_constitution(&f.owner, "acme/demo", "c1", "1.0", "ratified", None)
     .unwrap();
   assert!(matches!(
-    f.store
-      .put_constitution(&f.owner, "demo", "c2", "1.0", "same version", Some(first)),
+    f.store.put_constitution(
+      &f.owner,
+      "acme/demo",
+      "c2",
+      "1.0",
+      "same version",
+      Some(first)
+    ),
     Err(StoreError::Conflict { .. })
   ));
   assert!(matches!(
     f.store
-      .put_constitution(&f.owner, "demo", "c2", "1.1", "no expected", None),
+      .put_constitution(&f.owner, "acme/demo", "c2", "1.1", "no expected", None),
     Err(StoreError::Conflict { .. })
   ));
   let second = f
     .store
-    .put_constitution(&f.owner, "demo", "c2", "1.1", "amended", Some(first))
+    .put_constitution(&f.owner, "acme/demo", "c2", "1.1", "amended", Some(first))
     .unwrap();
-  let current = f.store.get_constitution(&f.reader, "demo").unwrap();
+  let current = f.store.get_constitution(&f.reader, "acme/demo").unwrap();
   assert_eq!(current.version, "1.1");
   assert_eq!(current.revision.id, second);
-  let audit = f.store.list_audit(Some("demo"), 10).unwrap();
+  let audit = f.store.list_audit(Some("acme/demo"), 10).unwrap();
   assert!(audit.iter().any(|e| e.action == "constitution.put"));
 }
 
@@ -385,7 +442,7 @@ fn rejects_over_1mb_and_keeps_bytes() {
   assert!(matches!(
     f.store.put_document(
       &f.editor,
-      "demo",
+      "acme/demo",
       1,
       DocumentKind::Spec,
       &"x".repeat(limit + 1),
@@ -396,20 +453,28 @@ fn rejects_over_1mb_and_keeps_bytes() {
   ));
   assert!(
     f.store
-      .get_document(&f.editor, "demo", 1, DocumentKind::Spec)
+      .get_document(&f.editor, "acme/demo", 1, DocumentKind::Spec)
       .is_err()
   );
 
   let exact = "y".repeat(limit);
   let id = f
     .store
-    .put_document(&f.editor, "demo", 1, DocumentKind::Spec, &exact, "m", None)
+    .put_document(
+      &f.editor,
+      "acme/demo",
+      1,
+      DocumentKind::Spec,
+      &exact,
+      "m",
+      None,
+    )
     .unwrap();
   let body = "# Title\r\n\r\n- [ ] T01 (FR-1) x — Done when: y  \r\nünïcödé → ok\n";
   f.store
     .put_document(
       &f.editor,
-      "demo",
+      "acme/demo",
       1,
       DocumentKind::Spec,
       body,
@@ -419,7 +484,7 @@ fn rejects_over_1mb_and_keeps_bytes() {
     .unwrap();
   assert_eq!(
     f.store
-      .get_document(&f.editor, "demo", 1, DocumentKind::Spec)
+      .get_document(&f.editor, "acme/demo", 1, DocumentKind::Spec)
       .unwrap()
       .body,
     body
@@ -431,7 +496,15 @@ fn concurrent_puts_exactly_one_wins() {
   let f = fixture();
   let first = f
     .store
-    .put_document(&f.editor, "demo", 1, DocumentKind::Tasks, "base", "m", None)
+    .put_document(
+      &f.editor,
+      "acme/demo",
+      1,
+      DocumentKind::Tasks,
+      "base",
+      "m",
+      None,
+    )
     .unwrap();
   let barrier = std::sync::Arc::new(std::sync::Barrier::new(2));
   let handles: Vec<_> = (0..2)
@@ -443,7 +516,7 @@ fn concurrent_puts_exactly_one_wins() {
         barrier.wait();
         store.put_document(
           &caller,
-          "demo",
+          "acme/demo",
           1,
           DocumentKind::Tasks,
           &format!("w{i}"),
@@ -471,7 +544,7 @@ fn list_revisions_newest_first() {
     .store
     .put_document(
       &f.editor,
-      "demo",
+      "acme/demo",
       1,
       DocumentKind::Spec,
       "v1",
@@ -483,7 +556,7 @@ fn list_revisions_newest_first() {
     .store
     .put_document(
       &f.owner,
-      "demo",
+      "acme/demo",
       1,
       DocumentKind::Spec,
       "v2",
@@ -494,7 +567,7 @@ fn list_revisions_newest_first() {
 
   let revisions = f
     .store
-    .list_revisions(&f.reader, "demo", Some(1), DocumentKind::Spec)
+    .list_revisions(&f.reader, "acme/demo", Some(1), DocumentKind::Spec)
     .unwrap();
   assert_eq!(revisions.len(), 2);
   assert_eq!(revisions[0].id, second);
@@ -507,14 +580,14 @@ fn list_revisions_newest_first() {
 
   let c1 = f
     .store
-    .put_constitution(&f.owner, "demo", "c1", "1.0", "ratified", None)
+    .put_constitution(&f.owner, "acme/demo", "c1", "1.0", "ratified", None)
     .unwrap();
   f.store
-    .put_constitution(&f.owner, "demo", "c2", "1.1", "amended", Some(c1))
+    .put_constitution(&f.owner, "acme/demo", "c2", "1.1", "amended", Some(c1))
     .unwrap();
   let constitution = f
     .store
-    .list_revisions(&f.reader, "demo", None, DocumentKind::Constitution)
+    .list_revisions(&f.reader, "acme/demo", None, DocumentKind::Constitution)
     .unwrap();
   assert_eq!(constitution.len(), 2);
   assert_eq!(constitution[0].version.as_deref(), Some("1.1"));
@@ -522,23 +595,23 @@ fn list_revisions_newest_first() {
 
   assert!(matches!(
     f.store
-      .list_revisions(&f.reader, "demo", Some(1), DocumentKind::Plan),
+      .list_revisions(&f.reader, "acme/demo", Some(1), DocumentKind::Plan),
     Err(StoreError::NotFound(_))
   ));
   assert!(matches!(
     f.store
-      .list_revisions(&f.reader, "demo", Some(1), DocumentKind::Constitution),
+      .list_revisions(&f.reader, "acme/demo", Some(1), DocumentKind::Constitution),
     Err(StoreError::Validation(_))
   ));
   assert!(matches!(
     f.store
-      .list_revisions(&f.reader, "demo", None, DocumentKind::Spec),
+      .list_revisions(&f.reader, "acme/demo", None, DocumentKind::Spec),
     Err(StoreError::Validation(_))
   ));
   assert!(matches!(
     f.store
-      .list_revisions(&f.outsider, "demo", Some(1), DocumentKind::Spec),
-    Err(StoreError::Forbidden)
+      .list_revisions(&f.outsider, "acme/demo", Some(1), DocumentKind::Spec),
+    Err(StoreError::NotFound(_))
   ));
 }
 
@@ -549,7 +622,7 @@ fn get_revision_body_and_not_found() {
     .store
     .put_document(
       &f.editor,
-      "demo",
+      "acme/demo",
       1,
       DocumentKind::Tasks,
       "v1",
@@ -560,7 +633,7 @@ fn get_revision_body_and_not_found() {
   f.store
     .put_document(
       &f.editor,
-      "demo",
+      "acme/demo",
       1,
       DocumentKind::Tasks,
       "v2",
@@ -569,7 +642,7 @@ fn get_revision_body_and_not_found() {
     )
     .unwrap();
 
-  let revision = f.store.get_revision(&f.reader, "demo", first).unwrap();
+  let revision = f.store.get_revision(&f.reader, "acme/demo", first).unwrap();
   assert_eq!(revision.body, "v1");
   assert_eq!(revision.meta.id, first);
   assert_eq!(revision.meta.author, "editor");
@@ -579,30 +652,32 @@ fn get_revision_body_and_not_found() {
 
   let c1 = f
     .store
-    .put_constitution(&f.owner, "demo", "c1", "1.0", "ratified", None)
+    .put_constitution(&f.owner, "acme/demo", "c1", "1.0", "ratified", None)
     .unwrap();
-  let constitution = f.store.get_revision(&f.reader, "demo", c1).unwrap();
+  let constitution = f.store.get_revision(&f.reader, "acme/demo", c1).unwrap();
   assert_eq!(constitution.kind, DocumentKind::Constitution);
   assert_eq!(constitution.number, None);
   assert_eq!(constitution.meta.version.as_deref(), Some("1.0"));
 
   assert!(matches!(
-    f.store.get_revision(&f.reader, "demo", 999),
+    f.store.get_revision(&f.reader, "acme/demo", 999),
     Err(StoreError::NotFound(_))
   ));
   assert!(matches!(
-    f.store.get_revision(&f.outsider, "demo", first),
-    Err(StoreError::Forbidden)
+    f.store.get_revision(&f.outsider, "acme/demo", first),
+    Err(StoreError::NotFound(_))
   ));
 
-  let admin = f.store.caller_by_handle("root").unwrap();
-  f.store.create_project(&admin, "other", "Other").unwrap();
+  let admin = f.store.caller_by_handle("root", false).unwrap();
   f.store
-    .set_member(&admin, "other", "reader", Role::Reader)
+    .create_project(&admin, "acme/other", "Other")
+    .unwrap();
+  f.store
+    .set_member(&admin, "acme/other", "reader", Role::Reader)
     .unwrap();
   assert!(
     matches!(
-      f.store.get_revision(&f.reader, "other", first),
+      f.store.get_revision(&f.reader, "acme/other", first),
       Err(StoreError::NotFound(_))
     ),
     "revisions are scoped to the project they belong to"

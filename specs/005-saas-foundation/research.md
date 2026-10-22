@@ -93,7 +93,7 @@ Versions were read from crates.io, npm and the official release pages on 2026-10
 - Question: can PostgreSQL keep bodies byte for byte, and which types replace the SQLite text timestamps?
 - Finding: verified: `\r\n` round-trips in `text`; a NUL byte fails with SQLSTATE 22021. Diesel's `chrono` feature maps `DateTime<Utc>` to `timestamptz`; chrono 0.4 is already in the tree through rmcp. Identity columns map to `i64`; PG 18 has native `uuidv7()` if opaque ids are needed later.
 - Source: https://www.postgresql.org/docs/18/datatype-character.html ; https://docs.diesel.rs/2.3.x/diesel/sql_types/struct.Timestamptz.html ; https://www.postgresql.org/docs/18/ddl-identity-columns.html
-- Decision: `text` bodies; NUL rejected by body validation with a `Validation` error (NFR-2); `timestamptz DEFAULT now()` with diesel `chrono`, serialized as RFC 3339 with milliseconds and `Z` as today; `bigint GENERATED ALWAYS AS IDENTITY` keys, slugs as the public address. Rejected: `bytea` bodies; text timestamps; UUID primary keys.
+- Decision: `text` bodies; NUL rejected by body validation with a `Validation` error (NFR-2); `timestamptz DEFAULT now()`, read through a SQL function `iso_utc(timestamptz)` (migration 0001) that returns RFC 3339 with milliseconds and `Z` as today, so every `created_at` keeps its `String` type in Rust (implemented in T09–T11; diesel `chrono` stays available for time arithmetic); `bigint GENERATED ALWAYS AS IDENTITY` keys, slugs as the public address. Rejected: `bytea` bodies; text timestamps; UUID primary keys.
 
 ## R14 — Tenant isolation
 

@@ -1,31 +1,57 @@
 diesel::table! {
   users (id) {
     id -> BigInt,
+    identity_subject -> Text,
     handle -> Text,
-    is_admin -> BigInt,
-    created_at -> Text,
+    email -> Text,
+    name -> Text,
+    created_at -> Timestamptz,
+    updated_at -> Timestamptz,
   }
 }
 
 diesel::table! {
-  api_tokens (id) {
+  organizations (id) {
     id -> BigInt,
+    slug -> Text,
+    name -> Text,
+    created_at -> Timestamptz,
+  }
+}
+
+diesel::table! {
+  organization_members (organization_id, user_id) {
+    organization_id -> BigInt,
     user_id -> BigInt,
+    role -> Text,
+    created_at -> Timestamptz,
+  }
+}
+
+diesel::table! {
+  invitations (id) {
+    id -> BigInt,
+    organization_id -> BigInt,
+    email -> Text,
     token_hash -> Text,
-    label -> Text,
-    created_at -> Text,
-    last_used_at -> Nullable<Text>,
-    revoked_at -> Nullable<Text>,
+    inviter_id -> BigInt,
+    language -> Text,
+    state -> Text,
+    expires_at -> Timestamptz,
+    accepted_by -> Nullable<BigInt>,
+    created_at -> Timestamptz,
+    updated_at -> Timestamptz,
   }
 }
 
 diesel::table! {
   projects (id) {
     id -> BigInt,
+    organization_id -> BigInt,
     slug -> Text,
     name -> Text,
-    created_at -> Text,
     repository_url -> Nullable<Text>,
+    created_at -> Timestamptz,
   }
 }
 
@@ -45,7 +71,7 @@ diesel::table! {
     slug -> Text,
     status -> Text,
     branch -> Text,
-    created_at -> Text,
+    created_at -> Timestamptz,
   }
 }
 
@@ -67,7 +93,7 @@ diesel::table! {
     version -> Nullable<Text>,
     author_id -> BigInt,
     message -> Text,
-    created_at -> Text,
+    created_at -> Timestamptz,
   }
 }
 
@@ -75,46 +101,85 @@ diesel::table! {
   audit_log (id) {
     id -> BigInt,
     actor_id -> BigInt,
+    organization_id -> Nullable<BigInt>,
     project_id -> Nullable<BigInt>,
     action -> Text,
     target -> Text,
-    created_at -> Text,
+    created_at -> Timestamptz,
   }
 }
 
 diesel::table! {
-  sessions (id) {
+  browser_sessions (id) {
     id -> BigInt,
     secret_hash -> Text,
-    token_id -> BigInt,
     user_id -> BigInt,
-    created_at -> Text,
-    expires_at -> Text,
-    ended_at -> Nullable<Text>,
+    identity_session_id -> Nullable<Text>,
+    refresh_token_sealed -> Binary,
+    id_token_sealed -> Binary,
+    access_expires_at -> Timestamptz,
+    is_operator -> Bool,
+    created_at -> Timestamptz,
+    ended_at -> Nullable<Timestamptz>,
   }
 }
 
-diesel::joinable!(api_tokens -> users (user_id));
+diesel::table! {
+  login_attempts (id) {
+    id -> BigInt,
+    state_hash -> Text,
+    pkce_verifier_sealed -> Binary,
+    return_to -> Text,
+    created_at -> Timestamptz,
+  }
+}
+
+diesel::table! {
+  email_outbox (id) {
+    id -> BigInt,
+    kind -> Text,
+    recipient -> Text,
+    language -> Text,
+    payload -> Text,
+    attempts -> Integer,
+    next_attempt_at -> Timestamptz,
+    sent_at -> Nullable<Timestamptz>,
+    failed_at -> Nullable<Timestamptz>,
+    created_at -> Timestamptz,
+  }
+}
+
+diesel::joinable!(organization_members -> organizations (organization_id));
+diesel::joinable!(organization_members -> users (user_id));
+diesel::joinable!(invitations -> organizations (organization_id));
+diesel::joinable!(projects -> organizations (organization_id));
 diesel::joinable!(memberships -> projects (project_id));
 diesel::joinable!(memberships -> users (user_id));
 diesel::joinable!(specs -> projects (project_id));
 diesel::joinable!(documents -> projects (project_id));
-diesel::joinable!(documents -> specs (spec_id));
 diesel::joinable!(revisions -> documents (document_id));
 diesel::joinable!(revisions -> users (author_id));
 diesel::joinable!(audit_log -> users (actor_id));
+diesel::joinable!(audit_log -> organizations (organization_id));
 diesel::joinable!(audit_log -> projects (project_id));
-diesel::joinable!(sessions -> api_tokens (token_id));
-diesel::joinable!(sessions -> users (user_id));
+diesel::joinable!(browser_sessions -> users (user_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
   users,
-  api_tokens,
+  organizations,
+  organization_members,
+  invitations,
   projects,
   memberships,
   specs,
   documents,
   revisions,
   audit_log,
-  sessions,
+  browser_sessions,
+  login_attempts,
+  email_outbox,
 );
+
+diesel::define_sql_function! {
+  fn iso_utc(t: diesel::sql_types::Timestamptz) -> diesel::sql_types::Text;
+}

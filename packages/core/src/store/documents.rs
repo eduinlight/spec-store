@@ -1,8 +1,9 @@
+use diesel::PgExpressionMethods;
+use diesel::pg::PgConnection;
 use diesel::prelude::*;
-use diesel::sqlite::SqliteConnection;
 
-use crate::model::{Caller, DocumentKind, SpecStatus, StoreError, StoreResult, validate_body_size};
-use crate::schema::{documents, revisions, specs, users};
+use crate::model::{Caller, DocumentKind, SpecStatus, StoreError, StoreResult, validate_body};
+use crate::schema::{documents, iso_utc, revisions, specs, users};
 use crate::store::projects::access_in;
 use crate::store::specs::spec_by_number;
 use crate::store::{Store, audit};
@@ -39,7 +40,7 @@ fn reject_constitution_kind(kind: DocumentKind) -> StoreResult<()> {
 }
 
 pub fn document_id(
-  conn: &mut SqliteConnection,
+  conn: &mut PgConnection,
   project_id: i64,
   spec_id: Option<i64>,
   kind: DocumentKind,
@@ -47,7 +48,7 @@ pub fn document_id(
   Ok(
     documents::table
       .filter(documents::project_id.eq(project_id))
-      .filter(documents::spec_id.is(spec_id))
+      .filter(documents::spec_id.is_not_distinct_from(spec_id))
       .filter(documents::kind.eq(kind.as_str()))
       .select(documents::id)
       .first(conn)
@@ -68,7 +69,7 @@ fn revision_meta((id, author, created_at, message, version): RevisionMetaRow) ->
 }
 
 pub fn current_revision(
-  conn: &mut SqliteConnection,
+  conn: &mut PgConnection,
   document_id: i64,
 ) -> StoreResult<Option<(String, RevisionMeta)>> {
   let row: Option<(String, RevisionMetaRow)> = documents::table
@@ -80,7 +81,7 @@ pub fn current_revision(
       (
         revisions::id,
         users::handle,
-        revisions::created_at,
+        iso_utc(revisions::created_at),
         revisions::message,
         revisions::version,
       ),
@@ -90,11 +91,12 @@ pub fn current_revision(
   Ok(row.map(|(body, meta)| (body, revision_meta(meta))))
 }
 
-fn current_revision_id(conn: &mut SqliteConnection, document_id: i64) -> StoreResult<Option<i64>> {
+fn lock_current_revision_id(conn: &mut PgConnection, document_id: i64) -> StoreResult<Option<i64>> {
   Ok(
     documents::table
       .filter(documents::id.eq(document_id))
       .select(documents::current_revision_id)
+      .for_update()
       .first(conn)?,
   )
 }
@@ -117,28 +119,25 @@ fn check_expected_revision(
 }
 
 pub(crate) fn ensure_document(
-  conn: &mut SqliteConnection,
+  conn: &mut PgConnection,
   project_id: i64,
   spec_id: Option<i64>,
   kind: DocumentKind,
 ) -> StoreResult<i64> {
-  if let Some(id) = document_id(conn, project_id, spec_id, kind)? {
-    return Ok(id);
-  }
-  Ok(
-    diesel::insert_into(documents::table)
-      .values((
-        documents::project_id.eq(project_id),
-        documents::spec_id.eq(spec_id),
-        documents::kind.eq(kind.as_str()),
-      ))
-      .returning(documents::id)
-      .get_result(conn)?,
-  )
+  diesel::insert_into(documents::table)
+    .values((
+      documents::project_id.eq(project_id),
+      documents::spec_id.eq(spec_id),
+      documents::kind.eq(kind.as_str()),
+    ))
+    .on_conflict_do_nothing()
+    .execute(conn)?;
+  document_id(conn, project_id, spec_id, kind)?
+    .ok_or_else(|| StoreError::NotFound(format!("{kind} document")))
 }
 
 pub(crate) fn append_revision(
-  conn: &mut SqliteConnection,
+  conn: &mut PgConnection,
   document_id: i64,
   body: &str,
   version: Option<&str>,
@@ -209,7 +208,7 @@ impl Store {
     expected_revision: Option<i64>,
   ) -> StoreResult<i64> {
     reject_constitution_kind(kind)?;
-    validate_body_size(body)?;
+    validate_body(body)?;
     self.with_tx(|tx| {
       let access = access_in(tx, caller, project)?;
       if !access.can_write() {
@@ -219,17 +218,13 @@ impl Store {
       if spec.status == SpecStatus::Archived {
         return Err(StoreError::Forbidden);
       }
-      let existing = document_id(tx, access.project_id, Some(spec.id), kind)?;
-      let current = match existing {
-        Some(id) => current_revision_id(tx, id)?,
-        None => None,
-      };
+      let doc_id = ensure_document(tx, access.project_id, Some(spec.id), kind)?;
+      let current = lock_current_revision_id(tx, doc_id)?;
       check_expected_revision(
         current,
         expected_revision,
         &format!("{kind} document of spec {number:03}"),
       )?;
-      let doc_id = ensure_document(tx, access.project_id, Some(spec.id), kind)?;
       let revision_id = append_revision(tx, doc_id, body, None, caller.user_id, message)?;
       audit(
         tx,
@@ -251,17 +246,15 @@ impl Store {
     message: &str,
     expected_revision: Option<i64>,
   ) -> StoreResult<i64> {
-    validate_body_size(body)?;
+    validate_body(body)?;
     self.with_tx(|tx| {
       let access = access_in(tx, caller, project)?;
       if !access.is_owner() {
         return Err(StoreError::Forbidden);
       }
-      let existing = document_id(tx, access.project_id, None, DocumentKind::Constitution)?;
-      let current = match existing {
-        Some(id) => current_revision(tx, id)?.map(|(_, meta)| meta),
-        None => None,
-      };
+      let doc_id = ensure_document(tx, access.project_id, None, DocumentKind::Constitution)?;
+      lock_current_revision_id(tx, doc_id)?;
+      let current = current_revision(tx, doc_id)?.map(|(_, meta)| meta);
       if let Some(meta) = &current
         && meta.version.as_deref() == Some(version)
       {
@@ -274,7 +267,6 @@ impl Store {
         expected_revision,
         &format!("constitution of project {project:?}"),
       )?;
-      let doc_id = ensure_document(tx, access.project_id, None, DocumentKind::Constitution)?;
       let revision_id = append_revision(tx, doc_id, body, Some(version), caller.user_id, message)?;
       audit(
         tx,
@@ -334,7 +326,7 @@ impl Store {
         .select((
           revisions::id,
           users::handle,
-          revisions::created_at,
+          iso_utc(revisions::created_at),
           revisions::message,
           revisions::version,
         ))
@@ -362,7 +354,7 @@ impl Store {
           (
             revisions::id,
             users::handle,
-            revisions::created_at,
+            iso_utc(revisions::created_at),
             revisions::message,
             revisions::version,
           ),

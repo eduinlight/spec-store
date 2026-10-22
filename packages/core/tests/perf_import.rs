@@ -3,7 +3,6 @@ mod common;
 use std::fs;
 use std::time::{Duration, Instant};
 
-use spec_store_core::model::Role;
 use spec_store_core::store::Store;
 use spec_store_core::store::transfer::ImportOptions;
 use spec_store_core::tree::scan;
@@ -26,19 +25,17 @@ fn importing_one_hundred_specs_takes_under_ten_seconds() {
     }
   }
 
-  let store = Store::open(common::temp_db_path("perf-import")).unwrap();
-  store.create_user(None, "root", false).unwrap();
-  let admin = store.caller_by_handle("root").unwrap();
-  store.create_project(&admin, "demo", "Demo").unwrap();
-  store
-    .set_member(&admin, "demo", "root", Role::Owner)
-    .unwrap();
+  let test_store = common::test_store();
+  let store: &Store = &test_store;
+  let admin = common::person(store, "root");
+  common::organization(store, &admin, common::ORG);
+  store.create_project(&admin, "acme/demo", "Demo").unwrap();
 
   let started = Instant::now();
   let tree = scan(&root).unwrap();
   assert!(tree.problems.is_empty(), "{:?}", tree.problems);
   let report = store
-    .import_tree(&admin, "demo", &tree, &ImportOptions::default())
+    .import_tree(&admin, "acme/demo", &tree, &ImportOptions::default())
     .unwrap();
   let elapsed = started.elapsed();
   assert_eq!(report.specs.len(), SPECS);

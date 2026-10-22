@@ -1,15 +1,18 @@
+use diesel::pg::PgConnection;
 use diesel::prelude::*;
-use diesel::sqlite::SqliteConnection;
 use diesel::upsert::excluded;
 
-use crate::model::{Caller, Role, StoreError, StoreResult, validate_slug};
-use crate::schema::{memberships, projects, users};
-use crate::store::users::{require_admin, user_id_by_handle};
-use crate::store::{Store, audit, project_id_by_slug};
+use crate::address::ProjectRef;
+use crate::model::{Caller, OrgRole, Role, StoreError, StoreResult, validate_slug};
+use crate::schema::{iso_utc, memberships, organization_members, organizations, projects, users};
+use crate::store::organizations::{org_role, organization_id_by_slug};
+use crate::store::users::user_id_by_handle;
+use crate::store::{Store, audit};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Project {
   pub id: i64,
+  pub address: ProjectRef,
   pub slug: String,
   pub name: String,
   pub repository_url: Option<String>,
@@ -35,19 +38,22 @@ pub fn validate_repository_url(url: &str) -> StoreResult<()> {
   Ok(())
 }
 
-pub fn project_in(conn: &mut SqliteConnection, project_id: i64) -> StoreResult<Project> {
-  let (id, slug, name, repository_url, created_at) = projects::table
+pub fn project_in(conn: &mut PgConnection, project_id: i64) -> StoreResult<Project> {
+  let (id, organization, slug, name, repository_url, created_at) = projects::table
+    .inner_join(organizations::table)
     .filter(projects::id.eq(project_id))
     .select((
       projects::id,
+      organizations::slug,
       projects::slug,
       projects::name,
       projects::repository_url,
-      projects::created_at,
+      iso_utc(projects::created_at),
     ))
-    .first::<(i64, String, String, Option<String>, String)>(conn)?;
+    .first::<(i64, String, String, String, Option<String>, String)>(conn)?;
   Ok(Project {
     id,
+    address: ProjectRef::new(&organization, &slug),
     slug,
     name,
     repository_url,
@@ -65,8 +71,9 @@ pub struct ProjectSummary {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Access {
   pub project_id: i64,
+  pub organization_id: i64,
   pub role: Option<Role>,
-  pub is_admin: bool,
+  pub is_operator: bool,
 }
 
 impl Access {
@@ -79,12 +86,12 @@ impl Access {
   }
 
   pub fn can_manage_members(&self) -> bool {
-    self.is_admin || self.is_owner()
+    self.is_owner()
   }
 }
 
 pub fn role_of(
-  conn: &mut SqliteConnection,
+  conn: &mut PgConnection,
   project_id: i64,
   user_id: i64,
 ) -> StoreResult<Option<Role>> {
@@ -97,42 +104,80 @@ pub fn role_of(
   role.map(|r| r.parse()).transpose()
 }
 
-pub fn access_in(conn: &mut SqliteConnection, caller: &Caller, slug: &str) -> StoreResult<Access> {
-  match project_id_by_slug(conn, slug)? {
-    None if caller.is_admin => Err(StoreError::NotFound(format!("project {slug:?}"))),
-    None => Err(StoreError::Forbidden),
-    Some(project_id) => {
-      let role = role_of(conn, project_id, caller.user_id)?;
-      if role.is_none() && !caller.is_admin {
-        return Err(StoreError::Forbidden);
-      }
-      Ok(Access {
-        project_id,
-        role,
-        is_admin: caller.is_admin,
-      })
-    }
+pub fn access_in(conn: &mut PgConnection, caller: &Caller, project: &str) -> StoreResult<Access> {
+  let address = ProjectRef::parse(project)?;
+  let not_found = || StoreError::NotFound(format!("project {project:?}"));
+  let found: Option<(i64, i64)> = projects::table
+    .inner_join(organizations::table)
+    .filter(organizations::slug.eq(&address.organization))
+    .filter(projects::slug.eq(&address.project))
+    .select((projects::id, projects::organization_id))
+    .first(conn)
+    .optional()?;
+  let (project_id, organization_id) = found.ok_or_else(not_found)?;
+  let role = match org_role(conn, organization_id, caller.user_id)? {
+    Some(OrgRole::Owner) => Some(Role::Owner),
+    _ => role_of(conn, project_id, caller.user_id)?,
+  };
+  if role.is_none() && !caller.is_operator {
+    return Err(not_found());
   }
+  Ok(Access {
+    project_id,
+    organization_id,
+    role,
+    is_operator: caller.is_operator,
+  })
 }
 
 impl Store {
-  pub fn create_project(&self, actor: &Caller, slug: &str, name: &str) -> StoreResult<Project> {
-    require_admin(Some(actor))?;
-    validate_slug(slug)?;
+  pub fn create_project(&self, actor: &Caller, project: &str, name: &str) -> StoreResult<Project> {
+    let address = ProjectRef::parse(project)?;
+    validate_slug(&address.project)?;
     self.with_tx(|tx| {
-      if project_id_by_slug(tx, slug)?.is_some() {
+      let organization_id = organization_id_by_slug(tx, &address.organization)?
+        .ok_or_else(|| StoreError::NotFound(format!("organization {:?}", address.organization)))?;
+      match org_role(tx, organization_id, actor.user_id)? {
+        Some(OrgRole::Owner) => {}
+        Some(OrgRole::Member) => return Err(StoreError::Forbidden),
+        None if actor.is_operator => return Err(StoreError::Forbidden),
+        None => {
+          return Err(StoreError::NotFound(format!(
+            "organization {:?}",
+            address.organization
+          )));
+        }
+      }
+      let duplicate: i64 = projects::table
+        .filter(projects::organization_id.eq(organization_id))
+        .filter(projects::slug.eq(&address.project))
+        .count()
+        .get_result(tx)?;
+      if duplicate > 0 {
         return Err(StoreError::Validation(format!(
-          "project slug {slug:?} already exists"
+          "project slug {:?} already exists in organization {:?}",
+          address.project, address.organization
         )));
       }
       let (id, created_at): (i64, String) = diesel::insert_into(projects::table)
-        .values((projects::slug.eq(slug), projects::name.eq(name)))
-        .returning((projects::id, projects::created_at))
+        .values((
+          projects::organization_id.eq(organization_id),
+          projects::slug.eq(&address.project),
+          projects::name.eq(name),
+        ))
+        .returning((projects::id, iso_utc(projects::created_at)))
         .get_result(tx)?;
-      audit(tx, actor.user_id, Some(id), "project.create", slug)?;
+      audit(
+        tx,
+        actor.user_id,
+        Some(id),
+        "project.create",
+        &address.to_string(),
+      )?;
       Ok(Project {
         id,
-        slug: slug.to_string(),
+        slug: address.project.clone(),
+        address,
         name: name.to_string(),
         repository_url: None,
         created_at,
@@ -153,6 +198,11 @@ impl Store {
         return Err(StoreError::Forbidden);
       }
       let user_id = user_id_by_handle(tx, handle)?;
+      if org_role(tx, access.organization_id, user_id)?.is_none() {
+        return Err(StoreError::Validation(format!(
+          "{handle:?} is not a member of the organization; invite them first"
+        )));
+      }
       diesel::insert_into(memberships::table)
         .values((
           memberships::project_id.eq(access.project_id),
@@ -203,32 +253,16 @@ impl Store {
 
   pub fn list_projects(&self, caller: &Caller) -> StoreResult<Vec<ProjectSummary>> {
     self.with_conn(|conn| {
-      let joined = projects::table.left_join(
-        memberships::table.on(
-          memberships::project_id
-            .eq(projects::id)
-            .and(memberships::user_id.eq(caller.user_id)),
-        ),
-      );
-      let rows: Vec<(String, String, Option<String>)> = if caller.is_admin {
-        joined
-          .select((projects::slug, projects::name, memberships::role.nullable()))
-          .order(projects::slug)
-          .load(conn)?
-      } else {
-        joined
-          .filter(memberships::role.nullable().is_not_null())
-          .select((projects::slug, projects::name, memberships::role.nullable()))
-          .order(projects::slug)
-          .load(conn)?
-      };
       Ok(
-        rows
+        visible_projects(conn, caller)?
           .into_iter()
-          .map(|(slug, name, role)| ProjectSummary {
-            slug,
-            name,
-            role: role.unwrap_or_else(|| "admin".to_string()),
+          .map(|p| ProjectSummary {
+            slug: p.address.to_string(),
+            name: p.name,
+            role: p
+              .role
+              .map(|r| r.as_str().to_string())
+              .unwrap_or_else(|| "operator".to_string()),
           })
           .collect(),
       )
@@ -302,6 +336,66 @@ impl Store {
       )
     })
   }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VisibleProject {
+  pub id: i64,
+  pub address: ProjectRef,
+  pub name: String,
+  pub role: Option<Role>,
+}
+
+type VisibleRow = (i64, String, String, String, Option<String>, Option<String>);
+
+pub fn visible_projects(
+  conn: &mut PgConnection,
+  caller: &Caller,
+) -> StoreResult<Vec<VisibleProject>> {
+  let rows: Vec<VisibleRow> = projects::table
+    .inner_join(organizations::table)
+    .left_join(
+      memberships::table.on(
+        memberships::project_id
+          .eq(projects::id)
+          .and(memberships::user_id.eq(caller.user_id)),
+      ),
+    )
+    .left_join(
+      organization_members::table.on(
+        organization_members::organization_id
+          .eq(projects::organization_id)
+          .and(organization_members::user_id.eq(caller.user_id)),
+      ),
+    )
+    .select((
+      projects::id,
+      organizations::slug,
+      projects::slug,
+      projects::name,
+      memberships::role.nullable(),
+      organization_members::role.nullable(),
+    ))
+    .order((organizations::slug, projects::slug))
+    .load(conn)?;
+  let mut visible = Vec::new();
+  for (id, organization, slug, name, project_role, org_role) in rows {
+    let role = if org_role.as_deref() == Some(OrgRole::Owner.as_str()) {
+      Some(Role::Owner)
+    } else {
+      project_role.map(|r| r.parse()).transpose()?
+    };
+    if role.is_none() && !caller.is_operator {
+      continue;
+    }
+    visible.push(VisibleProject {
+      id,
+      address: ProjectRef::new(&organization, &slug),
+      name,
+      role,
+    });
+  }
+  Ok(visible)
 }
 
 fn role_rank(role: Role) -> u8 {

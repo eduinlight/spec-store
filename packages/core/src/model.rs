@@ -23,6 +23,8 @@ pub enum StoreError {
   Pool(#[from] diesel::r2d2::PoolError),
   #[error("migration step {step} failed: {detail}")]
   Migration { step: String, detail: String },
+  #[error("{0} is unavailable")]
+  Unavailable(String),
 }
 
 pub type StoreResult<T> = Result<T, StoreError>;
@@ -31,7 +33,45 @@ pub type StoreResult<T> = Result<T, StoreError>;
 pub struct Caller {
   pub user_id: i64,
   pub handle: String,
-  pub is_admin: bool,
+  pub is_operator: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum OrgRole {
+  Owner,
+  Member,
+}
+
+impl OrgRole {
+  pub const ALL: [OrgRole; 2] = [OrgRole::Owner, OrgRole::Member];
+
+  pub fn as_str(self) -> &'static str {
+    match self {
+      OrgRole::Owner => "owner",
+      OrgRole::Member => "member",
+    }
+  }
+}
+
+impl FromStr for OrgRole {
+  type Err = StoreError;
+
+  fn from_str(s: &str) -> Result<Self, Self::Err> {
+    OrgRole::ALL
+      .into_iter()
+      .find(|r| r.as_str() == s)
+      .ok_or_else(|| {
+        StoreError::Validation(format!(
+          "unknown organization role {s:?}; valid roles: owner, member"
+        ))
+      })
+  }
+}
+
+impl fmt::Display for OrgRole {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    f.write_str(self.as_str())
+  }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -233,11 +273,16 @@ pub fn validate_commit(commit: &str) -> StoreResult<()> {
   Ok(())
 }
 
-pub fn validate_body_size(body: &str) -> StoreResult<()> {
+pub fn validate_body(body: &str) -> StoreResult<()> {
   if body.len() > MAX_BODY_BYTES {
     return Err(StoreError::Validation(format!(
       "document body of {} bytes exceeds the limit of {MAX_BODY_BYTES} bytes",
       body.len()
+    )));
+  }
+  if let Some(offset) = body.find('\0') {
+    return Err(StoreError::Validation(format!(
+      "document body contains a NUL character at byte {offset}; markdown documents cannot contain NUL"
     )));
   }
   Ok(())
@@ -368,9 +413,9 @@ mod tests {
   #[test]
   fn body_limit_is_one_mebibyte() {
     assert_eq!(MAX_BODY_BYTES, 1_048_576);
-    assert!(validate_body_size("x".repeat(MAX_BODY_BYTES).as_str()).is_ok());
+    assert!(validate_body("x".repeat(MAX_BODY_BYTES).as_str()).is_ok());
     assert!(matches!(
-      validate_body_size("x".repeat(MAX_BODY_BYTES + 1).as_str()),
+      validate_body("x".repeat(MAX_BODY_BYTES + 1).as_str()),
       Err(StoreError::Validation(_))
     ));
   }

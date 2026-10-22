@@ -1,5 +1,5 @@
+use diesel::pg::PgConnection;
 use diesel::prelude::*;
-use diesel::sqlite::SqliteConnection;
 
 use crate::model::{Caller, DocumentKind, SpecStatus, StoreError, StoreResult};
 use crate::schema::specs;
@@ -33,7 +33,7 @@ pub struct ImportReport {
 }
 
 fn current_body(
-  conn: &mut SqliteConnection,
+  conn: &mut PgConnection,
   project_id: i64,
   spec_id: Option<i64>,
   kind: DocumentKind,
@@ -54,7 +54,7 @@ fn spec_status(spec: &TreeSpec) -> Option<SpecStatus> {
 }
 
 fn existing_spec_problems(
-  conn: &mut SqliteConnection,
+  conn: &mut PgConnection,
   project_id: i64,
   project: &str,
   spec: &TreeSpec,

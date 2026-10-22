@@ -1,150 +1,73 @@
 mod common;
 
-use diesel::prelude::*;
-use diesel::sql_types::Text;
 use spec_store_core::db;
 use spec_store_core::store::Store;
 
-const EXPECTED_TABLES: [&str; 10] = [
+const EXPECTED_TABLES: [&str; 14] = [
   "__diesel_schema_migrations",
-  "users",
-  "api_tokens",
-  "projects",
-  "memberships",
-  "specs",
-  "documents",
-  "revisions",
   "audit_log",
-  "sessions",
+  "browser_sessions",
+  "documents",
+  "email_outbox",
+  "invitations",
+  "login_attempts",
+  "memberships",
+  "organization_members",
+  "organizations",
+  "projects",
+  "revisions",
+  "specs",
+  "users",
 ];
 
 #[test]
 fn open_creates_every_table() {
-  let path = common::temp_db_path("db-tables");
-  let pool = db::open(&path).expect("open");
+  let test_db = spec_store_testkit::TestDb::empty();
+  let pool = db::open(&test_db.url).expect("open");
   let names = common::table_names(&mut pool.get().unwrap());
-  for table in EXPECTED_TABLES {
-    assert!(names.iter().any(|n| n == table), "missing table {table}");
-  }
+  assert_eq!(names, EXPECTED_TABLES);
 }
 
 #[test]
-fn open_enables_wal_and_foreign_keys() {
-  let path = common::temp_db_path("db-pragmas");
-  let pool = db::open(&path).expect("open");
-  let mut conn = pool.get().unwrap();
-  assert_eq!(common::journal_mode(&mut conn), "wal");
-  assert_eq!(common::foreign_keys(&mut conn), 1);
-}
-
-#[test]
-fn open_records_diesel_history_only() {
-  let path = common::temp_db_path("db-idempotent");
+fn reopening_applies_nothing_new() {
+  let test_db = spec_store_testkit::TestDb::empty();
   {
-    let _first = db::open(&path).expect("first open");
+    let _first = db::open(&test_db.url).expect("first open");
   }
-  let pool = db::open(&path).expect("second open");
-  let mut conn = pool.get().unwrap();
-  assert_eq!(common::diesel_versions(&mut conn), vec!["0001", "0002"]);
-  assert!(
-    !common::table_names(&mut conn)
-      .iter()
-      .any(|n| n == "schema_migrations"),
-    "a new database has no previous history table"
-  );
-}
-
-#[derive(QueryableByName)]
-struct ColumnName {
-  #[diesel(sql_type = Text)]
-  name: String,
-}
-
-fn column_names(conn: &mut SqliteConnection, table: &str) -> Vec<String> {
-  diesel::sql_query(format!("SELECT name FROM pragma_table_info('{table}')"))
-    .load::<ColumnName>(conn)
-    .unwrap()
-    .into_iter()
-    .map(|c| c.name)
-    .collect()
-}
-
-#[test]
-fn second_migration_adds_sessions_and_repository_url() {
-  let pool = db::open_in_memory().expect("memory");
-  let mut conn = pool.get().unwrap();
-  let sessions = column_names(&mut conn, "sessions");
-  for column in [
-    "id",
-    "secret_hash",
-    "token_id",
-    "user_id",
-    "created_at",
-    "expires_at",
-    "ended_at",
-  ] {
-    assert!(
-      sessions.iter().any(|c| c == column),
-      "sessions lacks {column}: {sessions:?}"
-    );
-  }
-  let projects = column_names(&mut conn, "projects");
-  assert!(
-    projects.iter().any(|c| c == "repository_url"),
-    "{projects:?}"
+  let pool = db::open(&test_db.url).expect("second open");
+  assert_eq!(
+    common::diesel_versions(&mut pool.get().unwrap()),
+    vec!["0001"]
   );
 }
 
 #[test]
-fn open_in_memory_runs_migrations_too() {
-  let pool = db::open_in_memory().expect("memory");
-  let mut conn = pool.get().unwrap();
-  assert!(
-    common::table_names(&mut conn)
-      .iter()
-      .any(|n| n == "revisions")
-  );
-  assert_eq!(common::diesel_versions(&mut conn), vec!["0001", "0002"]);
-}
-
-#[test]
-fn memory_store_has_connection_settings() {
-  let store = Store::in_memory().expect("memory");
-  let (foreign_keys, busy_timeout) = store
-    .with_conn(|conn| Ok((common::foreign_keys(conn), common::busy_timeout(conn))))
-    .unwrap();
-  assert_eq!(foreign_keys, 1);
-  assert_eq!(busy_timeout, 5000);
-}
-
-#[test]
-fn file_store_keeps_its_data_across_opens() {
-  let path = common::temp_db_path("db-reopen");
+fn store_keeps_its_data_across_opens() {
+  let test_db = spec_store_testkit::TestDb::empty();
   {
-    let store = Store::open(&path).expect("first open");
-    store.create_user(None, "root", true).unwrap();
+    let store = Store::open(&test_db.url).expect("first open");
+    common::person(&store, "root");
   }
-  let store = Store::open(&path).expect("second open");
-  assert!(store.caller_by_handle("root").unwrap().is_admin);
+  let store = Store::open(&test_db.url).expect("second open");
+  assert_eq!(
+    store.caller_by_handle("root", false).unwrap().handle,
+    "root"
+  );
 }
 
 #[test]
-fn new_file_and_memory_stores_record_both_migrations() {
-  let path = common::temp_db_path("db-new-store");
-  for store in [
-    Store::open(&path).expect("file"),
-    Store::in_memory().expect("memory"),
-  ] {
-    let (versions, tables) = store
-      .with_conn(|conn| Ok((common::diesel_versions(conn), common::table_names(conn))))
-      .unwrap();
-    assert_eq!(versions, vec!["0001", "0002"]);
-    assert!(
-      !tables.iter().any(|t| t == "schema_migrations"),
-      "{tables:?}"
-    );
-    for table in EXPECTED_TABLES {
-      assert!(tables.iter().any(|t| t == table), "missing {table}");
-    }
-  }
+fn ping_answers_on_a_live_database() {
+  let store = common::test_store();
+  store.ping().expect("ping");
+}
+
+#[test]
+fn unreachable_database_is_a_pool_error() {
+  let error = Store::open("postgres://nobody:nothing@127.0.0.1:1/none")
+    .err()
+    .expect("fails");
+  assert!(
+    matches!(error, spec_store_core::model::StoreError::Pool(_)),
+    "{error:?}"
+  );
 }

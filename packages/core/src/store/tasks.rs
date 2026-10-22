@@ -1,14 +1,15 @@
+use diesel::pg::PgConnection;
 use diesel::prelude::*;
-use diesel::sqlite::SqliteConnection;
 
 use crate::markdown::markers::{MarkerKind, scan_markers};
 use crate::markdown::tasks::{ParsedTasks, Task, mark_done, parse_tasks};
 use crate::model::{
   Caller, DocumentKind, Role, SpecStatus, StoreError, StoreResult, validate_commit,
 };
-use crate::schema::{memberships, projects, specs};
+use crate::schema::specs;
 use crate::store::documents::{append_revision, current_revision, document_id};
 use crate::store::projects::access_in;
+use crate::store::projects::visible_projects;
 use crate::store::specs::{SpecRow, SpecSummary, active_spec_in, list_specs_in, spec_by_number};
 use crate::store::{Store, audit};
 
@@ -57,10 +58,7 @@ pub struct ProjectOverview {
   pub active: Option<ActiveStatus>,
 }
 
-fn constitution_version(
-  conn: &mut SqliteConnection,
-  project_id: i64,
-) -> StoreResult<Option<String>> {
+fn constitution_version(conn: &mut PgConnection, project_id: i64) -> StoreResult<Option<String>> {
   match document_id(conn, project_id, None, DocumentKind::Constitution)? {
     Some(doc_id) => Ok(current_revision(conn, doc_id)?.and_then(|(_, meta)| meta.version)),
     None => Ok(None),
@@ -68,7 +66,7 @@ fn constitution_version(
 }
 
 fn document_body(
-  conn: &mut SqliteConnection,
+  conn: &mut PgConnection,
   project_id: i64,
   spec_id: i64,
   kind: DocumentKind,
@@ -80,7 +78,7 @@ fn document_body(
 }
 
 fn markers_of(
-  conn: &mut SqliteConnection,
+  conn: &mut PgConnection,
   project_id: i64,
   spec_id: i64,
 ) -> StoreResult<Vec<SpecMarker>> {
@@ -100,7 +98,7 @@ fn markers_of(
 }
 
 fn active_status(
-  conn: &mut SqliteConnection,
+  conn: &mut PgConnection,
   project_id: i64,
   spec: SpecRow,
 ) -> StoreResult<ActiveStatus> {
@@ -178,42 +176,20 @@ impl Store {
 
   pub fn project_overview(&self, caller: &Caller) -> StoreResult<Vec<ProjectOverview>> {
     self.with_conn(|conn| {
-      let joined = projects::table.left_join(
-        memberships::table.on(
-          memberships::project_id
-            .eq(projects::id)
-            .and(memberships::user_id.eq(caller.user_id)),
-        ),
-      );
-      let columns = (
-        projects::id,
-        projects::slug,
-        projects::name,
-        memberships::role.nullable(),
-      );
-      let rows: Vec<(i64, String, String, Option<String>)> = if caller.is_admin {
-        joined.select(columns).order(projects::slug).load(conn)?
-      } else {
-        joined
-          .filter(memberships::role.nullable().is_not_null())
-          .select(columns)
-          .order(projects::slug)
-          .load(conn)?
-      };
       let mut overview = Vec::new();
-      for (project_id, slug, name, role) in rows {
+      for project in visible_projects(conn, caller)? {
         let spec_count: i64 = specs::table
-          .filter(specs::project_id.eq(project_id))
+          .filter(specs::project_id.eq(project.id))
           .count()
           .get_result(conn)?;
-        let active = active_spec_in(conn, project_id)?
-          .map(|spec| active_status(conn, project_id, spec))
+        let active = active_spec_in(conn, project.id)?
+          .map(|spec| active_status(conn, project.id, spec))
           .transpose()?;
         overview.push(ProjectOverview {
-          slug,
-          name,
-          role: role.map(|r| r.parse()).transpose()?,
-          constitution_version: constitution_version(conn, project_id)?,
+          slug: project.address.to_string(),
+          name: project.name,
+          role: project.role,
+          constitution_version: constitution_version(conn, project.id)?,
           spec_count: spec_count as usize,
           active,
         });

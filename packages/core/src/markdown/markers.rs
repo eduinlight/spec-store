@@ -89,7 +89,7 @@ mod tests {
 - [NEEDS CLARIFICATION: Who writes the constitution?]
 
 ### Research notes
-Pending: [NEEDS RESEARCH: rmcp version] and [NEEDS RESEARCH: sqlite WAL]
+Pending: [NEEDS RESEARCH: rmcp version] and [NEEDS RESEARCH: postgres locks]
 ";
 
   #[test]
@@ -110,7 +110,7 @@ Pending: [NEEDS RESEARCH: rmcp version] and [NEEDS RESEARCH: sqlite WAL]
     assert_eq!(markers[2].kind, MarkerKind::Research);
     assert_eq!(markers[2].heading, "Research notes");
     assert_eq!(markers[2].text, "rmcp version");
-    assert_eq!(markers[3].text, "sqlite WAL");
+    assert_eq!(markers[3].text, "postgres locks");
     assert_eq!(markers[3].line, 10);
   }
 
@@ -143,6 +143,6 @@ Pending: [NEEDS RESEARCH: rmcp version] and [NEEDS RESEARCH: sqlite WAL]
     let markers = scan_markers(&BODY.replace('\n', "\r\n"));
     assert_eq!(markers.len(), 4);
     assert_eq!(markers[1].heading, "12. Open questions");
-    assert_eq!(markers[3].text, "sqlite WAL");
+    assert_eq!(markers[3].text, "postgres locks");
   }
 }
