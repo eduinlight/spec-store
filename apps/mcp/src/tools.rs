@@ -9,18 +9,17 @@ use rmcp::{
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use crate::markdown::tasks::{Malformed, Task};
-use crate::model::{Caller, DocumentKind, SpecStatus, StoreError};
-use crate::store::Store;
-use crate::store::documents::RevisionMeta;
-use crate::store::specs::SpecSummary;
-use crate::store::tasks::{ActiveStatus, SpecMarker};
-use crate::templates;
+use spec_store_core::markdown::tasks::{Malformed, Task};
+use spec_store_core::model::{Caller, DocumentKind, SpecStatus, StoreError, StoreResult};
+use spec_store_core::store::Store;
+use spec_store_core::store::documents::RevisionMeta;
+use spec_store_core::store::specs::SpecSummary;
+use spec_store_core::store::tasks::{ActiveStatus, SpecMarker};
+use spec_store_core::templates;
 
 #[derive(Clone)]
 pub struct SpecStoreMcp {
   store: Store,
-  fixed_caller: Option<Caller>,
   tool_router: ToolRouter<Self>,
 }
 
@@ -38,13 +37,17 @@ pub struct ProjectsOutput {
 
 #[derive(Deserialize, schemars::JsonSchema)]
 pub struct ProjectParams {
-  #[schemars(description = "Project slug")]
+  #[schemars(
+    description = "Project address: <organization>/<project>, for example acme/spec-store"
+  )]
   pub project: String,
 }
 
 #[derive(Deserialize, schemars::JsonSchema)]
 pub struct DocumentParams {
-  #[schemars(description = "Project slug")]
+  #[schemars(
+    description = "Project address: <organization>/<project>, for example acme/spec-store"
+  )]
   pub project: String,
   #[schemars(description = "Spec number, for example 1 for spec 001")]
   pub number: i64,
@@ -134,7 +137,9 @@ pub struct TemplateOutput {
 
 #[derive(Deserialize, schemars::JsonSchema)]
 pub struct CreateSpecParams {
-  #[schemars(description = "Project slug")]
+  #[schemars(
+    description = "Project address: <organization>/<project>, for example acme/spec-store"
+  )]
   pub project: String,
   #[schemars(description = "Spec slug: one to four lowercase words joined by hyphens")]
   pub slug: String,
@@ -142,7 +147,9 @@ pub struct CreateSpecParams {
 
 #[derive(Deserialize, schemars::JsonSchema)]
 pub struct PutDocumentParams {
-  #[schemars(description = "Project slug")]
+  #[schemars(
+    description = "Project address: <organization>/<project>, for example acme/spec-store"
+  )]
   pub project: String,
   #[schemars(description = "Spec number")]
   pub number: i64,
@@ -160,7 +167,9 @@ pub struct PutDocumentParams {
 
 #[derive(Deserialize, schemars::JsonSchema)]
 pub struct PutConstitutionParams {
-  #[schemars(description = "Project slug")]
+  #[schemars(
+    description = "Project address: <organization>/<project>, for example acme/spec-store"
+  )]
   pub project: String,
   #[schemars(description = "Full markdown body of the constitution")]
   pub body: String,
@@ -176,7 +185,9 @@ pub struct PutConstitutionParams {
 
 #[derive(Deserialize, schemars::JsonSchema)]
 pub struct SetStatusParams {
-  #[schemars(description = "Project slug")]
+  #[schemars(
+    description = "Project address: <organization>/<project>, for example acme/spec-store"
+  )]
   pub project: String,
   #[schemars(description = "Spec number")]
   pub number: i64,
@@ -186,7 +197,9 @@ pub struct SetStatusParams {
 
 #[derive(Deserialize, schemars::JsonSchema)]
 pub struct MarkTaskParams {
-  #[schemars(description = "Project slug")]
+  #[schemars(
+    description = "Project address: <organization>/<project>, for example acme/spec-store"
+  )]
   pub project: String,
   #[schemars(description = "Spec number")]
   pub number: i64,
@@ -223,7 +236,9 @@ pub struct MarkedTaskOutput {
 
 #[derive(Deserialize, schemars::JsonSchema)]
 pub struct SpecParams {
-  #[schemars(description = "Project slug")]
+  #[schemars(
+    description = "Project address: <organization>/<project>, for example acme/spec-store"
+  )]
   pub project: String,
   #[schemars(description = "Spec number")]
   pub number: i64,
@@ -231,7 +246,9 @@ pub struct SpecParams {
 
 #[derive(Deserialize, schemars::JsonSchema)]
 pub struct ListTasksParams {
-  #[schemars(description = "Project slug")]
+  #[schemars(
+    description = "Project address: <organization>/<project>, for example acme/spec-store"
+  )]
   pub project: String,
   #[schemars(description = "Spec number")]
   pub number: i64,
@@ -354,7 +371,9 @@ pub struct ProjectStatusOutput {
 
 #[derive(Deserialize, schemars::JsonSchema)]
 pub struct ListRevisionsParams {
-  #[schemars(description = "Project slug")]
+  #[schemars(
+    description = "Project address: <organization>/<project>, for example acme/spec-store"
+  )]
   pub project: String,
   #[schemars(description = "Spec number; omit it for the constitution")]
   pub number: Option<i64>,
@@ -366,7 +385,9 @@ pub struct ListRevisionsParams {
 
 #[derive(Deserialize, schemars::JsonSchema)]
 pub struct GetRevisionParams {
-  #[schemars(description = "Project slug")]
+  #[schemars(
+    description = "Project address: <organization>/<project>, for example acme/spec-store"
+  )]
   pub project: String,
   #[schemars(description = "Revision id as returned by the write tools or list_revisions")]
   pub revision_id: i64,
@@ -415,6 +436,10 @@ pub fn to_mcp_error(error: StoreError) -> McpError {
     StoreError::Malformed(message) => {
       McpError::invalid_params(message, Some(json!({"kind": "malformed"})))
     }
+    StoreError::Unavailable(what) => McpError::internal_error(
+      format!("{what} is unavailable"),
+      Some(json!({"kind": "unavailable"})),
+    ),
     StoreError::Database(_) | StoreError::Pool(_) | StoreError::Migration { .. } => {
       tracing::error!(error = %error, "database error");
       McpError::internal_error("database error", Some(json!({"kind": "internal"})))
@@ -427,23 +452,23 @@ impl SpecStoreMcp {
   pub fn new(store: Store) -> Self {
     Self {
       store,
-      fixed_caller: None,
       tool_router: Self::tool_router(),
     }
   }
 
-  pub fn acting_for(store: Store, caller: Caller) -> Self {
-    Self {
-      store,
-      fixed_caller: Some(caller),
-      tool_router: Self::tool_router(),
-    }
+  async fn run<T, F>(&self, work: F) -> Result<T, McpError>
+  where
+    T: Send + 'static,
+    F: FnOnce(&Store) -> StoreResult<T> + Send + 'static,
+  {
+    let store = self.store.clone();
+    tokio::task::spawn_blocking(move || work(&store))
+      .await
+      .map_err(|e| McpError::internal_error(e.to_string(), Some(json!({"kind": "internal"}))))?
+      .map_err(to_mcp_error)
   }
 
   fn caller(&self, ctx: &RequestContext<RoleServer>) -> Result<Caller, McpError> {
-    if let Some(caller) = &self.fixed_caller {
-      return Ok(caller.clone());
-    }
     ctx
       .extensions
       .get::<Parts>()
@@ -452,14 +477,14 @@ impl SpecStoreMcp {
   }
 
   #[tool(
-    description = "List the projects the caller belongs to with their role; admins see every project"
+    description = "List the projects the caller can open, addressed as <organization>/<project>, with their role; operators see every project"
   )]
   async fn list_projects(
     &self,
     ctx: RequestContext<RoleServer>,
   ) -> Result<Json<ProjectsOutput>, McpError> {
     let caller = self.caller(&ctx)?;
-    let projects = self.store.list_projects(&caller).map_err(to_mcp_error)?;
+    let projects = self.run(move |store| store.list_projects(&caller)).await?;
     Ok(Json(ProjectsOutput {
       projects: projects
         .into_iter()
@@ -482,9 +507,8 @@ impl SpecStoreMcp {
   ) -> Result<Json<SpecsOutput>, McpError> {
     let caller = self.caller(&ctx)?;
     let specs = self
-      .store
-      .list_specs(&caller, &p.project)
-      .map_err(to_mcp_error)?;
+      .run(move |store| store.list_specs(&caller, &p.project))
+      .await?;
     Ok(Json(SpecsOutput {
       specs: specs.into_iter().map(SpecOutput::from).collect(),
     }))
@@ -500,9 +524,8 @@ impl SpecStoreMcp {
   ) -> Result<Json<ActiveSpecOutput>, McpError> {
     let caller = self.caller(&ctx)?;
     let active = self
-      .store
-      .active_spec(&caller, &p.project)
-      .map_err(to_mcp_error)?;
+      .run(move |store| store.active_spec(&caller, &p.project))
+      .await?;
     let message = active
       .is_none()
       .then(|| "no active spec: the project has no non-archived specs".to_string());
@@ -523,9 +546,8 @@ impl SpecStoreMcp {
     let caller = self.caller(&ctx)?;
     let kind = parse_kind(&p.kind)?;
     let doc = self
-      .store
-      .get_document(&caller, &p.project, p.number, kind)
-      .map_err(to_mcp_error)?;
+      .run(move |store| store.get_document(&caller, &p.project, p.number, kind))
+      .await?;
     Ok(Json(DocumentOutput {
       body: doc.body,
       revision: doc.revision.into(),
@@ -540,9 +562,8 @@ impl SpecStoreMcp {
   ) -> Result<Json<ConstitutionOutput>, McpError> {
     let caller = self.caller(&ctx)?;
     let c = self
-      .store
-      .get_constitution(&caller, &p.project)
-      .map_err(to_mcp_error)?;
+      .run(move |store| store.get_constitution(&caller, &p.project))
+      .await?;
     Ok(Json(ConstitutionOutput {
       body: c.body,
       version: c.version,
@@ -574,9 +595,8 @@ impl SpecStoreMcp {
   ) -> Result<Json<CreatedSpecOutput>, McpError> {
     let caller = self.caller(&ctx)?;
     let created = self
-      .store
-      .create_spec(&caller, &p.project, &p.slug)
-      .map_err(to_mcp_error)?;
+      .run(move |store| store.create_spec(&caller, &p.project, &p.slug))
+      .await?;
     Ok(Json(CreatedSpecOutput {
       number: created.number,
       slug: created.slug,
@@ -596,17 +616,18 @@ impl SpecStoreMcp {
     let caller = self.caller(&ctx)?;
     let kind = parse_kind(&p.kind)?;
     let revision_id = self
-      .store
-      .put_document(
-        &caller,
-        &p.project,
-        p.number,
-        kind,
-        &p.body,
-        &p.message,
-        p.expected_revision,
-      )
-      .map_err(to_mcp_error)?;
+      .run(move |store| {
+        store.put_document(
+          &caller,
+          &p.project,
+          p.number,
+          kind,
+          &p.body,
+          &p.message,
+          p.expected_revision,
+        )
+      })
+      .await?;
     Ok(Json(RevisionIdOutput { revision_id }))
   }
 
@@ -620,16 +641,17 @@ impl SpecStoreMcp {
   ) -> Result<Json<RevisionIdOutput>, McpError> {
     let caller = self.caller(&ctx)?;
     let revision_id = self
-      .store
-      .put_constitution(
-        &caller,
-        &p.project,
-        &p.body,
-        &p.version,
-        &p.message,
-        p.expected_revision,
-      )
-      .map_err(to_mcp_error)?;
+      .run(move |store| {
+        store.put_constitution(
+          &caller,
+          &p.project,
+          &p.body,
+          &p.version,
+          &p.message,
+          p.expected_revision,
+        )
+      })
+      .await?;
     Ok(Json(RevisionIdOutput { revision_id }))
   }
 
@@ -643,12 +665,12 @@ impl SpecStoreMcp {
   ) -> Result<Json<StatusOutput>, McpError> {
     let caller = self.caller(&ctx)?;
     let status: SpecStatus = p.status.parse().map_err(to_mcp_error)?;
+    let number = p.number;
     let status = self
-      .store
-      .set_spec_status(&caller, &p.project, p.number, status)
-      .map_err(to_mcp_error)?;
+      .run(move |store| store.set_spec_status(&caller, &p.project, p.number, status))
+      .await?;
     Ok(Json(StatusOutput {
-      number: p.number,
+      number,
       status: status.as_str().to_string(),
     }))
   }
@@ -663,9 +685,8 @@ impl SpecStoreMcp {
   ) -> Result<Json<MarkedTaskOutput>, McpError> {
     let caller = self.caller(&ctx)?;
     let marked = self
-      .store
-      .mark_task_done(&caller, &p.project, p.number, &p.task_id, &p.commit)
-      .map_err(to_mcp_error)?;
+      .run(move |store| store.mark_task_done(&caller, &p.project, p.number, &p.task_id, &p.commit))
+      .await?;
     Ok(Json(MarkedTaskOutput {
       revision_id: marked.revision_id,
       line: marked.line,
@@ -682,9 +703,8 @@ impl SpecStoreMcp {
   ) -> Result<Json<TasksOutput>, McpError> {
     let caller = self.caller(&ctx)?;
     let parsed = self
-      .store
-      .list_tasks(&caller, &p.project, p.number, p.pending_only)
-      .map_err(to_mcp_error)?;
+      .run(move |store| store.list_tasks(&caller, &p.project, p.number, p.pending_only))
+      .await?;
     Ok(Json(TasksOutput {
       tasks: parsed.tasks.into_iter().map(TaskOutput::from).collect(),
       malformed: parsed
@@ -705,9 +725,8 @@ impl SpecStoreMcp {
   ) -> Result<Json<MarkersOutput>, McpError> {
     let caller = self.caller(&ctx)?;
     let markers = self
-      .store
-      .list_markers(&caller, &p.project, p.number)
-      .map_err(to_mcp_error)?;
+      .run(move |store| store.list_markers(&caller, &p.project, p.number))
+      .await?;
     Ok(Json(MarkersOutput {
       markers: markers.into_iter().map(MarkerOutput::from).collect(),
     }))
@@ -723,9 +742,8 @@ impl SpecStoreMcp {
   ) -> Result<Json<ProjectStatusOutput>, McpError> {
     let caller = self.caller(&ctx)?;
     let status = self
-      .store
-      .project_status(&caller, &p.project)
-      .map_err(to_mcp_error)?;
+      .run(move |store| store.project_status(&caller, &p.project))
+      .await?;
     Ok(Json(ProjectStatusOutput {
       constitution_version: status.constitution_version,
       specs: status.specs.into_iter().map(SpecOutput::from).collect(),
@@ -744,9 +762,8 @@ impl SpecStoreMcp {
     let caller = self.caller(&ctx)?;
     let kind = parse_kind(&p.kind)?;
     let revisions = self
-      .store
-      .list_revisions(&caller, &p.project, p.number, kind)
-      .map_err(to_mcp_error)?;
+      .run(move |store| store.list_revisions(&caller, &p.project, p.number, kind))
+      .await?;
     Ok(Json(RevisionsOutput {
       revisions: revisions.into_iter().map(RevisionOutput::from).collect(),
     }))
@@ -760,9 +777,8 @@ impl SpecStoreMcp {
   ) -> Result<Json<RevisionBodyOutput>, McpError> {
     let caller = self.caller(&ctx)?;
     let revision = self
-      .store
-      .get_revision(&caller, &p.project, p.revision_id)
-      .map_err(to_mcp_error)?;
+      .run(move |store| store.get_revision(&caller, &p.project, p.revision_id))
+      .await?;
     Ok(Json(RevisionBodyOutput {
       body: revision.body,
       kind: revision.kind.as_str().to_string(),
@@ -778,7 +794,7 @@ impl ServerHandler for SpecStoreMcp {
     ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
       .with_server_info(Implementation::new("spec-store", env!("CARGO_PKG_VERSION")))
       .with_instructions(
-        "Store of Spec Driven Development documents. Projects are addressed by slug and specs by number. \
+        "Store of Spec Driven Development documents. Projects are addressed as <organization>/<project> and specs by number. \
          Read documents with get_document, the constitution with get_constitution and templates with get_template.",
       )
   }
