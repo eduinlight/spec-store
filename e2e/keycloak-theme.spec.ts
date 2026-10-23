@@ -3,6 +3,7 @@ import { expect, type Page, test } from "@playwright/test";
 const keycloak = process.env.KEYCLOAK_URL ?? "http://localhost:58080";
 const realm = `${keycloak}/realms/spec-store/protocol/openid-connect`;
 const evidence = "specs/005-saas-foundation/evidence";
+const password = crypto.randomUUID();
 const pkce =
   "code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM&code_challenge_method=S256";
 const client = "client_id=spec-store-app&response_type=code&scope=openid";
@@ -31,8 +32,8 @@ for (const language of ["en", "es"]) {
     await page.fill("#firstName", "Theme");
     await page.fill("#lastName", "Check");
     if (await page.locator("#password").count()) {
-      await page.fill("#password", "${E2E_PASSWORD}");
-      await page.fill("#password-confirm", "${E2E_PASSWORD}");
+      await page.fill("#password", password);
+      await page.fill("#password-confirm", password);
     }
     await page.locator("input[type=submit], button[type=submit]").first().click();
     await capture(page, "verify-email", language);

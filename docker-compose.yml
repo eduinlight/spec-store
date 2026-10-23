@@ -9,9 +9,11 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PLATFORM_DB_PASSWORD: ${PLATFORM_DB_PASSWORD}
+      KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql
-      - ./deploy/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./deploy/postgres/init.sh:/docker-entrypoint-initdb.d/init.sh:ro
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "postgres", "-d", "platform"]
       interval: 3s
@@ -48,7 +50,7 @@ services:
       KC_DB_USERNAME: keycloak
       KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
       KC_HEALTH_ENABLED: "true"
-      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USER:-admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
       KC_HOSTNAME: http://localhost:${KEYCLOAK_PORT:-58080}
       MCP_RESOURCE: ${MCP_RESOURCE:-http://localhost:54100/mcp}
@@ -58,8 +60,10 @@ services:
       SMTP_HOST: mailpit
       SMTP_PORT: "1025"
       SMTP_FROM: no-reply@spec-store.local
-      SPEC_STORE_APP_CLIENT_SECRET: ${SPEC_STORE_APP_CLIENT_SECRET:-${KEYCLOAK_APP_CLIENT_SECRET}}
-      SPEC_STORE_ADMIN_CLIENT_SECRET: ${SPEC_STORE_ADMIN_CLIENT_SECRET:-${KEYCLOAK_ADMIN_CLIENT_SECRET}}
+      SPEC_STORE_APP_CLIENT_SECRET: ${KEYCLOAK_APP_CLIENT_SECRET}
+      SPEC_STORE_ADMIN_CLIENT_SECRET: ${KEYCLOAK_ADMIN_CLIENT_SECRET}
+      SPEC_STORE_DEV_PASSWORD: ${SPEC_STORE_DEV_PASSWORD}
+      SPEC_STORE_OPS_PASSWORD: ${SPEC_STORE_OPS_PASSWORD}
       KEYCLOAK_THEME: spec-store
       KEYCLOAK_EMAIL_THEME: spec-store
       KC_SPI_THEME__CACHE_THEMES: "false"

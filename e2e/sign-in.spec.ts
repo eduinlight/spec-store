@@ -4,6 +4,7 @@ const app = process.env.APP_URL ?? "http://localhost:5173";
 const keycloak = process.env.KEYCLOAK_URL ?? "http://localhost:58080";
 const mailpit = process.env.MAILPIT_URL ?? "http://localhost:58025";
 const evidence = "specs/005-saas-foundation/evidence";
+const password = crypto.randomUUID();
 
 async function latestLink(page: Page, address: string): Promise<string> {
   for (let attempt = 0; attempt < 40; attempt += 1) {
@@ -36,14 +37,14 @@ test("a new person signs up, verifies the email, lands in the app and signs out"
   await page.fill("#firstName", "End");
   await page.fill("#lastName", "ToEnd");
   if (await page.locator("#password").count()) {
-    await page.fill("#password", "${E2E_PASSWORD}");
-    await page.fill("#password-confirm", "${E2E_PASSWORD}");
+    await page.fill("#password", password);
+    await page.fill("#password-confirm", password);
   }
   await page.locator("input[type=submit], button[type=submit]").first().click();
   await page.goto(await latestLink(page, email));
   if (await page.locator("#password-new").count()) {
-    await page.fill("#password-new", "${E2E_PASSWORD}");
-    await page.fill("#password-confirm", "${E2E_PASSWORD}");
+    await page.fill("#password-new", password);
+    await page.fill("#password-confirm", password);
     await page.locator("input[type=submit], button[type=submit]").first().click();
   }
   const proceed = page.getByRole("link", {

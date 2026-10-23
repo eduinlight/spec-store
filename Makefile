@@ -1,18 +1,16 @@
 -include .env
-
-DATABASE_URL ?= postgres://platform:${PLATFORM_DB_PASSWORD}@localhost:55432/platform
-export DATABASE_URL
+export
 
 COMPOSE := docker compose
 
-docker-up:
+docker-up: env
 	$(COMPOSE) up -d --wait
 
 docker-down:
 	$(COMPOSE) down
 
 env:
-	@test -f .env || cp .env.dist .env
+	@./scripts/env.sh
 
 install: env docker-up
 	pnpm install --frozen-lockfile
@@ -29,7 +27,7 @@ uninstall:
 
 reinstall: uninstall install
 
-test-services:
+test-services: env
 	$(COMPOSE) up -d --wait postgres mailpit
 
 test-sweep:

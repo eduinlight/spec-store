@@ -14,7 +14,7 @@ use jsonwebtoken::{Algorithm, EncodingKey, Header};
 use serde_json::{Value, json};
 use tokio::task::JoinHandle;
 
-use crate::keys::{EXPONENT, KEY_A_MODULUS, KEY_A_PEM, KEY_B_MODULUS, KEY_B_PEM};
+use crate::keys::{GeneratedKey, key_a, key_b};
 
 pub const REALM: &str = "spec-store";
 
@@ -32,18 +32,15 @@ impl TestKey {
     }
   }
 
-  fn pem(self) -> &'static str {
+  fn generated(self) -> &'static GeneratedKey {
     match self {
-      TestKey::A => KEY_A_PEM,
-      TestKey::B => KEY_B_PEM,
+      TestKey::A => key_a(),
+      TestKey::B => key_b(),
     }
   }
 
-  fn modulus(self) -> &'static str {
-    match self {
-      TestKey::A => KEY_A_MODULUS,
-      TestKey::B => KEY_B_MODULUS,
-    }
+  fn pem(self) -> &'static str {
+    &self.generated().pem
   }
 
   fn jwk(self) -> Value {
@@ -52,8 +49,8 @@ impl TestKey {
       "kty": "RSA",
       "alg": "RS256",
       "use": "sig",
-      "n": self.modulus(),
-      "e": EXPONENT,
+      "n": self.generated().modulus,
+      "e": self.generated().exponent,
     })
   }
 }

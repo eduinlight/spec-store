@@ -120,7 +120,7 @@ deploy/
   keycloak/themes/spec-store/{login,email}/   FreeMarker theme, messages_en/es, CSS from tokens.css
   keycloak/realm/spec-store.json         realm template with placeholders (clients, scopes, lifetimes, i18n, SMTP)
   keycloak/realm/dev-users.json          seeded test person (development only)
-  postgres/init.sql                      create databases platform and keycloak with their roles
+  postgres/init.sh                       create databases platform and keycloak with their roles and generated passwords
   backup/Dockerfile, backup/backup.sh, backup/restore-check.sh   postgres:18 + rclone
 
 spec-store-cd (separate repository, created by the user)

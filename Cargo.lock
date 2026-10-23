@@ -2656,6 +2656,7 @@ dependencies = [
 name = "spec-store-testkit"
 version = "0.2.0"
 dependencies = [
+ "aws-lc-rs",
  "axum",
  "base64 0.22.1",
  "diesel",

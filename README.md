@@ -74,20 +74,21 @@ access. Revoke an approved agent from the profile page in the app.
 Prerequisites: Docker, Rust 1.97 with clippy and rustfmt, Node 24, pnpm 10.33 and `libpq`.
 
 ```sh
-make install     # copies .env.dist to .env, starts PostgreSQL, Keycloak and Mailpit, installs packages
+make install     # writes .env with generated credentials, starts PostgreSQL, Keycloak and Mailpit, installs packages
 make dev         # runs the API, the MCP server, the app and the landing page
 make uninstall   # stops everything and removes containers, volumes and the local Keycloak image
 ```
 
-`make dev` prints every address. With the defaults from `.env.dist`:
+`make dev` prints every address. `.env` is never committed: `make env` writes it from `.env.dist`
+and generates every password, client secret and key in it. With the default ports:
 
 | Service | Address |
 |---|---|
 | Landing | http://localhost:5174 |
-| App | http://localhost:5173 (sign in as `dev` / `${SPEC_STORE_DEV_PASSWORD}`; `ops` / `${SPEC_STORE_OPS_PASSWORD}` is a platform operator) |
+| App | http://localhost:5173 (sign in as `dev` with `SPEC_STORE_DEV_PASSWORD`; `ops` with `SPEC_STORE_OPS_PASSWORD` is a platform operator) |
 | API | http://localhost:54000 |
 | MCP | http://localhost:54100/mcp |
-| Keycloak admin | http://localhost:58080/admin (`KEYCLOAK_ADMIN_USER` / `KEYCLOAK_ADMIN_PASSWORD`) |
+| Keycloak admin | http://localhost:58080/admin (`KEYCLOAK_ADMIN_USER` with `KEYCLOAK_ADMIN_PASSWORD`) |
 | Mailpit inbox | http://localhost:58025 |
 
 The app dev server proxies `/api` and `/auth` to the API, so the browser sees a single origin, as

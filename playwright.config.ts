@@ -1,15 +1,22 @@
 import { defineConfig } from "@playwright/test";
 
+function required(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`${name} is not set; run the browser tests with make e2e`);
+  }
+  return value;
+}
+
 const api = process.env.API_URL ?? "http://localhost:54000";
 const app = process.env.APP_URL ?? "http://localhost:5173";
 
 const apiEnv = {
-  DATABASE_URL: process.env.DATABASE_URL ?? "postgres://platform:${PLATFORM_DB_PASSWORD}@localhost:55432/platform",
+  DATABASE_URL: required("DATABASE_URL"),
   KEYCLOAK_ISSUER: process.env.KEYCLOAK_ISSUER ?? "http://localhost:58080/realms/spec-store",
-  KEYCLOAK_APP_CLIENT_SECRET: process.env.KEYCLOAK_APP_CLIENT_SECRET ?? "${KEYCLOAK_APP_CLIENT_SECRET}",
-  KEYCLOAK_ADMIN_CLIENT_SECRET: process.env.KEYCLOAK_ADMIN_CLIENT_SECRET ?? "${KEYCLOAK_ADMIN_CLIENT_SECRET}",
-  SESSION_SEALING_KEY:
-    process.env.SESSION_SEALING_KEY ?? "${SESSION_SEALING_KEY}",
+  KEYCLOAK_APP_CLIENT_SECRET: required("KEYCLOAK_APP_CLIENT_SECRET"),
+  KEYCLOAK_ADMIN_CLIENT_SECRET: required("KEYCLOAK_ADMIN_CLIENT_SECRET"),
+  SESSION_SEALING_KEY: required("SESSION_SEALING_KEY"),
   APP_URL: app,
   LANDING_URL: process.env.E2E_LANDING_URL ?? app,
   API_BIND: process.env.API_BIND ?? "127.0.0.1:54000",

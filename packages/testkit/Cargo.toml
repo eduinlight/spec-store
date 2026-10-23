@@ -9,6 +9,7 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+aws-lc-rs = "1.18"
 axum = { workspace = true }
 diesel = { workspace = true }
 jsonwebtoken = { workspace = true }

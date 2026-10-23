@@ -2,6 +2,8 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
+: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set; run through make}"
+export PGPASSWORD="$POSTGRES_PASSWORD"
 network="$(docker inspect -f '{{range $name, $_ := .NetworkSettings.Networks}}{{$name}}{{end}}' "$(docker compose ps -q postgres)")"
 store="$(mktemp -d)"
 chmod 777 "$store"

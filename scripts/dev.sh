@@ -2,7 +2,7 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-[[ -f .env ]] || cp .env.dist .env
+./scripts/env.sh >/dev/null
 set -a
 . ./.env
 set +a
@@ -27,10 +27,10 @@ pids+=($!)
 echo
 echo "spec-store is running:"
 echo "    landing  $LANDING_URL"
-echo "    app      $APP_URL      (sign in as dev / ${SPEC_STORE_DEV_PASSWORD})"
+echo "    app      $APP_URL      (sign in as dev with SPEC_STORE_DEV_PASSWORD from .env)"
 echo "    api      $API_URL"
 echo "    mcp      $MCP_RESOURCE"
-echo "    keycloak http://localhost:${KEYCLOAK_PORT:-58080}/admin (KEYCLOAK_ADMIN_USER / KEYCLOAK_ADMIN_PASSWORD)"
+echo "    keycloak http://localhost:${KEYCLOAK_PORT:-58080}/admin ($KEYCLOAK_ADMIN_USER with KEYCLOAK_ADMIN_PASSWORD from .env)"
 echo "    mailpit  http://localhost:${MAILPIT_UI_PORT:-58025}"
 echo
 wait

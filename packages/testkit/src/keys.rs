@@ -1,5 +1,41 @@
-pub const KEY_A_PEM: &str = include_str!("../keys/key-a.pem");
-pub const KEY_B_PEM: &str = include_str!("../keys/key-b.pem");
-pub const KEY_A_MODULUS: &str = "t8dfC4DhpOmyO3v5yojP3SVHIKZbMau_1jarBzaPHoZlrMJ1XJ3qhJBkzErq8E5iZMvxHuCU3Y3xbeMRFe9WrxRkO_JO9re4dh0Oui8kq0KqjCuK8InrcKMdUhoVGoIC-dBWcGtAGjynY-v9M_-PqE_epOpMawVAvjyQJpKG7Dy_7X9SvLmCILn-0uUwOae0Tkc2-9cRuwDJvBKGg0Hv9suTqCzO5ON6nfGfiTBgkr5sG_EZLlVPEjhZvTDl9iVhq476C3aO_HoINnbOlkfzo4dcsolN4nWPg-jJHIE7b_teRm82Fs3quoIzK5Ym8draf-cQ4gpE9m_OkSas019eCw";
-pub const KEY_B_MODULUS: &str = "3UwR5oXOasUC77hoeRUhfYCPLv8QLGMRBS6taOov0MtWXEcQBzMsZWDQXLH8y1A3bZ1uNWL9qjlBr0Pl2VaPuxgMyRT1uq91DXUZ0SAlXnok2vl8ZH1y0PCTycsTfj316WBDlrvair1SfZVeey_w4vQ9-y4gl83WkV0ORVuLlW2UtMdQ-yfQfPXbzfx_iK9iWiULyDDEV5ajwzBnmfXyb1NVeEOX-OOiI8jxnN2abAq0XX2dSMJaUbz_xnlQ1L5030uUweAN60IEeHZZ7t2vqOjrl4kvWrrFqqhCUM1vzJWsdwc1TpOO1U1M5WonjH72ECwfFyf1wjpWX07WrgSy7w";
-pub const EXPONENT: &str = "AQAB";
+use std::sync::OnceLock;
+
+use aws_lc_rs::encoding::AsDer;
+use aws_lc_rs::rsa::{KeyPair, KeySize};
+use aws_lc_rs::signature::KeyPair as _;
+use base64::Engine;
+use base64::engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD};
+
+pub struct GeneratedKey {
+  pub pem: String,
+  pub modulus: String,
+  pub exponent: String,
+}
+
+fn generate() -> GeneratedKey {
+  let pair = KeyPair::generate(KeySize::Rsa2048).expect("generate test signing key");
+  let der = pair.as_der().expect("encode test signing key");
+  let encoded = STANDARD.encode(der.as_ref());
+  let mut pem = String::from("-----BEGIN PRIVATE KEY-----\n");
+  for line in encoded.as_bytes().chunks(64) {
+    pem.push_str(std::str::from_utf8(line).expect("base64 is ascii"));
+    pem.push('\n');
+  }
+  pem.push_str("-----END PRIVATE KEY-----\n");
+  let public = pair.public_key();
+  GeneratedKey {
+    pem,
+    modulus: URL_SAFE_NO_PAD.encode(public.modulus().big_endian_without_leading_zero()),
+    exponent: URL_SAFE_NO_PAD.encode(public.exponent().big_endian_without_leading_zero()),
+  }
+}
+
+pub fn key_a() -> &'static GeneratedKey {
+  static KEY: OnceLock<GeneratedKey> = OnceLock::new();
+  KEY.get_or_init(generate)
+}
+
+pub fn key_b() -> &'static GeneratedKey {
+  static KEY: OnceLock<GeneratedKey> = OnceLock::new();
+  KEY.get_or_init(generate)
+}
