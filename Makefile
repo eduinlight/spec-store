@@ -9,7 +9,10 @@ docker-up: env
 docker-down:
 	$(COMPOSE) down
 
-env:
+.env:
+	@./scripts/env.sh
+
+env: .env
 	@./scripts/env.sh
 
 install: env docker-up
