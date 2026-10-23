@@ -1,4 +1,9 @@
 /target
-*.db
-*.db-wal
-*.db-shm
+.env
+node_modules
+test-results
+playwright-report
+dist
+.react-router
+build
+.lighthouseci

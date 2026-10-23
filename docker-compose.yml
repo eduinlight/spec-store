@@ -1,0 +1,84 @@
+name: spec-store
+
+services:
+  postgres:
+    image: postgres:18
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_PORT:-55432}:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PLATFORM_DB_PASSWORD: ${PLATFORM_DB_PASSWORD}
+      KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql
+      - ./deploy/postgres/init.sh:/docker-entrypoint-initdb.d/init.sh:ro
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "platform"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  mailpit:
+    image: axllent/mailpit:v1.27
+    restart: unless-stopped
+    ports:
+      - "${MAILPIT_SMTP_PORT:-51025}:1025"
+      - "${MAILPIT_UI_PORT:-58025}:8025"
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  keycloak:
+    image: spec-store-keycloak:dev
+    build:
+      context: .
+      dockerfile: deploy/keycloak/Dockerfile
+    restart: unless-stopped
+    command: ["start-dev", "--import-realm"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "${KEYCLOAK_PORT:-58080}:8080"
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+      KC_HEALTH_ENABLED: "true"
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USER:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KC_HOSTNAME: http://localhost:${KEYCLOAK_PORT:-58080}
+      MCP_RESOURCE: ${MCP_RESOURCE:-http://localhost:54100/mcp}
+      APP_URL: ${APP_URL:-http://localhost:5173}
+      LANDING_URL: ${LANDING_URL:-http://localhost:5174}
+      API_INTERNAL_URL: ${API_INTERNAL_URL:-http://host.docker.internal:54000}
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      SMTP_FROM: no-reply@spec-store.local
+      SPEC_STORE_APP_CLIENT_SECRET: ${KEYCLOAK_APP_CLIENT_SECRET}
+      SPEC_STORE_ADMIN_CLIENT_SECRET: ${KEYCLOAK_ADMIN_CLIENT_SECRET}
+      SPEC_STORE_DEV_PASSWORD: ${SPEC_STORE_DEV_PASSWORD}
+      SPEC_STORE_OPS_PASSWORD: ${SPEC_STORE_OPS_PASSWORD}
+      KEYCLOAK_THEME: spec-store
+      KEYCLOAK_EMAIL_THEME: spec-store
+      KC_SPI_THEME__CACHE_THEMES: "false"
+      KC_SPI_THEME__CACHE_TEMPLATES: "false"
+      KC_SPI_THEME__STATIC_MAX_AGE: "-1"
+    volumes:
+      - ./deploy/keycloak/realm/spec-store.json:/opt/keycloak/data/import/spec-store-realm.json:ro
+      - ./deploy/keycloak/dev/spec-store-users-0.json:/opt/keycloak/data/import/spec-store-users-0.json:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q UP <&3"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+
+volumes:
+  postgres_data:

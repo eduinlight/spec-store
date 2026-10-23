@@ -1,0 +1,35 @@
+name: Deploy keycloak
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "deploy/keycloak/**"
+      - "packages/ui/src/styles/tokens.css"
+      - ".github/workflows/deploy-keycloak.yml"
+      - ".github/workflows/image.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: deploy-keycloak
+  cancel-in-progress: false
+
+jobs:
+  image:
+    uses: ./.github/workflows/image.yml
+    with:
+      deliverable: keycloak
+      tags: ${{ github.sha }} latest
+
+  bump-cd:
+    needs: image
+    uses: ./.github/workflows/cd-bump.yml
+    with:
+      image: ghcr.io/eduinlight/spec-store-keycloak
+      tag: ${{ github.sha }}
+      overlay: staging
+    secrets: inherit

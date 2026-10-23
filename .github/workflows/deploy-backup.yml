@@ -1,0 +1,25 @@
+name: Deploy backup
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "deploy/backup/**"
+      - ".github/workflows/deploy-backup.yml"
+      - ".github/workflows/image.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: deploy-backup
+  cancel-in-progress: false
+
+jobs:
+  image:
+    uses: ./.github/workflows/image.yml
+    with:
+      deliverable: backup
+      tags: ${{ github.sha }} latest

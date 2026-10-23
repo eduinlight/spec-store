@@ -1,0 +1,494 @@
+mod common;
+
+use spec_store_core::store::Store;
+
+use std::fs;
+use std::path::Path;
+
+use spec_store_core::model::{Caller, DocumentKind, Role, SpecStatus, StoreError};
+use spec_store_core::store::transfer::{ImportOptions, ImportReport, StatusNotice};
+use spec_store_core::tree::{ProjectTree, scan};
+
+struct Fixture {
+  store: common::TestStore,
+  admin: Caller,
+  owner: Caller,
+  editor: Caller,
+  reader: Caller,
+  outsider: Caller,
+}
+
+fn fixture() -> Fixture {
+  let store = common::test_store();
+  let root = common::person(&store, "root");
+  common::organization(&store, &root, common::ORG);
+  let people: Vec<Caller> = ["olivia", "eddie", "rita"]
+    .iter()
+    .map(|h| {
+      let caller = common::person(&store, h);
+      common::join(&store, &root, common::ORG, &caller);
+      caller
+    })
+    .collect();
+  store.create_project(&root, "acme/demo", "Demo").unwrap();
+  store
+    .set_member(&root, "acme/demo", "olivia", Role::Owner)
+    .unwrap();
+  store
+    .set_member(&root, "acme/demo", "eddie", Role::Editor)
+    .unwrap();
+  store
+    .set_member(&root, "acme/demo", "rita", Role::Reader)
+    .unwrap();
+  Fixture {
+    admin: common::operator(&store, "ops"),
+    outsider: common::person(&store, "otto"),
+    owner: people[0].clone(),
+    editor: people[1].clone(),
+    reader: people[2].clone(),
+    store,
+  }
+}
+
+fn put(root: &Path, relative: &str, body: &str) {
+  let path = root.join(relative);
+  fs::create_dir_all(path.parent().unwrap()).unwrap();
+  fs::write(path, body).unwrap();
+}
+
+const CONSTITUTION: &str = "# Constitution\r\n\r\nVersion 1.2 · Ratified 2026-01-01\r\n";
+const ALPHA_SPEC: &str = "\u{feff}# Spec 001\n\nStatus: approved · Created: 2026-01-01\n";
+const ALPHA_TASKS: &str = "# Tasks\n\n- [x] T01 (FR-1) First — Done when: ok\nnot a task line";
+
+fn sample_tree(label: &str) -> ProjectTree {
+  let root = common::temp_dir(label);
+  put(&root, "docs/constitution.md", CONSTITUTION);
+  put(&root, "specs/001-alpha/spec.md", ALPHA_SPEC);
+  put(&root, "specs/001-alpha/plan.md", "# Plan\n");
+  put(&root, "specs/001-alpha/tasks.md", ALPHA_TASKS);
+  put(
+    &root,
+    "specs/002-beta/spec.md",
+    "# Spec 002\n\nno status line\n",
+  );
+  put(&root, "specs/005-gamma/spec.md", "Status: archived\n");
+  let tree = scan(&root).unwrap();
+  assert!(tree.problems.is_empty(), "{:?}", tree.problems);
+  tree
+}
+
+fn counts(store: &Store) -> Vec<i64> {
+  ["specs", "documents", "revisions", "audit_log"]
+    .into_iter()
+    .map(|table| common::int(store, &format!("SELECT count(*) FROM {table}")))
+    .collect()
+}
+
+fn import(f: &Fixture, tree: &ProjectTree) -> ImportReport {
+  f.store
+    .import_tree(&f.owner, "acme/demo", tree, &ImportOptions::default())
+    .unwrap()
+}
+
+fn validation_message(result: Result<ImportReport, StoreError>) -> String {
+  match result {
+    Err(StoreError::Validation(message)) => message,
+    other => panic!("expected a validation error, got {other:?}"),
+  }
+}
+
+#[test]
+fn owner_imports_numbers_slugs_statuses_and_exact_bodies() {
+  let f = fixture();
+  let report = import(&f, &sample_tree("transfer-import"));
+
+  assert_eq!(report.constitution_version.as_deref(), Some("1.2"));
+  assert_eq!(report.documents, 6);
+  let branches: Vec<&str> = report.specs.iter().map(|s| s.branch.as_str()).collect();
+  assert_eq!(branches, vec!["001-alpha", "002-beta", "005-gamma"]);
+  assert_eq!(
+    report.specs[0].kinds,
+    vec![DocumentKind::Spec, DocumentKind::Plan, DocumentKind::Tasks]
+  );
+  assert_eq!(report.status_fallbacks, vec!["002-beta".to_string()]);
+
+  let specs = f.store.list_specs(&f.owner, "acme/demo").unwrap();
+  let summary: Vec<(i64, &str, SpecStatus, &str)> = specs
+    .iter()
+    .map(|s| (s.number, s.slug.as_str(), s.status, s.branch.as_str()))
+    .collect();
+  assert_eq!(
+    summary,
+    vec![
+      (1, "alpha", SpecStatus::Approved, "001-alpha"),
+      (2, "beta", SpecStatus::Draft, "002-beta"),
+      (5, "gamma", SpecStatus::Archived, "005-gamma"),
+    ]
+  );
+
+  let spec = f
+    .store
+    .get_document(&f.reader, "acme/demo", 1, DocumentKind::Spec)
+    .unwrap();
+  assert_eq!(spec.body, ALPHA_SPEC);
+  assert_eq!(spec.revision.author, "olivia");
+  assert_eq!(spec.revision.message, "import specs/001-alpha/spec.md");
+  let tasks = f
+    .store
+    .get_document(&f.reader, "acme/demo", 1, DocumentKind::Tasks)
+    .unwrap();
+  assert_eq!(tasks.body, ALPHA_TASKS);
+  let archived = f
+    .store
+    .get_document(&f.reader, "acme/demo", 5, DocumentKind::Spec)
+    .unwrap();
+  assert_eq!(archived.body, "Status: archived\n");
+
+  let constitution = f.store.get_constitution(&f.reader, "acme/demo").unwrap();
+  assert_eq!(constitution.body, CONSTITUTION);
+  assert_eq!(constitution.version, "1.2");
+  assert_eq!(constitution.revision.message, "import docs/constitution.md");
+
+  let audit = f.store.list_audit(Some("acme/demo"), 100).unwrap();
+  let count = |action: &str| audit.iter().filter(|e| e.action == action).count();
+  assert_eq!(count("spec.import"), 3);
+  assert_eq!(count("document.put"), 5);
+  assert_eq!(count("constitution.put"), 1);
+  assert!(
+    audit
+      .iter()
+      .filter(|e| e.action == "spec.import")
+      .all(|e| e.actor == "olivia")
+  );
+  assert!(audit.iter().any(|e| e.target == "001-alpha"));
+}
+
+#[test]
+fn next_spec_after_import_is_one_above_the_highest() {
+  let f = fixture();
+  import(&f, &sample_tree("transfer-next"));
+  let created = f
+    .store
+    .create_spec(&f.editor, "acme/demo", "delta")
+    .unwrap();
+  assert_eq!(created.number, 6);
+  assert_eq!(created.branch, "006-delta");
+}
+
+#[test]
+fn constitution_version_comes_from_the_option_or_is_required() {
+  let f = fixture();
+  let root = common::temp_dir("transfer-version");
+  put(
+    &root,
+    "docs/constitution.md",
+    "# Constitution without a version\n",
+  );
+  let tree = scan(&root).unwrap();
+
+  let before = counts(&f.store);
+  let message = validation_message(f.store.import_tree(
+    &f.owner,
+    "acme/demo",
+    &tree,
+    &ImportOptions::default(),
+  ));
+  assert!(message.contains("docs/constitution.md"), "{message}");
+  assert_eq!(counts(&f.store), before);
+
+  let report = f
+    .store
+    .import_tree(
+      &f.owner,
+      "acme/demo",
+      &tree,
+      &ImportOptions {
+        constitution_version: Some("3.0".into()),
+        dry_run: false,
+      },
+    )
+    .unwrap();
+  assert_eq!(report.constitution_version.as_deref(), Some("3.0"));
+  assert_eq!(
+    f.store
+      .get_constitution(&f.owner, "acme/demo")
+      .unwrap()
+      .version,
+    "3.0"
+  );
+
+  let f = fixture();
+  let report = f
+    .store
+    .import_tree(
+      &f.owner,
+      "acme/demo",
+      &sample_tree("transfer-override"),
+      &ImportOptions {
+        constitution_version: Some("9.9".into()),
+        dry_run: false,
+      },
+    )
+    .unwrap();
+  assert_eq!(report.constitution_version.as_deref(), Some("9.9"));
+}
+
+#[test]
+fn conflicts_with_existing_data_are_all_listed_and_nothing_is_written() {
+  let f = fixture();
+  f.store.create_spec(&f.owner, "acme/demo", "beta").unwrap();
+  f.store
+    .put_constitution(&f.owner, "acme/demo", "# Existing\n", "1.0", "init", None)
+    .unwrap();
+  let before = counts(&f.store);
+
+  let message = validation_message(f.store.import_tree(
+    &f.owner,
+    "acme/demo",
+    &sample_tree("transfer-conflict"),
+    &ImportOptions::default(),
+  ));
+  for needle in ["001-alpha", "002-beta", "constitution"] {
+    assert!(message.contains(needle), "{needle} missing in {message}");
+  }
+  assert_eq!(message.lines().count(), 3, "{message}");
+  assert_eq!(counts(&f.store), before);
+}
+
+#[test]
+fn tree_problems_refuse_the_import() {
+  let f = fixture();
+  let mut tree = sample_tree("transfer-tree-problem");
+  tree
+    .problems
+    .push("specs/01-x: folder name is not valid".into());
+  let before = counts(&f.store);
+  let message = validation_message(f.store.import_tree(
+    &f.owner,
+    "acme/demo",
+    &tree,
+    &ImportOptions::default(),
+  ));
+  assert!(message.contains("specs/01-x"), "{message}");
+  assert_eq!(counts(&f.store), before);
+}
+
+#[test]
+fn only_owners_import() {
+  let f = fixture();
+  let tree = sample_tree("transfer-roles");
+  let before = counts(&f.store);
+  for caller in [&f.editor, &f.reader, &f.admin] {
+    let result = f
+      .store
+      .import_tree(caller, "acme/demo", &tree, &ImportOptions::default());
+    assert!(
+      matches!(result, Err(StoreError::Forbidden)),
+      "{}: {result:?}",
+      caller.handle
+    );
+  }
+  assert!(matches!(
+    f.store
+      .import_tree(&f.outsider, "acme/demo", &tree, &ImportOptions::default()),
+    Err(StoreError::NotFound(_))
+  ));
+  assert!(matches!(
+    f.store
+      .import_tree(&f.admin, "acme/nope", &tree, &ImportOptions::default()),
+    Err(StoreError::NotFound(_))
+  ));
+  assert_eq!(counts(&f.store), before);
+}
+
+#[test]
+fn dry_run_reports_without_writing() {
+  let f = fixture();
+  let before = counts(&f.store);
+  let report = f
+    .store
+    .import_tree(
+      &f.owner,
+      "acme/demo",
+      &sample_tree("transfer-dry"),
+      &ImportOptions {
+        constitution_version: None,
+        dry_run: true,
+      },
+    )
+    .unwrap();
+  assert_eq!(report.specs.len(), 3);
+  assert_eq!(report.documents, 6);
+  assert_eq!(report.status_fallbacks, vec!["002-beta".to_string()]);
+  assert_eq!(counts(&f.store), before);
+}
+
+#[test]
+fn a_failure_in_the_middle_leaves_the_store_unchanged() {
+  let f = fixture();
+  let root = common::temp_dir("transfer-abort");
+  put(&root, "docs/constitution.md", CONSTITUTION);
+  put(&root, "specs/001-alpha/spec.md", ALPHA_SPEC);
+  put(&root, "specs/002-beta/spec.md", "ABORT-IMPORT\n");
+  let tree = scan(&root).unwrap();
+  common::exec(
+    &f.store,
+    "CREATE FUNCTION abort_marked() RETURNS trigger LANGUAGE plpgsql AS $$
+     BEGIN RAISE EXCEPTION 'forced failure'; END $$;
+     CREATE TRIGGER abort_marked BEFORE INSERT ON revisions
+     FOR EACH ROW WHEN (NEW.body LIKE '%ABORT-IMPORT%') EXECUTE FUNCTION abort_marked();",
+  );
+  let before = counts(&f.store);
+  let result = f
+    .store
+    .import_tree(&f.owner, "acme/demo", &tree, &ImportOptions::default());
+  assert!(matches!(result, Err(StoreError::Database(_))), "{result:?}");
+  assert_eq!(counts(&f.store), before);
+  assert!(
+    f.store
+      .list_specs(&f.owner, "acme/demo")
+      .unwrap()
+      .is_empty()
+  );
+}
+
+fn imported() -> Fixture {
+  let f = fixture();
+  import(&f, &sample_tree("transfer-export"));
+  f
+}
+
+#[test]
+fn export_returns_current_bodies_in_layout_order_for_readers_and_admins() {
+  let f = imported();
+  f.store
+    .put_document(
+      &f.editor,
+      "acme/demo",
+      1,
+      DocumentKind::Plan,
+      "# Plan v2\n",
+      "edit",
+      Some(
+        f.store
+          .get_document(&f.editor, "acme/demo", 1, DocumentKind::Plan)
+          .unwrap()
+          .revision
+          .id,
+      ),
+    )
+    .unwrap();
+  let before = counts(&f.store);
+
+  for caller in [&f.reader, &f.admin, &f.owner] {
+    let export = f.store.export_documents(caller, "acme/demo", None).unwrap();
+    let files: Vec<(&str, &str)> = export
+      .files
+      .iter()
+      .map(|file| (file.relative_path.as_str(), file.body.as_str()))
+      .collect();
+    assert_eq!(
+      files,
+      vec![
+        ("docs/constitution.md", CONSTITUTION),
+        ("specs/001-alpha/spec.md", ALPHA_SPEC),
+        ("specs/001-alpha/plan.md", "# Plan v2\n"),
+        ("specs/001-alpha/tasks.md", ALPHA_TASKS),
+        ("specs/002-beta/spec.md", "# Spec 002\n\nno status line\n"),
+        ("specs/005-gamma/spec.md", "Status: archived\n"),
+      ],
+      "{}",
+      caller.handle
+    );
+    assert!(export.notices.is_empty(), "{:?}", export.notices);
+  }
+  assert_eq!(counts(&f.store), before);
+}
+
+#[test]
+fn export_paths_stay_inside_the_layout() {
+  let f = imported();
+  let export = f
+    .store
+    .export_documents(&f.reader, "acme/demo", None)
+    .unwrap();
+  for file in &export.files {
+    let path = file.relative_path.as_str();
+    let inside = path == "docs/constitution.md"
+      || (path.starts_with("specs/")
+        && path.split('/').count() == 3
+        && !path.contains("..")
+        && !path.contains('\\'));
+    assert!(inside, "{path}");
+  }
+}
+
+#[test]
+fn export_of_one_spec_and_unknown_spec() {
+  let f = imported();
+  let export = f
+    .store
+    .export_documents(&f.reader, "acme/demo", Some(1))
+    .unwrap();
+  let paths: Vec<&str> = export
+    .files
+    .iter()
+    .map(|file| file.relative_path.as_str())
+    .collect();
+  assert_eq!(
+    paths,
+    vec![
+      "specs/001-alpha/spec.md",
+      "specs/001-alpha/plan.md",
+      "specs/001-alpha/tasks.md",
+    ]
+  );
+  assert!(matches!(
+    f.store.export_documents(&f.reader, "acme/demo", Some(9)),
+    Err(StoreError::NotFound(_))
+  ));
+}
+
+#[test]
+fn outsiders_cannot_export() {
+  let f = imported();
+  assert!(matches!(
+    f.store.export_documents(&f.outsider, "acme/demo", None),
+    Err(StoreError::NotFound(_))
+  ));
+}
+
+#[test]
+fn status_mismatch_produces_a_notice_and_keeps_the_bytes() {
+  let f = imported();
+  f.store
+    .set_spec_status(&f.owner, "acme/demo", 1, SpecStatus::Draft)
+    .unwrap();
+  f.store
+    .set_spec_status(&f.owner, "acme/demo", 2, SpecStatus::Clarified)
+    .unwrap();
+  let export = f
+    .store
+    .export_documents(&f.reader, "acme/demo", None)
+    .unwrap();
+  assert_eq!(
+    export.notices,
+    vec![StatusNotice {
+      branch: "001-alpha".into(),
+      stored: SpecStatus::Draft,
+      written: "approved".into(),
+    }]
+  );
+  assert_eq!(export.files[1].body, ALPHA_SPEC);
+}
+
+#[test]
+fn empty_project_exports_nothing() {
+  let f = fixture();
+  let export = f
+    .store
+    .export_documents(&f.owner, "acme/demo", None)
+    .unwrap();
+  assert!(export.files.is_empty());
+  assert!(export.notices.is_empty());
+}

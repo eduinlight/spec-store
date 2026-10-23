@@ -1,0 +1,14 @@
+*
+!deploy/keycloak/themes/**
+!deploy/keycloak/realm/**
+!deploy/keycloak/config/**
+!deploy/landing.conf
+!deploy/spa.conf
+!packages/ui/src/styles/tokens.css
+!apps/landing/build/client/**
+!apps/app/dist/**
+!target/release/spec-store-api
+!target/release/spec-store-mcp
+!target/linux/release/spec-store-api
+!target/linux/release/spec-store-mcp
+!deploy/backup/*.sh
