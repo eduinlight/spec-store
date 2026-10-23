@@ -1,0 +1,41 @@
+name: Deploy landing
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/landing/**"
+      - "packages/ui/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "deploy/landing/**"
+      - "deploy/landing.conf"
+      - ".github/workflows/deploy-landing.yml"
+      - ".github/workflows/image.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: deploy-landing
+  cancel-in-progress: false
+
+jobs:
+  image:
+    uses: ./.github/workflows/image.yml
+    with:
+      deliverable: landing
+      tags: ${{ github.sha }} latest
+      app_url: https://staging-app-spec-store.eduindev.com
+
+  bump-cd:
+    needs: image
+    uses: ./.github/workflows/cd-bump.yml
+    with:
+      image: ghcr.io/eduinlight/spec-store-landing
+      tag: ${{ github.sha }}
+      overlay: staging
+    secrets: inherit

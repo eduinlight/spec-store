@@ -1,0 +1,40 @@
+name: Deploy app
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/app/**"
+      - "packages/ui/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "deploy/app/**"
+      - "deploy/spa.conf"
+      - ".github/workflows/deploy-app.yml"
+      - ".github/workflows/image.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: deploy-app
+  cancel-in-progress: false
+
+jobs:
+  image:
+    uses: ./.github/workflows/image.yml
+    with:
+      deliverable: app
+      tags: ${{ github.sha }} latest
+
+  bump-cd:
+    needs: image
+    uses: ./.github/workflows/cd-bump.yml
+    with:
+      image: ghcr.io/eduinlight/spec-store-app
+      tag: ${{ github.sha }}
+      overlay: staging
+    secrets: inherit

@@ -1,0 +1,68 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  version:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check the tag against the workspace version
+        id: resolve
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          if ! printf '%s' "$version" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+            echo "::error::tag $GITHUB_REF_NAME is not v<semver>"
+            exit 1
+          fi
+          workspace="$(awk '
+            /^\[workspace\.package\]/ { in_package = 1; next }
+            /^\[/ { in_package = 0 }
+            in_package && /^version[[:space:]]*=/ { gsub(/[" ]/, ""); sub(/^version=/, ""); print; exit }
+          ' Cargo.toml)"
+          if [ "$version" != "$workspace" ]; then
+            echo "::error::tag says $version but [workspace.package] in Cargo.toml says $workspace"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  image:
+    needs: version
+    strategy:
+      fail-fast: true
+      matrix:
+        deliverable: [api, mcp, app, landing, keycloak, backup]
+    uses: ./.github/workflows/image.yml
+    with:
+      deliverable: ${{ matrix.deliverable }}
+      tags: ${{ needs.version.outputs.version }}
+      app_url: https://app-spec-store.eduindev.com
+
+  bump-cd:
+    needs: [version, image]
+    strategy:
+      fail-fast: false
+      matrix:
+        deliverable: [api, mcp, app, landing, keycloak, backup]
+    uses: ./.github/workflows/cd-bump.yml
+    with:
+      image: ghcr.io/eduinlight/spec-store-${{ matrix.deliverable }}
+      tag: ${{ needs.version.outputs.version }}
+      overlay: prod
+    secrets: inherit

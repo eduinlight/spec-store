@@ -1,0 +1,84 @@
+name: Bump CD image tag
+
+on:
+  workflow_call:
+    inputs:
+      image:
+        required: true
+        type: string
+      tag:
+        required: true
+        type: string
+      overlay:
+        description: The overlay in the CD repository, staging or prod.
+        required: true
+        type: string
+    secrets:
+      CD_TOKEN:
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cd-bump-${{ inputs.overlay }}-${{ inputs.image }}
+  cancel-in-progress: false
+
+env:
+  CD_REPOSITORY: eduinlight-org/spec-store-cd
+  KUSTOMIZE_VERSION: v5.7.1
+
+jobs:
+  bump:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout CD repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.CD_REPOSITORY }}
+          token: ${{ secrets.CD_TOKEN }}
+          ref: main
+          path: cd
+          persist-credentials: true
+
+      - name: Install kustomize
+        run: |
+          set -euo pipefail
+          if ! command -v kustomize >/dev/null; then
+            curl -sSfL "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2F${KUSTOMIZE_VERSION}/kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz" \
+              | sudo tar -xz -C /usr/local/bin kustomize
+          fi
+          kustomize version
+
+      - name: Set the image tag and push
+        working-directory: cd
+        env:
+          OVERLAY: ${{ inputs.overlay }}
+          IMAGE: ${{ inputs.image }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          if [ ! -f "$OVERLAY/kustomization.yaml" ]; then
+            echo "::error::$OVERLAY/kustomization.yaml does not exist in $CD_REPOSITORY"
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main
+            git reset --hard origin/main
+            (cd "$OVERLAY" && kustomize edit set image "$IMAGE=:$TAG")
+            if git diff --quiet; then
+              echo "$OVERLAY: $IMAGE already at $TAG"
+              exit 0
+            fi
+            git add "$OVERLAY/kustomization.yaml"
+            git commit -m "$OVERLAY: deploy ${IMAGE##*/} $TAG"
+            if git push origin main; then
+              exit 0
+            fi
+            echo "push rejected, retrying (attempt $attempt)"
+            sleep $((attempt * 3))
+          done
+          echo "::error::could not push after 5 attempts"
+          exit 1

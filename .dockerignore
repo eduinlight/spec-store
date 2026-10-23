@@ -1,6 +1,7 @@
 *
 !deploy/keycloak/themes/**
 !deploy/keycloak/realm/**
+!deploy/keycloak/config/**
 !deploy/landing.conf
 !deploy/spa.conf
 !packages/ui/src/styles/tokens.css

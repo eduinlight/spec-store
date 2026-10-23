@@ -1,0 +1,38 @@
+name: Deploy api
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/api/**"
+      - "packages/core/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "deploy/api/**"
+      - ".github/workflows/deploy-api.yml"
+      - ".github/workflows/image.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: deploy-api
+  cancel-in-progress: false
+
+jobs:
+  image:
+    uses: ./.github/workflows/image.yml
+    with:
+      deliverable: api
+      tags: ${{ github.sha }} latest
+
+  bump-cd:
+    needs: image
+    uses: ./.github/workflows/cd-bump.yml
+    with:
+      image: ghcr.io/eduinlight/spec-store-api
+      tag: ${{ github.sha }}
+      overlay: staging
+    secrets: inherit
