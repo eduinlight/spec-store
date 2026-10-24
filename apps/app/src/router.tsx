@@ -9,6 +9,7 @@ import * as invitations from "~/routes/invitations";
 import * as members from "~/routes/members";
 import * as onboarding from "~/routes/onboarding";
 import * as organization from "~/routes/organization";
+import * as placeholders from "~/routes/placeholder";
 import * as profile from "~/routes/profile";
 import * as project from "~/routes/project";
 import * as projectNew from "~/routes/project-new";
@@ -66,6 +67,14 @@ export const routes: RouteObject[] = [
             action: profile.action,
             Component: profile.Profile,
           },
+          { path: "p/:org/:project/active", Component: placeholders.ActiveSpecsPlaceholder },
+          { path: "p/:org/:project/specs", Component: placeholders.SpecsPlaceholder },
+          { path: "p/:org/:project/activity", Component: placeholders.ActivityPlaceholder },
+          { path: "p/:org/:project/members", Component: placeholders.MembersPlaceholder },
+          { path: "account/tokens", Component: placeholders.TokensPlaceholder },
+          { path: "account/preferences", Component: placeholders.PreferencesPlaceholder },
+          { path: "o/:org/security", Component: placeholders.SecurityPlaceholder },
+          { path: "o/:org/billing", Component: placeholders.BillingPlaceholder },
           {
             path: "p/:org/:project/settings",
             loader: projectSettings.loader,

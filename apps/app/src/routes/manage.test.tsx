@@ -15,6 +15,11 @@ const session = {
   "GET /api/v1/orgs/{org}": () => ({ ...acme, created_at: "2026-10-01T10:00:00.000Z" }),
 };
 
+async function confirmWith(name: string) {
+  const dialog = await screen.findByRole("dialog");
+  await userEvent.click(within(dialog).getByRole("button", { name }));
+}
+
 function called(api: ReturnType<typeof mockApi>, method: string, path: string) {
   return api.calls.find((c) => c.method === method && c.path === path);
 }
@@ -37,8 +42,13 @@ test("owners change member roles and remove members", async () => {
   await waitFor(() =>
     expect(called(api, "PUT", "/api/v1/orgs/acme/members/bob")?.body).toEqual({ role: "owner" }),
   );
+  expect(await screen.findByText("Role updated.")).toBeInTheDocument();
   await userEvent.click(within(bob).getByRole("button", { name: "Remove" }));
+  expect(called(api, "DELETE", "/api/v1/orgs/acme/members/bob")).toBeUndefined();
+  expect(screen.getByRole("dialog", { name: "Remove bob?" })).toBeInTheDocument();
+  await confirmWith("Remove");
   await waitFor(() => expect(called(api, "DELETE", "/api/v1/orgs/acme/members/bob")).toBeDefined());
+  expect(await screen.findByText("Member removed.")).toBeInTheDocument();
 });
 
 test("owners send, resend and revoke invitations", async () => {
@@ -72,14 +82,19 @@ test("owners send, resend and revoke invitations", async () => {
   );
   const carol = screen.getByRole("row", { name: /carol@example.com/ });
   expect(within(carol).getByText("Pending")).toBeInTheDocument();
+  expect(await screen.findByText("Invitation sent to dan@example.com.")).toBeInTheDocument();
   await userEvent.click(within(carol).getByRole("button", { name: "Send again" }));
   await waitFor(() =>
     expect(called(api, "POST", "/api/v1/orgs/acme/invitations/4/resend")).toBeDefined(),
   );
+  expect(await screen.findByText("Invitation sent again.")).toBeInTheDocument();
   await userEvent.click(within(carol).getByRole("button", { name: "Revoke" }));
+  expect(called(api, "DELETE", "/api/v1/orgs/acme/invitations/4")).toBeUndefined();
+  await confirmWith("Revoke");
   await waitFor(() =>
     expect(called(api, "DELETE", "/api/v1/orgs/acme/invitations/4")).toBeDefined(),
   );
+  expect(await screen.findByText("Invitation revoked.")).toBeInTheDocument();
 });
 
 test("the invitation link lets the invited person accept or decline", async () => {
@@ -196,9 +211,12 @@ test("the profile lists authorized agents and revokes them", async () => {
   renderAt("/profile");
   const agent = await screen.findByRole("listitem", { name: /Claude Code/ });
   await userEvent.click(within(agent).getByRole("button", { name: "Revoke access" }));
+  expect(called(api, "DELETE", "/api/v1/me/clients/claude-code-1")).toBeUndefined();
+  await confirmWith("Revoke access");
   await waitFor(() =>
     expect(called(api, "DELETE", "/api/v1/me/clients/claude-code-1")).toBeDefined(),
   );
+  expect(await screen.findByText("Access revoked.")).toBeInTheDocument();
 });
 
 test("no screen offers to write specs, documents, statuses or the constitution", async () => {

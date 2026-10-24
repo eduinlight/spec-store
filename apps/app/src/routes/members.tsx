@@ -11,6 +11,8 @@ import {
 import { api, succeeded, unwrap } from "~/api/client";
 import { attempt, errorOf } from "~/lib/actions";
 import { guard } from "~/lib/session";
+import { useConfirm } from "~/shell/confirm";
+import { useOutcomeToast } from "~/shell/outcome";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const org = params.org ?? "";
@@ -37,7 +39,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
             params: { path: { org, handle } },
           }),
         );
-        return intent === "leave" ? redirect("/") : null;
+        return intent === "leave" ? redirect("/") : { done: intent };
       }
       const role = String(form.get("role"));
       succeeded(
@@ -46,7 +48,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
           body: { role },
         }),
       );
-      return null;
+      return { done: intent };
     }),
   );
 }
@@ -57,6 +59,32 @@ export function Members() {
   const { t } = useTranslation();
   const owner = organization.role === "owner";
   const error = errorOf(fetcher.data);
+  const confirm = useConfirm();
+  useOutcomeToast(fetcher, (intent) =>
+    intent === "role"
+      ? t("toast.roleChanged")
+      : intent === "remove"
+        ? t("toast.memberRemoved")
+        : undefined,
+  );
+  const ask = async (intent: "remove" | "leave", handle: string) => {
+    const confirmed = await confirm(
+      intent === "remove"
+        ? {
+            title: t("confirm.removeMemberTitle", { handle }),
+            body: t("confirm.removeMemberBody", { handle }),
+            confirmText: t("members.remove"),
+          }
+        : {
+            title: t("confirm.leaveTitle", { organization: organization.name }),
+            body: t("confirm.leaveBody"),
+            confirmText: t("members.leave"),
+          },
+    );
+    if (confirmed) {
+      fetcher.submit({ handle, intent }, { method: "post" });
+    }
+  };
   return (
     <Card>
       <h1 className="text-xl font-semibold">
@@ -99,17 +127,21 @@ export function Members() {
                   )}
                   {owner && member.handle !== me.handle && (
                     <Button
-                      type="submit"
-                      name="intent"
-                      value="remove"
+                      type="button"
                       size="sm"
                       variant="destructive"
+                      onClick={() => void ask("remove", member.handle)}
                     >
                       {t("members.remove")}
                     </Button>
                   )}
                   {member.handle === me.handle && (
-                    <Button type="submit" name="intent" value="leave" size="sm" variant="outline">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void ask("leave", member.handle)}
+                    >
                       {t("members.leave")}
                     </Button>
                   )}

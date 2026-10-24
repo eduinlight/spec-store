@@ -13,6 +13,8 @@ import { api, succeeded, unwrap } from "~/api/client";
 import { attempt, errorOf } from "~/lib/actions";
 import { useDate } from "~/lib/format";
 import { guard } from "~/lib/session";
+import { useConfirm } from "~/shell/confirm";
+import { useOutcomeToast } from "~/shell/outcome";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const org = params.org ?? "";
@@ -39,7 +41,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
             body: { email, language },
           }),
         );
-        return { sent: created.email };
+        return { done: intent, sent: created.email };
       }
       const id = Number(form.get("id"));
       if (intent === "resend") {
@@ -55,7 +57,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
           }),
         );
       }
-      return null;
+      return { done: intent };
     }),
   );
 }
@@ -66,10 +68,25 @@ export function Invitations() {
   const rows = useFetcher();
   const { t, i18n } = useTranslation();
   const date = useDate();
-  const sent =
-    invite.data && typeof invite.data === "object" && "sent" in invite.data
-      ? String(invite.data.sent)
-      : null;
+  const confirm = useConfirm();
+  useOutcomeToast(invite, (_done, data) => t("invitations.sent", { email: String(data.sent) }));
+  useOutcomeToast(rows, (intent) =>
+    intent === "resend"
+      ? t("toast.invitationResent")
+      : intent === "revoke"
+        ? t("toast.invitationRevoked")
+        : undefined,
+  );
+  const revoke = async (id: number, email: string) => {
+    const confirmed = await confirm({
+      title: t("confirm.revokeInvitationTitle"),
+      body: t("confirm.revokeInvitationBody", { email }),
+      confirmText: t("invitations.revoke"),
+    });
+    if (confirmed) {
+      rows.submit({ id: String(id), intent: "revoke" }, { method: "post" });
+    }
+  };
   const error = errorOf(invite.data) ?? errorOf(rows.data);
   return (
     <div className="grid gap-6">
@@ -84,7 +101,6 @@ export function Invitations() {
           </div>
           <Button type="submit">{t("invitations.invite")}</Button>
         </invite.Form>
-        {sent && <p className="text-sm">{t("invitations.sent", { email: sent })}</p>}
         {error && (
           <p role="alert" className="text-sm text-destructive">
             {error}
@@ -125,11 +141,10 @@ export function Invitations() {
                         {t("invitations.resend")}
                       </Button>
                       <Button
-                        type="submit"
-                        name="intent"
-                        value="revoke"
+                        type="button"
                         size="sm"
                         variant="destructive"
+                        onClick={() => void revoke(invitation.id, invitation.email)}
                       >
                         {t("invitations.revoke")}
                       </Button>

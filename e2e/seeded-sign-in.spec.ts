@@ -10,5 +10,5 @@ test("the seeded development person signs in and lands on onboarding", async ({ 
   await page.fill("#password", password);
   await page.locator("input[type=submit], button[type=submit]").first().click();
   await expect(page).toHaveURL(new RegExp(`^${app}/(onboarding|o/)`));
-  await expect(page.getByRole("link", { name: "dev" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "User menu" })).toContainText("@dev");
 });
