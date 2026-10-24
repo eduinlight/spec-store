@@ -1,0 +1,564 @@
+use std::collections::HashMap;
+use std::str::FromStr;
+
+use chrono::{Duration, Utc};
+use diesel::dsl::count_star;
+use diesel::pg::{Pg, PgConnection};
+use diesel::prelude::*;
+use diesel::sql_types::Bool;
+
+use crate::model::{AuditResult, Caller, OrgRole, StoreError, StoreResult};
+use crate::schema::{audit_log, iso_utc, organizations, projects, users};
+use crate::store::organizations::readable_organization;
+use crate::store::projects::access_in;
+use crate::store::{AuditEntry, AuditRow, Store, audit_entry, audit_in};
+
+pub const PAGE_SIZES: [u32; 4] = [10, 25, 50, 100];
+
+#[derive(Debug, Clone, Copy)]
+pub enum AuditScope<'a> {
+  Project(&'a str),
+  Organization(&'a str),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Period {
+  Day,
+  Week,
+  Month,
+  #[default]
+  All,
+}
+
+impl Period {
+  fn window(self) -> Option<Duration> {
+    match self {
+      Period::Day => Some(Duration::hours(24)),
+      Period::Week => Some(Duration::days(7)),
+      Period::Month => Some(Duration::days(30)),
+      Period::All => None,
+    }
+  }
+}
+
+impl FromStr for Period {
+  type Err = StoreError;
+
+  fn from_str(s: &str) -> Result<Self, Self::Err> {
+    match s {
+      "day" => Ok(Period::Day),
+      "week" => Ok(Period::Week),
+      "month" => Ok(Period::Month),
+      "all" => Ok(Period::All),
+      other => Err(StoreError::Validation(format!(
+        "unknown period {other:?}; valid periods: day, week, month, all"
+      ))),
+    }
+  }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SortOrder {
+  #[default]
+  Newest,
+  Oldest,
+}
+
+impl FromStr for SortOrder {
+  type Err = StoreError;
+
+  fn from_str(s: &str) -> Result<Self, Self::Err> {
+    match s {
+      "newest" => Ok(SortOrder::Newest),
+      "oldest" => Ok(SortOrder::Oldest),
+      other => Err(StoreError::Validation(format!(
+        "unknown sort {other:?}; valid sorts: newest, oldest"
+      ))),
+    }
+  }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AuditQuery {
+  pub text: Option<String>,
+  pub actors: Vec<String>,
+  pub clients: Vec<String>,
+  pub actions: Vec<String>,
+  pub results: Vec<AuditResult>,
+  pub period: Period,
+  pub sort: SortOrder,
+  pub page: u32,
+  pub page_size: u32,
+}
+
+impl Default for AuditQuery {
+  fn default() -> Self {
+    AuditQuery {
+      text: None,
+      actors: Vec::new(),
+      clients: Vec::new(),
+      actions: Vec::new(),
+      results: Vec::new(),
+      period: Period::All,
+      sort: SortOrder::Newest,
+      page: 1,
+      page_size: 25,
+    }
+  }
+}
+
+impl AuditQuery {
+  fn validate(&self) -> StoreResult<()> {
+    if self.page < 1 {
+      return Err(StoreError::Validation("page starts at 1".into()));
+    }
+    if !PAGE_SIZES.contains(&self.page_size) {
+      return Err(StoreError::Validation(
+        "page_size must be 10, 25, 50 or 100".into(),
+      ));
+    }
+    Ok(())
+  }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FacetCount {
+  pub value: String,
+  pub count: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct AuditFacets {
+  pub actors: Vec<FacetCount>,
+  pub clients: Vec<FacetCount>,
+  pub actions: Vec<FacetCount>,
+  pub results: Vec<FacetCount>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AuditTable {
+  pub entries: Vec<AuditEntry>,
+  pub total: i64,
+  pub page: u32,
+  pub page_size: u32,
+  pub facets: AuditFacets,
+}
+
+#[derive(Debug, Clone)]
+pub enum AuditExportSelection {
+  Ids(Vec<i64>),
+  Query(AuditQuery),
+}
+
+#[derive(Clone, Copy)]
+struct ScopeIds {
+  organization_id: i64,
+  project_id: Option<i64>,
+}
+
+type Predicate = Box<dyn BoxableExpression<audit_log::table, Pg, SqlType = Bool>>;
+
+fn authorize(
+  conn: &mut PgConnection,
+  caller: &Caller,
+  scope: AuditScope<'_>,
+) -> StoreResult<ScopeIds> {
+  match scope {
+    AuditScope::Project(address) => {
+      let access = access_in(conn, caller, address)?;
+      if !(access.is_owner() || access.is_operator) {
+        return Err(StoreError::Forbidden);
+      }
+      Ok(ScopeIds {
+        organization_id: access.organization_id,
+        project_id: Some(access.project_id),
+      })
+    }
+    AuditScope::Organization(slug) => {
+      let (organization_id, role) = readable_organization(conn, caller, slug)?;
+      if role != Some(OrgRole::Owner) && !caller.is_operator {
+        return Err(StoreError::Forbidden);
+      }
+      Ok(ScopeIds {
+        organization_id,
+        project_id: None,
+      })
+    }
+  }
+}
+
+fn escape_like(text: &str) -> String {
+  let mut escaped = String::with_capacity(text.len());
+  for c in text.chars() {
+    if matches!(c, '\\' | '%' | '_') {
+      escaped.push('\\');
+    }
+    escaped.push(c);
+  }
+  escaped
+}
+
+fn scope_predicate(scope: ScopeIds) -> Predicate {
+  match scope.project_id {
+    Some(project_id) => Box::new(audit_log::project_id.eq(project_id).assume_not_null()),
+    None => Box::new(
+      audit_log::organization_id
+        .eq(scope.organization_id)
+        .assume_not_null(),
+    ),
+  }
+}
+
+fn base_predicate(scope: ScopeIds, query: &AuditQuery) -> Predicate {
+  let mut all = scope_predicate(scope);
+  if let Some(text) = query
+    .text
+    .as_deref()
+    .map(str::trim)
+    .filter(|t| !t.is_empty())
+  {
+    let pattern = format!("%{}%", escape_like(text));
+    let matching = audit_log::target
+      .ilike(pattern.clone())
+      .nullable()
+      .or(audit_log::client.ilike(pattern.clone()))
+      .or(audit_log::origin.ilike(pattern))
+      .assume_not_null();
+    all = Box::new(all.and(matching));
+  }
+  if let Some(window) = query.period.window() {
+    all = Box::new(all.and(audit_log::created_at.ge(Utc::now() - window)));
+  }
+  all
+}
+
+fn predicate(scope: ScopeIds, query: &AuditQuery) -> Predicate {
+  let mut all = base_predicate(scope, query);
+  if !query.actors.is_empty() {
+    all = Box::new(
+      all.and(
+        audit_log::actor_id.eq_any(
+          users::table
+            .filter(users::handle.eq_any(query.actors.clone()))
+            .select(users::id),
+        ),
+      ),
+    );
+  }
+  if !query.clients.is_empty() {
+    all = Box::new(
+      all.and(
+        audit_log::client
+          .eq_any(query.clients.clone())
+          .assume_not_null(),
+      ),
+    );
+  }
+  if !query.actions.is_empty() {
+    all = Box::new(all.and(audit_log::action.eq_any(query.actions.clone())));
+  }
+  if !query.results.is_empty() {
+    let results: Vec<String> = query
+      .results
+      .iter()
+      .map(|r| r.as_str().to_string())
+      .collect();
+    all = Box::new(all.and(audit_log::result.eq_any(results)));
+  }
+  all
+}
+
+type Group = (i64, Option<String>, String, String, i64);
+
+fn ranked(counts: HashMap<String, i64>) -> Vec<FacetCount> {
+  let mut ranked: Vec<FacetCount> = counts
+    .into_iter()
+    .map(|(value, count)| FacetCount { value, count })
+    .collect();
+  ranked.sort_by(|a, b| b.count.cmp(&a.count).then_with(|| a.value.cmp(&b.value)));
+  ranked
+}
+
+fn selected(chosen: &[String], value: Option<&str>) -> bool {
+  chosen.is_empty() || value.is_some_and(|v| chosen.iter().any(|c| c == v))
+}
+
+fn totals_and_facets(
+  conn: &mut PgConnection,
+  scope: ScopeIds,
+  query: &AuditQuery,
+) -> StoreResult<(i64, AuditFacets)> {
+  let groups: Vec<Group> = audit_log::table
+    .filter(base_predicate(scope, query))
+    .group_by((
+      audit_log::actor_id,
+      audit_log::client,
+      audit_log::action,
+      audit_log::result,
+    ))
+    .select((
+      audit_log::actor_id,
+      audit_log::client,
+      audit_log::action,
+      audit_log::result,
+      count_star(),
+    ))
+    .load(conn)?;
+  let actor_ids: Vec<i64> = groups.iter().map(|g| g.0).collect();
+  let handles: HashMap<i64, String> = users::table
+    .filter(users::id.eq_any(actor_ids))
+    .select((users::id, users::handle))
+    .load::<(i64, String)>(conn)?
+    .into_iter()
+    .collect();
+  let chosen_results: Vec<String> = query
+    .results
+    .iter()
+    .map(|r| r.as_str().to_string())
+    .collect();
+  let mut total = 0;
+  let mut actors: HashMap<String, i64> = HashMap::new();
+  let mut clients: HashMap<String, i64> = HashMap::new();
+  let mut actions: HashMap<String, i64> = HashMap::new();
+  let mut results: HashMap<String, i64> = HashMap::new();
+  for (actor_id, client, action, result, count) in groups {
+    let Some(handle) = handles.get(&actor_id) else {
+      continue;
+    };
+    let by_actor = selected(&query.actors, Some(handle));
+    let by_client = selected(&query.clients, client.as_deref());
+    let by_action = selected(&query.actions, Some(&action));
+    let by_result = selected(&chosen_results, Some(&result));
+    if by_actor && by_client && by_action && by_result {
+      total += count;
+    }
+    if by_client && by_action && by_result {
+      *actors.entry(handle.clone()).or_default() += count;
+    }
+    if by_actor
+      && by_action
+      && by_result
+      && let Some(client) = client.clone()
+    {
+      *clients.entry(client).or_default() += count;
+    }
+    if by_actor && by_client && by_result {
+      *actions.entry(action.clone()).or_default() += count;
+    }
+    if by_actor && by_client && by_action {
+      *results.entry(result).or_default() += count;
+    }
+  }
+  Ok((
+    total,
+    AuditFacets {
+      actors: ranked(actors),
+      clients: ranked(clients),
+      actions: ranked(actions),
+      results: ranked(results),
+    },
+  ))
+}
+
+fn ordered_ids(
+  conn: &mut PgConnection,
+  filter: Predicate,
+  sort: SortOrder,
+  window: Option<(i64, i64)>,
+) -> StoreResult<Vec<i64>> {
+  let mut statement = audit_log::table
+    .filter(filter)
+    .select(audit_log::id)
+    .into_boxed();
+  statement = match sort {
+    SortOrder::Newest => statement.order((audit_log::created_at.desc(), audit_log::id.desc())),
+    SortOrder::Oldest => statement.order((audit_log::created_at.asc(), audit_log::id.asc())),
+  };
+  if let Some((limit, offset)) = window {
+    statement = statement.limit(limit).offset(offset);
+  }
+  Ok(statement.load(conn)?)
+}
+
+fn entries_in_order(conn: &mut PgConnection, ids: &[i64]) -> StoreResult<Vec<AuditEntry>> {
+  if ids.is_empty() {
+    return Ok(Vec::new());
+  }
+  let rows: Vec<AuditRow> = audit_log::table
+    .inner_join(users::table)
+    .left_join(organizations::table)
+    .left_join(projects::table)
+    .filter(audit_log::id.eq_any(ids))
+    .select((
+      audit_log::id,
+      users::handle,
+      organizations::slug.nullable(),
+      projects::slug.nullable(),
+      audit_log::action,
+      audit_log::target,
+      iso_utc(audit_log::created_at),
+      audit_log::client,
+      audit_log::origin,
+      audit_log::result,
+      audit_log::detail,
+    ))
+    .load(conn)?;
+  let mut entries = rows
+    .into_iter()
+    .map(audit_entry)
+    .collect::<StoreResult<Vec<AuditEntry>>>()?;
+  let position = |id: i64| ids.iter().position(|candidate| *candidate == id);
+  entries.sort_by_key(|entry| position(entry.id));
+  Ok(entries)
+}
+
+const CSV_HEADER: &str = "time,actor,client,action,target,result,detail,origin";
+
+const FORMULA_STARTS: [char; 6] = ['=', '+', '-', '@', '\t', '\r'];
+
+fn csv_field(value: &str, out: &mut String) {
+  let neutral = if value.starts_with(FORMULA_STARTS) {
+    format!("'{value}")
+  } else {
+    value.to_string()
+  };
+  if neutral.contains([',', '"', '\r', '\n']) {
+    out.push('"');
+    out.push_str(&neutral.replace('"', "\"\""));
+    out.push('"');
+  } else {
+    out.push_str(&neutral);
+  }
+}
+
+fn csv_document(entries: &[AuditEntry]) -> String {
+  let mut out = String::from(CSV_HEADER);
+  out.push_str("\r\n");
+  for entry in entries {
+    let fields = [
+      entry.created_at.as_str(),
+      entry.actor.as_str(),
+      entry.client.as_deref().unwrap_or(""),
+      entry.action.as_str(),
+      entry.target.as_str(),
+      entry.result.as_str(),
+      entry.detail.as_deref().unwrap_or(""),
+      entry.origin.as_deref().unwrap_or(""),
+    ];
+    for (index, field) in fields.iter().enumerate() {
+      if index > 0 {
+        out.push(',');
+      }
+      csv_field(field, &mut out);
+    }
+    out.push_str("\r\n");
+  }
+  out
+}
+
+fn export_target(count: usize) -> String {
+  match count {
+    1 => "1 entry".to_string(),
+    n => format!("{n} entries"),
+  }
+}
+
+impl Store {
+  /// One page of the audit trail of a project or organization with the total and the facet counts.
+  pub fn audit_table(
+    &self,
+    caller: &Caller,
+    scope: AuditScope<'_>,
+    query: &AuditQuery,
+  ) -> StoreResult<AuditTable> {
+    query.validate()?;
+    self.with_conn(|conn| {
+      let scope = authorize(conn, caller, scope)?;
+      let offset = i64::from(query.page - 1) * i64::from(query.page_size);
+      let ids = ordered_ids(
+        conn,
+        predicate(scope, query),
+        query.sort,
+        Some((i64::from(query.page_size), offset)),
+      )?;
+      let entries = entries_in_order(conn, &ids)?;
+      let (total, facets) = totals_and_facets(conn, scope, query)?;
+      Ok(AuditTable {
+        entries,
+        total,
+        page: query.page,
+        page_size: query.page_size,
+        facets,
+      })
+    })
+  }
+
+  /// CSV of the selected entries, or of every entry matching a query, recorded as `audit.export`.
+  pub fn audit_export(
+    &self,
+    caller: &Caller,
+    scope: AuditScope<'_>,
+    selection: AuditExportSelection,
+  ) -> StoreResult<String> {
+    self.with_tx(|conn| {
+      let ids_scope = authorize(conn, caller, scope)?;
+      let ids = match &selection {
+        AuditExportSelection::Ids(ids) => {
+          if ids.is_empty() {
+            Vec::new()
+          } else {
+            let filter: Predicate =
+              Box::new(scope_predicate(ids_scope).and(audit_log::id.eq_any(ids.clone())));
+            ordered_ids(conn, filter, SortOrder::Newest, None)?
+          }
+        }
+        AuditExportSelection::Query(query) => {
+          ordered_ids(conn, predicate(ids_scope, query), query.sort, None)?
+        }
+      };
+      let entries = entries_in_order(conn, &ids)?;
+      audit_in(
+        conn,
+        caller,
+        Some(ids_scope.organization_id),
+        ids_scope.project_id,
+        "audit.export",
+        &export_target(entries.len()),
+      )?;
+      Ok(csv_document(&entries))
+    })
+  }
+}
+
+#[cfg(test)]
+mod csv_tests {
+  use super::csv_field;
+
+  fn field(value: &str) -> String {
+    let mut out = String::new();
+    csv_field(value, &mut out);
+    out
+  }
+
+  #[test]
+  fn cells_that_spreadsheets_would_run_as_formulas_are_kept_as_text() {
+    assert_eq!(
+      field("=HYPERLINK(\"http://x\")"),
+      "\"'=HYPERLINK(\"\"http://x\"\")\""
+    );
+    assert_eq!(field("+1"), "'+1");
+    assert_eq!(field("-2"), "'-2");
+    assert_eq!(field("@SUM(A1)"), "'@SUM(A1)");
+    assert_eq!(field("\tcmd"), "'\tcmd");
+  }
+
+  #[test]
+  fn ordinary_cells_are_written_as_they_are_and_quoted_when_needed() {
+    assert_eq!(field("001/spec@7"), "001/spec@7");
+    assert_eq!(
+      field("expected r1, current r2"),
+      "\"expected r1, current r2\""
+    );
+    assert_eq!(field("say \"hi\""), "\"say \"\"hi\"\"\"");
+  }
+}
