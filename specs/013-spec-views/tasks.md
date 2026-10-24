@@ -2,7 +2,7 @@
 
 Plan: `specs/013-spec-views/plan.md` · Date: 2026-10-24
 
-- [ ] T01 (FR-1, FR-3, FR-5) Requirement parser; spec summaries, traceability and readiness views in core — Done when: core tests green
+- [x] T01 (FR-1, FR-3, FR-5) Requirement parser; spec summaries, traceability and readiness views in core — Done when: core tests green
 - [ ] T02 (FR-4, FR-6) Task completion attribution and resolved markers in core — Done when: core tests green
 - [ ] T03 (FR-1 to FR-8) API endpoints for the views; `make openapi` — Done when: API tests green
 - [ ] T04 (FR-1, FR-9) Specs list screen — Done when: app tests green
