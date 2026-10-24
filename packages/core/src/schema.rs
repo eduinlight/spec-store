@@ -41,6 +41,8 @@ diesel::table! {
     accepted_by -> Nullable<BigInt>,
     created_at -> Timestamptz,
     updated_at -> Timestamptz,
+    project_id -> Nullable<BigInt>,
+    project_role -> Nullable<Text>,
   }
 }
 
@@ -61,6 +63,7 @@ diesel::table! {
     project_id -> BigInt,
     user_id -> BigInt,
     role -> Text,
+    created_at -> Timestamptz,
   }
 }
 
@@ -158,6 +161,7 @@ diesel::table! {
 diesel::joinable!(organization_members -> organizations (organization_id));
 diesel::joinable!(organization_members -> users (user_id));
 diesel::joinable!(invitations -> organizations (organization_id));
+diesel::joinable!(invitations -> projects (project_id));
 diesel::joinable!(projects -> organizations (organization_id));
 diesel::joinable!(memberships -> projects (project_id));
 diesel::joinable!(memberships -> users (user_id));

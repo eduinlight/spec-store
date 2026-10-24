@@ -99,7 +99,11 @@ pub struct ProjectOutput {
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct ProjectMemberOutput {
   pub handle: String,
+  pub name: String,
   pub role: String,
+  pub guest: bool,
+  pub joined_at: String,
+  pub last_active_at: Option<String>,
 }
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
@@ -228,14 +232,18 @@ pub async fn members(
   let caller = principal.caller;
   let target = address(&org, &project);
   let members = state
-    .blocking(move |store| store.list_members(&caller, &target))
+    .blocking(move |store| store.project_members(&caller, &target))
     .await?;
   Ok(Json(ProjectMembersOutput {
     members: members
       .into_iter()
       .map(|m| ProjectMemberOutput {
         handle: m.handle,
+        name: m.name,
         role: m.role.as_str().to_string(),
+        guest: m.guest,
+        joined_at: m.joined_at,
+        last_active_at: m.last_active_at,
       })
       .collect(),
   }))

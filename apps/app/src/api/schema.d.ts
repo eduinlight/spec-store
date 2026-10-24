@@ -1037,7 +1037,11 @@ export interface components {
             invitations: components["schemas"]["PreviewOutput"][];
         };
         ProjectMemberOutput: {
+            guest: boolean;
             handle: string;
+            joined_at: string;
+            last_active_at?: string | null;
+            name: string;
             role: string;
         };
         ProjectMembersOutput: {

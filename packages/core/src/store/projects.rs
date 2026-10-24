@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use diesel::dsl::sql;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
@@ -7,7 +9,7 @@ use diesel::upsert::excluded;
 use crate::address::ProjectRef;
 use crate::model::{Caller, DocumentKind, OrgRole, Role, StoreError, StoreResult, validate_slug};
 use crate::schema::{
-  iso_utc, memberships, organization_members, organizations, projects, specs, users,
+  audit_log, iso_utc, memberships, organization_members, organizations, projects, specs, users,
 };
 use crate::store::documents::{append_revision, current_revision, document_id, ensure_document};
 use crate::store::organizations::{org_role, organization_id_by_slug, owned_organization};
@@ -28,9 +30,13 @@ pub struct Project {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Member {
+pub struct ProjectMember {
   pub handle: String,
+  pub name: String,
   pub role: Role,
+  pub guest: bool,
+  pub joined_at: String,
+  pub last_active_at: Option<String>,
 }
 
 pub fn validate_repository_url(url: &str) -> StoreResult<()> {
@@ -215,11 +221,19 @@ impl Store {
       if !access.can_manage_members() {
         return Err(StoreError::Forbidden);
       }
+      lock_project(tx, access.project_id)?;
       let user_id = user_id_by_handle(tx, handle)?;
-      if org_role(tx, access.organization_id, user_id)?.is_none() {
+      let current = role_of(tx, access.project_id, user_id)?;
+      if current.is_none() && org_role(tx, access.organization_id, user_id)?.is_none() {
         return Err(StoreError::Validation(format!(
-          "{handle:?} is not a member of the organization; invite them first"
+          "{handle:?} is not a member of the organization; invite them to the project instead"
         )));
+      }
+      if current == Some(Role::Owner)
+        && role != Role::Owner
+        && owner_count(tx, access.project_id)? <= 1
+      {
+        return Err(last_owner_refusal(project_slug));
       }
       diesel::insert_into(memberships::table)
         .values((
@@ -248,7 +262,13 @@ impl Store {
       if !access.can_manage_members() {
         return Err(StoreError::Forbidden);
       }
+      lock_project(tx, access.project_id)?;
       let user_id = user_id_by_handle(tx, handle)?;
+      if role_of(tx, access.project_id, user_id)? == Some(Role::Owner)
+        && owner_count(tx, access.project_id)? <= 1
+      {
+        return Err(last_owner_refusal(project_slug));
+      }
       let removed = diesel::delete(
         memberships::table
           .filter(memberships::project_id.eq(access.project_id))
@@ -389,26 +409,45 @@ impl Store {
     })
   }
 
-  pub fn list_members(&self, caller: &Caller, slug: &str) -> StoreResult<Vec<Member>> {
+  pub fn project_members(&self, caller: &Caller, slug: &str) -> StoreResult<Vec<ProjectMember>> {
     self.with_conn(|conn| {
       let access = access_in(conn, caller, slug)?;
-      let rows: Vec<(String, String)> = memberships::table
+      let rows: Vec<(i64, String, String, String, String, bool)> = memberships::table
         .inner_join(users::table)
+        .left_join(
+          organization_members::table.on(
+            organization_members::organization_id
+              .eq(access.organization_id)
+              .and(organization_members::user_id.eq(memberships::user_id)),
+          ),
+        )
         .filter(memberships::project_id.eq(access.project_id))
-        .select((users::handle, memberships::role))
+        .select((
+          users::id,
+          users::handle,
+          users::name,
+          memberships::role,
+          iso_utc(memberships::created_at),
+          organization_members::user_id.nullable().is_null(),
+        ))
         .load(conn)?;
+      let mut last_active = last_active_in(conn, access.project_id)?;
       let mut members = rows
         .into_iter()
-        .map(|(handle, role)| {
-          Ok(Member {
+        .map(|(user_id, handle, name, role, joined_at, guest)| {
+          Ok(ProjectMember {
             handle,
+            name,
             role: role.parse()?,
+            guest,
+            joined_at,
+            last_active_at: last_active.remove(&user_id),
           })
         })
         .collect::<StoreResult<Vec<_>>>()?;
       members.sort_by(|a, b| {
-        role_rank(a.role)
-          .cmp(&role_rank(b.role))
+        (a.role != Role::Owner)
+          .cmp(&(b.role != Role::Owner))
           .then_with(|| a.handle.cmp(&b.handle))
       });
       Ok(members)
@@ -525,12 +564,40 @@ pub fn visible_projects_in(
   Ok(visible)
 }
 
-fn role_rank(role: Role) -> u8 {
-  match role {
-    Role::Owner => 0,
-    Role::Editor => 1,
-    Role::Reader => 2,
-  }
+pub(crate) fn lock_project(conn: &mut PgConnection, project_id: i64) -> StoreResult<()> {
+  projects::table
+    .filter(projects::id.eq(project_id))
+    .select(projects::id)
+    .for_update()
+    .first::<i64>(conn)?;
+  Ok(())
+}
+
+pub(crate) fn owner_count(conn: &mut PgConnection, project_id: i64) -> StoreResult<i64> {
+  Ok(
+    memberships::table
+      .filter(memberships::project_id.eq(project_id))
+      .filter(memberships::role.eq(Role::Owner.as_str()))
+      .count()
+      .get_result(conn)?,
+  )
+}
+
+pub(crate) fn last_owner_refusal(project: &str) -> StoreError {
+  StoreError::Validation(format!(
+    "this change would leave project {project:?} without an owner; make another member an owner first"
+  ))
+}
+
+fn last_active_in(conn: &mut PgConnection, project_id: i64) -> StoreResult<HashMap<i64, String>> {
+  let rows: Vec<(i64, String)> = audit_log::table
+    .filter(audit_log::project_id.eq(project_id))
+    .filter(audit_log::result.eq("ok"))
+    .distinct_on(audit_log::actor_id)
+    .order((audit_log::actor_id, audit_log::id.desc()))
+    .select((audit_log::actor_id, iso_utc(audit_log::created_at)))
+    .load(conn)?;
+  Ok(rows.into_iter().collect())
 }
 
 fn copy_document(

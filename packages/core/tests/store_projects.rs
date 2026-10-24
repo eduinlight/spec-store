@@ -219,7 +219,7 @@ fn malformed_addresses_are_rejected() {
 #[test]
 fn list_members_orders_owners_first_and_handles_empty() {
   let f = fixture();
-  let members = f.store.list_members(&f.reader, "acme/demo").unwrap();
+  let members = f.store.project_members(&f.reader, "acme/demo").unwrap();
   let listed: Vec<(String, Role)> = members.iter().map(|m| (m.handle.clone(), m.role)).collect();
   assert_eq!(
     listed,
@@ -230,12 +230,12 @@ fn list_members_orders_owners_first_and_handles_empty() {
     ]
   );
   assert!(matches!(
-    f.store.list_members(&f.outsider, "acme/demo"),
+    f.store.project_members(&f.outsider, "acme/demo"),
     Err(StoreError::NotFound(_))
   ));
   assert_eq!(
     f.store
-      .list_members(&f.operator, "acme/demo")
+      .project_members(&f.operator, "acme/demo")
       .unwrap()
       .len(),
     3
@@ -246,7 +246,7 @@ fn list_members_orders_owners_first_and_handles_empty() {
     .unwrap();
   assert!(
     f.store
-      .list_members(&f.root, "acme/empty")
+      .project_members(&f.root, "acme/empty")
       .unwrap()
       .is_empty()
   );

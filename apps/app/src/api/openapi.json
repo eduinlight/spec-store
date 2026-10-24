@@ -4713,10 +4713,28 @@
         "type": "object",
         "required": [
           "handle",
-          "role"
+          "name",
+          "role",
+          "guest",
+          "joined_at"
         ],
         "properties": {
+          "guest": {
+            "type": "boolean"
+          },
           "handle": {
+            "type": "string"
+          },
+          "joined_at": {
+            "type": "string"
+          },
+          "last_active_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
             "type": "string"
           },
           "role": {

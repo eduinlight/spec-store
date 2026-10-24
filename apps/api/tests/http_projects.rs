@@ -65,10 +65,14 @@ async fn owners_create_projects_and_members_see_them_with_their_role() {
       .await,
   )
   .await;
-  assert_eq!(
-    members["members"],
-    json!([{"handle": "bob", "role": "editor"}])
-  );
+  let listed = members["members"].as_array().unwrap();
+  assert_eq!(listed.len(), 1);
+  assert_eq!(listed[0]["handle"], "bob");
+  assert_eq!(listed[0]["name"], "bob");
+  assert_eq!(listed[0]["role"], "editor");
+  assert_eq!(listed[0]["guest"], false);
+  assert!(listed[0]["joined_at"].as_str().unwrap().ends_with('Z'));
+  assert_eq!(listed[0]["last_active_at"], serde_json::Value::Null);
   let removed = app
     .authorized("DELETE", "/api/v1/projects/acme/demo/members/bob", "alice")
     .await;
