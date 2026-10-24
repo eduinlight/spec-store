@@ -1,30 +1,51 @@
 import { Card } from "@workspace/ui/components/card";
+import { Alert, Tag } from "@workspace/ui/taptap";
 import { useTranslation } from "react-i18next";
 import { Link, type LoaderFunctionArgs, useLoaderData } from "react-router";
-import { api, unwrap } from "~/api/client";
+import { ApiFailure, api, unwrap } from "~/api/client";
+import { GetStarted } from "~/components/get-started";
+import { connectCommand, isAgentClient, mcpBaseUrl } from "~/lib/mcp";
 import { guard } from "~/lib/session";
 
 export function projectParams(params: Record<string, string | undefined>) {
   return { org: params.org ?? "", project: params.project ?? "" };
 }
 
+async function summaryOf(org: string, address: string) {
+  try {
+    const listed = await api
+      .GET("/api/v1/orgs/{org}/projects", { params: { path: { org } } })
+      .then(unwrap);
+    return listed.projects.find((item) => item.address === address) ?? null;
+  } catch (error) {
+    if (error instanceof ApiFailure) return null;
+    throw error;
+  }
+}
+
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const path = projectParams(params);
   return guard(request, async () => {
-    const [project, status, members] = await Promise.all([
+    const [project, status, members, summary] = await Promise.all([
       api.GET("/api/v1/projects/{org}/{project}", { params: { path } }).then(unwrap),
       api.GET("/api/v1/projects/{org}/{project}/status", { params: { path } }).then(unwrap),
       api.GET("/api/v1/projects/{org}/{project}/members", { params: { path } }).then(unwrap),
+      summaryOf(path.org, `${path.org}/${path.project}`),
     ]);
-    return { project, status, members: members.members };
+    return { project, status, members: members.members, summary };
   });
 }
 
 export function Project() {
-  const { project, status, members } = useLoaderData() as Awaited<ReturnType<typeof loader>>;
+  const { project, status, members, summary } = useLoaderData() as Awaited<
+    ReturnType<typeof loader>
+  >;
   const { t } = useTranslation();
   const base = `/p/${project.address}`;
   const owner = project.role === "owner";
+  const specWritten = status.specs.some((spec) => spec.number === 1);
+  const agentCalled = isAgentClient(summary?.last_activity?.client);
+  const gettingStarted = owner && !project.archived && !specWritten;
   return (
     <div className="grid gap-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -34,7 +55,10 @@ export function Project() {
               {project.organization}
             </Link>
           </p>
-          <h1 className="text-2xl font-semibold">{project.name}</h1>
+          <h1 className="flex items-center gap-3 text-2xl font-semibold">
+            {project.name}
+            {project.archived && <Tag>{t("card.archived")}</Tag>}
+          </h1>
           <p className="text-sm text-muted-foreground">{project.address}</p>
         </div>
         {owner && (
@@ -48,6 +72,18 @@ export function Project() {
           </nav>
         )}
       </div>
+      {project.archived && (
+        <Alert status="info" closable={false}>
+          {t("archive.banner")}
+        </Alert>
+      )}
+      {gettingStarted && (
+        <GetStarted
+          command={connectCommand(mcpBaseUrl())}
+          agentCalled={agentCalled}
+          specWritten={specWritten}
+        />
+      )}
       <div className="grid gap-6 md:grid-cols-3">
         <Card className="md:col-span-2">
           <h2 className="text-lg font-semibold">{t("project.specs")}</h2>

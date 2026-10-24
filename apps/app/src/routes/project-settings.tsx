@@ -13,6 +13,8 @@ import {
 import { api, succeeded, unwrap } from "~/api/client";
 import { attempt, errorOf } from "~/lib/actions";
 import { guard } from "~/lib/session";
+import { useConfirm } from "~/shell/confirm";
+import { useOutcomeToast } from "~/shell/outcome";
 import { projectParams } from "./project";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
@@ -49,6 +51,11 @@ export async function action({ request, params }: ActionFunctionArgs) {
             params: { path: { ...path, handle } },
           }),
         );
+      } else if (intent === "archive" || intent === "restore") {
+        succeeded(
+          await api.POST(`/api/v1/projects/{org}/{project}/${intent}`, { params: { path } }),
+        );
+        return { done: intent };
       } else if (intent === "repository") {
         const url = String(form.get("url") ?? "").trim();
         succeeded(
@@ -71,8 +78,32 @@ export function ProjectSettings() {
   const { project, members, people } = useLoaderData() as Awaited<ReturnType<typeof loader>>;
   const roles = useFetcher();
   const repository = useFetcher();
+  const lifecycle = useFetcher();
   const { t } = useTranslation();
-  const error = errorOf(roles.data) ?? errorOf(repository.data);
+  const confirm = useConfirm();
+  const error = errorOf(roles.data) ?? errorOf(repository.data) ?? errorOf(lifecycle.data);
+  useOutcomeToast(lifecycle, (done) =>
+    done === "archive" ? t("toast.projectArchived") : t("toast.projectRestored"),
+  );
+  const toggleArchive = async () => {
+    const intent = project.archived ? "restore" : "archive";
+    const confirmed = await confirm(
+      project.archived
+        ? {
+            title: t("archive.restoreTitle", { name: project.name }),
+            body: t("archive.restoreBody"),
+            confirmText: t("archive.restore"),
+          }
+        : {
+            title: t("archive.confirmTitle", { name: project.name }),
+            body: t("archive.confirmBody"),
+            confirmText: t("archive.archive"),
+          },
+    );
+    if (confirmed) {
+      lifecycle.submit({ intent }, { method: "post" });
+    }
+  };
   return (
     <div className="grid gap-6">
       <div>
@@ -147,6 +178,21 @@ export function ProjectSettings() {
             {t("projects.clearRepository")}
           </Button>
         </repository.Form>
+      </Card>
+      <Card>
+        <h2 className="text-lg font-semibold">{t("archive.title")}</h2>
+        <p className="text-sm text-muted-foreground">
+          {project.archived ? t("archive.restoreDescription") : t("archive.archiveDescription")}
+        </p>
+        <div>
+          <Button
+            type="button"
+            variant={project.archived ? "outline" : "destructive"}
+            onClick={() => void toggleArchive()}
+          >
+            {project.archived ? t("archive.restore") : t("archive.archive")}
+          </Button>
+        </div>
       </Card>
     </div>
   );
