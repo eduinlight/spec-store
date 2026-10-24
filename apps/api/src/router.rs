@@ -45,6 +45,9 @@ fn documented() -> OpenApiRouter<AppState> {
       projects::set_repository,
       projects::clear_repository
     ))
+    .routes(routes!(projects::copy))
+    .routes(routes!(projects::archive))
+    .routes(routes!(projects::restore))
     .routes(routes!(audit::project))
     .routes(routes!(specs::status))
     .routes(routes!(specs::list))

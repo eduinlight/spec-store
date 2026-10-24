@@ -97,7 +97,7 @@ impl Store {
     let attempt = Attempt::project("project.import", project, project);
     self.audited(caller, attempt, |tx| {
       let access = access_in(tx, caller, project)?;
-      if !access.is_owner() {
+      if !access.can_administer() {
         return Err(StoreError::Forbidden);
       }
       let mut problems = tree.problems.clone();

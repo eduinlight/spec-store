@@ -15,6 +15,13 @@ pub struct NewProject {
   pub name: String,
 }
 
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+pub struct CopyProject {
+  pub slug: String,
+  pub name: String,
+  pub repository_url: Option<String>,
+}
+
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct ProjectSummaryOutput {
   pub address: String,
@@ -86,6 +93,7 @@ pub struct ProjectOutput {
   pub repository_url: Option<String>,
   pub role: Option<String>,
   pub created_at: String,
+  pub archived: bool,
 }
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
@@ -155,6 +163,7 @@ async fn read_project(
     repository_url: project.repository_url,
     role: role.map(|r| r.as_str().to_string()),
     created_at: project.created_at,
+    archived: project.archived,
   })
 }
 
@@ -319,6 +328,83 @@ pub async fn clear_repository(
   let target = address(&org, &project);
   state
     .blocking(move |store| store.set_repository_url(&caller, &target, None))
+    .await?;
+  Ok(StatusCode::NO_CONTENT)
+}
+
+#[utoipa::path(
+  post,
+  operation_id = "projects_copy",
+  path = "/api/v1/projects/{org}/{project}/copy",
+  tag = "projects",
+  params(("org" = String, Path), ("project" = String, Path)),
+  request_body = CopyProject,
+  responses((status = 201, body = ProjectOutput), (status = 401, body = ErrorBody), (status = 403, body = ErrorBody), (status = 404, body = ErrorBody), (status = 422, body = ErrorBody))
+)]
+pub async fn copy(
+  State(state): State<AppState>,
+  principal: Principal,
+  Path((org, project)): Path<(String, String)>,
+  Json(body): Json<CopyProject>,
+) -> Result<(StatusCode, Json<ProjectOutput>), ApiError> {
+  let caller = principal.caller.clone();
+  let source = address(&org, &project);
+  let created_address = address(&org, &body.slug);
+  state
+    .blocking(move |store| {
+      store.copy_project(
+        &caller,
+        &source,
+        &body.slug,
+        &body.name,
+        body.repository_url.as_deref(),
+      )
+    })
+    .await?;
+  Ok((
+    StatusCode::CREATED,
+    Json(read_project(&state, principal, created_address).await?),
+  ))
+}
+
+#[utoipa::path(
+  post,
+  operation_id = "projects_archive",
+  path = "/api/v1/projects/{org}/{project}/archive",
+  tag = "projects",
+  params(("org" = String, Path), ("project" = String, Path)),
+  responses((status = 204), (status = 401, body = ErrorBody), (status = 403, body = ErrorBody), (status = 404, body = ErrorBody), (status = 422, body = ErrorBody))
+)]
+pub async fn archive(
+  State(state): State<AppState>,
+  principal: Principal,
+  Path((org, project)): Path<(String, String)>,
+) -> Result<StatusCode, ApiError> {
+  let caller = principal.caller;
+  let target = address(&org, &project);
+  state
+    .blocking(move |store| store.archive_project(&caller, &target))
+    .await?;
+  Ok(StatusCode::NO_CONTENT)
+}
+
+#[utoipa::path(
+  post,
+  operation_id = "projects_restore",
+  path = "/api/v1/projects/{org}/{project}/restore",
+  tag = "projects",
+  params(("org" = String, Path), ("project" = String, Path)),
+  responses((status = 204), (status = 401, body = ErrorBody), (status = 403, body = ErrorBody), (status = 404, body = ErrorBody), (status = 422, body = ErrorBody))
+)]
+pub async fn restore(
+  State(state): State<AppState>,
+  principal: Principal,
+  Path((org, project)): Path<(String, String)>,
+) -> Result<StatusCode, ApiError> {
+  let caller = principal.caller;
+  let target = address(&org, &project);
+  state
+    .blocking(move |store| store.restore_project(&caller, &target))
     .await?;
   Ok(StatusCode::NO_CONTENT)
 }

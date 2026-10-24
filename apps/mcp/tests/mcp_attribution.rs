@@ -261,3 +261,25 @@ async fn revision_tools_return_the_client() {
   .unwrap();
   assert_eq!(revision["revision"]["client"], "Cursor");
 }
+
+#[tokio::test]
+async fn writes_to_an_archived_project_are_forbidden_recorded_and_reads_still_work() {
+  let mcp = seeded(0).await;
+  let root = common::person(&mcp.store, "root");
+  mcp.store.archive_project(&root, "acme/demo").unwrap();
+  let editor = mcp.connect("editor").await;
+  let denied = call_as(&editor, "put_document", put("# S\n"), Some("Cursor"))
+    .await
+    .unwrap_err();
+  match denied {
+    ServiceError::McpError(data) => {
+      assert_eq!(data.data.unwrap()["kind"], "forbidden");
+    }
+    other => panic!("expected an MCP error, got {other:?}"),
+  }
+  let entry = newest(&mcp, "document.put");
+  assert_eq!(entry.result, AuditResult::Denied);
+  assert_eq!(entry.client.as_deref(), Some("Cursor"));
+  let status = call(&editor, "list_specs", json!({"project": "acme/demo"})).await;
+  assert!(status.is_ok());
+}
