@@ -298,7 +298,16 @@ fn only_owners_import() {
       .import_tree(&f.admin, "acme/nope", &tree, &ImportOptions::default()),
     Err(StoreError::NotFound(_))
   ));
-  assert_eq!(counts(&f.store), before);
+  let after = counts(&f.store);
+  assert_eq!(after[..3], before[..3]);
+  assert_eq!(after[3], before[3] + 3);
+  assert_eq!(
+    common::int(
+      &f.store,
+      "SELECT count(*) FROM audit_log WHERE result = 'denied' AND action = 'project.import'"
+    ),
+    3
+  );
 }
 
 #[test]

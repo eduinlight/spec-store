@@ -1,12 +1,18 @@
+use std::net::SocketAddr;
+
 use axum::body::Body;
-use axum::extract::{Request, State};
+use axum::extract::{ConnectInfo, Request, State};
 use axum::http::StatusCode;
 use axum::http::header::{AUTHORIZATION, WWW_AUTHENTICATE};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 use sdd_vault_core::identity::IdentityError;
+use sdd_vault_core::model::Via;
+use sdd_vault_core::origin::client_origin;
 
 use crate::state::AppState;
+
+pub const FORWARDED_FOR: &str = "x-forwarded-for";
 
 fn bearer(request: &Request<Body>) -> Option<String> {
   request
@@ -41,6 +47,31 @@ pub fn unauthorized(state: &AppState, invalid_token: bool) -> Response {
     .into_response()
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ClientHint {
+  pub subject: String,
+  pub client_id: Option<String>,
+}
+
+fn origin_of(state: &AppState, request: &Request<Body>) -> Option<String> {
+  let peer = request
+    .extensions()
+    .get::<ConnectInfo<SocketAddr>>()
+    .map(|ConnectInfo(address)| address.ip());
+  let forwarded_for = request
+    .headers()
+    .get_all(FORWARDED_FOR)
+    .iter()
+    .filter_map(|value| value.to_str().ok())
+    .collect::<Vec<_>>()
+    .join(",");
+  client_origin(
+    peer,
+    Some(forwarded_for.as_str()).filter(|header| !header.is_empty()),
+    state.config.trusted_proxy_hops,
+  )
+}
+
 pub async fn require_bearer(
   State(state): State<AppState>,
   mut request: Request<Body>,
@@ -65,12 +96,20 @@ pub async fn require_bearer(
     }
   };
   let identity = claims.identity();
+  let hint = ClientHint {
+    subject: identity.subject.clone(),
+    client_id: claims.azp.clone(),
+  };
+  let origin = origin_of(&state, &request);
   let is_operator = claims.is_operator();
   let store = state.store.clone();
   let caller = tokio::task::spawn_blocking(move || store.caller_for(&identity, is_operator)).await;
   match caller {
     Ok(Ok(caller)) => {
-      request.extensions_mut().insert(caller);
+      request
+        .extensions_mut()
+        .insert(caller.with_via(Via::new("", origin)));
+      request.extensions_mut().insert(hint);
       next.run(request).await
     }
     Ok(Err(error)) => {

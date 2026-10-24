@@ -1,7 +1,7 @@
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 
-use crate::model::{Caller, StoreError, StoreResult};
+use crate::model::{Caller, StoreError, StoreResult, Via};
 use crate::schema::{iso_utc, users};
 use crate::store::Store;
 
@@ -136,6 +136,7 @@ impl Store {
       user_id: user.id,
       handle: user.handle,
       is_operator,
+      via: Via::default(),
     })
   }
 
@@ -145,6 +146,7 @@ impl Store {
         user_id: user_id_by_handle(conn, handle)?,
         handle: handle.to_string(),
         is_operator,
+        via: Via::default(),
       })
     })
   }

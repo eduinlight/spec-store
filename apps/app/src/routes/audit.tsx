@@ -21,6 +21,12 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   });
 }
 
+type AuditResult = "ok" | "denied" | "conflict";
+
+function resultClass(result: string) {
+  return result === "ok" ? "" : "font-medium text-destructive";
+}
+
 export function Audit() {
   const page = useLoaderData() as Awaited<ReturnType<typeof loader>>;
   const { t } = useTranslation();
@@ -37,9 +43,12 @@ export function Audit() {
             <tr>
               <th className="py-2 pr-3">{t("audit.when")}</th>
               <th className="py-2 pr-3">{t("audit.actor")}</th>
+              <th className="py-2 pr-3">{t("audit.via")}</th>
+              <th className="py-2 pr-3">{t("audit.origin")}</th>
               <th className="py-2 pr-3">{t("audit.action")}</th>
               <th className="py-2 pr-3">{t("audit.project")}</th>
-              <th className="py-2">{t("audit.target")}</th>
+              <th className="py-2 pr-3">{t("audit.target")}</th>
+              <th className="py-2">{t("audit.result")}</th>
             </tr>
           </thead>
           <tbody className="divide-y">
@@ -47,9 +56,19 @@ export function Audit() {
               <tr key={entry.id}>
                 <td className="py-2 pr-3">{date(entry.created_at)}</td>
                 <td className="py-2 pr-3">{entry.actor}</td>
+                <td className="py-2 pr-3">{entry.client ?? "—"}</td>
+                <td className="py-2 pr-3 font-mono">{entry.origin ?? "—"}</td>
                 <td className="py-2 pr-3 font-mono">{entry.action}</td>
                 <td className="py-2 pr-3">{entry.project ?? entry.organization ?? ""}</td>
-                <td className="py-2">{entry.target}</td>
+                <td className="py-2 pr-3">{entry.target}</td>
+                <td className="py-2">
+                  <span className={resultClass(entry.result)}>
+                    {t(`audit.results.${entry.result as AuditResult}`)}
+                  </span>
+                  {entry.detail && (
+                    <span className="ml-2 text-muted-foreground">{entry.detail}</span>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>

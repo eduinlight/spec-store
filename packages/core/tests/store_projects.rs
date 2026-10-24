@@ -1,6 +1,6 @@
 mod common;
 
-use sdd_vault_core::model::{Caller, Role, StoreError};
+use sdd_vault_core::model::{AuditResult, Caller, Role, StoreError};
 
 struct Fixture {
   store: common::TestStore,
@@ -348,7 +348,7 @@ fn repository_url_is_validated_audited_and_clearable() {
   let audit = f.store.list_audit(Some("acme/demo"), 20).unwrap();
   let repo_entries: Vec<&sdd_vault_core::store::AuditEntry> = audit
     .iter()
-    .filter(|e| e.action == "project.repo")
+    .filter(|e| e.action == "project.repo" && e.result == AuditResult::Ok)
     .collect();
   assert_eq!(repo_entries.len(), 3);
   assert!(

@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
+use sdd_vault_core::clients::{CachedResolver, ClientNameResolver, KeycloakConsentNames};
 use sdd_vault_core::identity::Verifier;
+use sdd_vault_core::keycloak::KeycloakAdmin;
 use sdd_vault_core::store::Store;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -9,6 +11,7 @@ pub struct McpConfig {
   pub resource: String,
   pub authorization_server: String,
   pub scopes: Vec<String>,
+  pub trusted_proxy_hops: usize,
 }
 
 impl McpConfig {
@@ -38,6 +41,7 @@ pub struct AppState {
   pub store: Store,
   pub verifier: Arc<Verifier>,
   pub config: Arc<McpConfig>,
+  pub client_names: Option<Arc<dyn ClientNameResolver>>,
 }
 
 impl AppState {
@@ -46,7 +50,19 @@ impl AppState {
       store,
       verifier,
       config: Arc::new(config),
+      client_names: None,
     }
+  }
+
+  pub fn with_keycloak_admin(mut self, admin: Arc<KeycloakAdmin>) -> AppState {
+    let names = KeycloakConsentNames::new(admin);
+    self.client_names = Some(Arc::new(CachedResolver::new(Arc::new(names))));
+    self
+  }
+
+  pub fn with_client_names(mut self, names: Arc<dyn ClientNameResolver>) -> AppState {
+    self.client_names = Some(names);
+    self
   }
 }
 
@@ -61,6 +77,7 @@ mod tests {
       resource: "https://mcp-sddvault.eduindev.com/mcp".into(),
       authorization_server: "https://auth/realms/x".into(),
       scopes: Vec::new(),
+      trusted_proxy_hops: 0,
     };
     assert_eq!(
       config.resource_origin(),

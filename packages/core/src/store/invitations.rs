@@ -7,6 +7,7 @@ use crate::schema::{invitations, iso_utc, organizations, users};
 use crate::secrets::{hash_token, random_secret};
 use crate::store::organizations::{admit_member, owned_organization};
 use crate::store::outbox::enqueue;
+use crate::store::refusals::Attempt;
 use crate::store::{Store, audit_in};
 
 pub const INVITATION_DAYS: i32 = 7;
@@ -249,7 +250,8 @@ impl Store {
     language: &str,
     accept_base_url: &str,
   ) -> StoreResult<NewInvitation> {
-    self.with_tx(|tx| {
+    let attempt = Attempt::organization("invitation.create", organization, email);
+    self.audited(actor, attempt, |tx| {
       let organization_id = owned_organization(tx, actor, organization)?;
       let email = validate_email(email)?;
       let pending: i64 = invitations::table
@@ -292,7 +294,7 @@ impl Store {
       )?;
       audit_in(
         tx,
-        actor.user_id,
+        actor,
         Some(organization_id),
         None,
         "invitation.create",
@@ -353,7 +355,8 @@ impl Store {
     id: i64,
     accept_base_url: &str,
   ) -> StoreResult<NewInvitation> {
-    self.with_tx(|tx| {
+    let attempt = Attempt::organization("invitation.resend", organization, format!("#{id}"));
+    self.audited(actor, attempt, |tx| {
       let organization_id = owned_organization(tx, actor, organization)?;
       let (preview, found_org) = load_preview(tx, InvitationFilter::Id(id))?
         .filter(|(_, org)| *org == organization_id)
@@ -384,7 +387,7 @@ impl Store {
       )?;
       audit_in(
         tx,
-        actor.user_id,
+        actor,
         Some(organization_id),
         None,
         "invitation.resend",
@@ -400,7 +403,8 @@ impl Store {
   }
 
   pub fn revoke_invitation(&self, actor: &Caller, organization: &str, id: i64) -> StoreResult<()> {
-    self.with_tx(|tx| {
+    let attempt = Attempt::organization("invitation.revoke", organization, format!("#{id}"));
+    self.audited(actor, attempt, |tx| {
       let organization_id = owned_organization(tx, actor, organization)?;
       let (preview, _) = load_preview(tx, InvitationFilter::Id(id))?
         .filter(|(_, org)| *org == organization_id)
@@ -414,7 +418,7 @@ impl Store {
         .execute(tx)?;
       audit_in(
         tx,
-        actor.user_id,
+        actor,
         Some(organization_id),
         None,
         "invitation.revoke",
@@ -517,7 +521,13 @@ fn respond(
     None => ("declined", "invitation.decline"),
   };
   if state == "accepted" {
-    admit_member(conn, &preview.organization, caller.user_id, OrgRole::Member)?;
+    admit_member(
+      conn,
+      &preview.organization,
+      caller.user_id,
+      OrgRole::Member,
+      &caller.via,
+    )?;
   }
   diesel::update(invitations::table.filter(invitations::id.eq(preview.id)))
     .set((
@@ -528,7 +538,7 @@ fn respond(
     .execute(conn)?;
   audit_in(
     conn,
-    caller.user_id,
+    caller,
     Some(organization_id),
     None,
     action,

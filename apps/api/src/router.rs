@@ -9,6 +9,7 @@ use utoipa_axum::routes;
 use crate::bff;
 use crate::health::{live, ready};
 use crate::hosts::check_host;
+use crate::origin::attach_origin;
 use crate::routes::{
   audit, clients, documents, history, invitations, me, members, organizations, projects, specs,
   transfer,
@@ -85,6 +86,7 @@ pub fn router(state: AppState) -> Router {
     .route("/auth/callback", get(bff::callback))
     .route("/auth/backchannel-logout", post(bff::backchannel_logout))
     .layer(middleware::from_fn_with_state(state.clone(), check_host))
+    .layer(middleware::from_fn_with_state(state.clone(), attach_origin))
     .layer(DefaultBodyLimit::max(MAX_REQUEST_BODY_BYTES))
     .with_state(state)
 }

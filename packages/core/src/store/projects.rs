@@ -6,6 +6,7 @@ use crate::address::ProjectRef;
 use crate::model::{Caller, OrgRole, Role, StoreError, StoreResult, validate_slug};
 use crate::schema::{iso_utc, memberships, organization_members, organizations, projects, users};
 use crate::store::organizations::{org_role, organization_id_by_slug};
+use crate::store::refusals::Attempt;
 use crate::store::users::user_id_by_handle;
 use crate::store::{Store, audit};
 
@@ -134,7 +135,9 @@ impl Store {
   pub fn create_project(&self, actor: &Caller, project: &str, name: &str) -> StoreResult<Project> {
     let address = ProjectRef::parse(project)?;
     validate_slug(&address.project)?;
-    self.with_tx(|tx| {
+    let organization = address.organization.clone();
+    let attempt = Attempt::organization("project.create", &organization, project);
+    self.audited(actor, attempt, |tx| {
       let organization_id = organization_id_by_slug(tx, &address.organization)?
         .ok_or_else(|| StoreError::NotFound(format!("organization {:?}", address.organization)))?;
       match org_role(tx, organization_id, actor.user_id)? {
@@ -167,13 +170,7 @@ impl Store {
         ))
         .returning((projects::id, iso_utc(projects::created_at)))
         .get_result(tx)?;
-      audit(
-        tx,
-        actor.user_id,
-        Some(id),
-        "project.create",
-        &address.to_string(),
-      )?;
+      audit(tx, actor, Some(id), "project.create", &address.to_string())?;
       Ok(Project {
         id,
         slug: address.project.clone(),
@@ -192,7 +189,8 @@ impl Store {
     handle: &str,
     role: Role,
   ) -> StoreResult<()> {
-    self.with_tx(|tx| {
+    let attempt = Attempt::project("member.set", project_slug, format!("{handle}:{role}"));
+    self.audited(actor, attempt, |tx| {
       let access = access_in(tx, actor, project_slug)?;
       if !access.can_manage_members() {
         return Err(StoreError::Forbidden);
@@ -215,7 +213,7 @@ impl Store {
         .execute(tx)?;
       audit(
         tx,
-        actor.user_id,
+        actor,
         Some(access.project_id),
         "member.set",
         &format!("{handle}:{role}"),
@@ -224,7 +222,8 @@ impl Store {
   }
 
   pub fn remove_member(&self, actor: &Caller, project_slug: &str, handle: &str) -> StoreResult<()> {
-    self.with_tx(|tx| {
+    let attempt = Attempt::project("member.remove", project_slug, handle);
+    self.audited(actor, attempt, |tx| {
       let access = access_in(tx, actor, project_slug)?;
       if !access.can_manage_members() {
         return Err(StoreError::Forbidden);
@@ -241,13 +240,7 @@ impl Store {
           "membership of {handle:?} in project {project_slug:?}"
         )));
       }
-      audit(
-        tx,
-        actor.user_id,
-        Some(access.project_id),
-        "member.remove",
-        handle,
-      )
+      audit(tx, actor, Some(access.project_id), "member.remove", handle)
     })
   }
 
@@ -331,7 +324,8 @@ impl Store {
     if let Some(url) = url {
       validate_repository_url(url)?;
     }
-    self.with_tx(|tx| {
+    let attempt = Attempt::project("project.repo", slug, slug);
+    self.audited(actor, attempt, |tx| {
       let access = access_in(tx, actor, slug)?;
       if !access.can_manage_members() {
         return Err(StoreError::Forbidden);
@@ -343,13 +337,7 @@ impl Store {
         Some(_) => slug.to_string(),
         None => format!("{slug} cleared"),
       };
-      audit(
-        tx,
-        actor.user_id,
-        Some(access.project_id),
-        "project.repo",
-        &target,
-      )
+      audit(tx, actor, Some(access.project_id), "project.repo", &target)
     })
   }
 }

@@ -42,6 +42,7 @@ pub fn config() -> ApiConfig {
     app_client_id: sdd_vault_testkit::keycloak::APP_CLIENT_ID.into(),
     app_client_secret: sdd_vault_testkit::keycloak::APP_CLIENT_SECRET.into(),
     session_key: sdd_vault_core::crypto::Sealer::generate_key(),
+    trusted_proxy_hops: 0,
   }
 }
 

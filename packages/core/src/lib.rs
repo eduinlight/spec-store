@@ -1,4 +1,5 @@
 pub mod address;
+pub mod clients;
 pub mod config;
 pub mod crypto;
 pub mod db;
@@ -8,6 +9,7 @@ pub mod identity;
 pub mod keycloak;
 pub mod markdown;
 pub mod model;
+pub mod origin;
 pub mod schema;
 pub mod secrets;
 pub mod store;

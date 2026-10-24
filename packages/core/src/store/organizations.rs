@@ -1,10 +1,11 @@
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 
-use crate::model::{Caller, OrgRole, StoreError, StoreResult, validate_slug};
+use crate::model::{AuditResult, Caller, OrgRole, StoreError, StoreResult, Via, validate_slug};
 use crate::schema::{iso_utc, memberships, organization_members, organizations, projects, users};
+use crate::store::refusals::Attempt;
 use crate::store::users::user_id_by_handle;
-use crate::store::{Store, audit_in};
+use crate::store::{NewAudit, Store, audit_in, insert_audit};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Organization {
@@ -148,14 +149,7 @@ impl Store {
           organization_members::role.eq(OrgRole::Owner.as_str()),
         ))
         .execute(tx)?;
-      audit_in(
-        tx,
-        actor.user_id,
-        Some(id),
-        None,
-        "organization.create",
-        slug,
-      )?;
+      audit_in(tx, actor, Some(id), None, "organization.create", slug)?;
       Ok(Organization {
         id,
         slug: slug.to_string(),
@@ -254,7 +248,7 @@ impl Store {
     user_id: i64,
     role: OrgRole,
   ) -> StoreResult<()> {
-    self.with_tx(|tx| admit_member(tx, organization, user_id, role))
+    self.with_tx(|tx| admit_member(tx, organization, user_id, role, &Via::default()))
   }
 
   pub fn set_organization_member(
@@ -264,7 +258,12 @@ impl Store {
     handle: &str,
     role: OrgRole,
   ) -> StoreResult<()> {
-    self.with_tx(|tx| {
+    let attempt = Attempt::organization(
+      "organization.member.set",
+      organization,
+      format!("{handle}:{role}"),
+    );
+    self.audited(actor, attempt, |tx| {
       let organization_id = owned_organization(tx, actor, organization)?;
       lock_organization(tx, organization_id)?;
       let (user_id, current) = member_role(tx, organization_id, organization, handle)?;
@@ -283,7 +282,7 @@ impl Store {
       .execute(tx)?;
       audit_in(
         tx,
-        actor.user_id,
+        actor,
         Some(organization_id),
         None,
         "organization.member.set",
@@ -298,7 +297,8 @@ impl Store {
     organization: &str,
     handle: &str,
   ) -> StoreResult<()> {
-    self.with_tx(|tx| {
+    let attempt = Attempt::organization("organization.member.remove", organization, handle);
+    self.audited(actor, attempt, |tx| {
       let (organization_id, actor_role) = readable_organization(tx, actor, organization)?;
       let leaving = actor.handle == handle && actor_role.is_some();
       if actor_role != Some(OrgRole::Owner) && !leaving {
@@ -326,7 +326,7 @@ impl Store {
       .execute(tx)?;
       audit_in(
         tx,
-        actor.user_id,
+        actor,
         Some(organization_id),
         None,
         "organization.member.remove",
@@ -341,6 +341,7 @@ pub fn admit_member(
   organization: &str,
   user_id: i64,
   role: OrgRole,
+  via: &Via,
 ) -> StoreResult<()> {
   let organization_id =
     organization_id_by_slug(conn, organization)?.ok_or_else(|| not_found(organization))?;
@@ -357,13 +358,18 @@ pub fn admit_member(
       .filter(users::id.eq(user_id))
       .select(users::handle)
       .first(conn)?;
-    audit_in(
+    insert_audit(
       conn,
-      user_id,
-      Some(organization_id),
-      None,
-      "organization.member.admit",
-      &format!("{handle}:{role}"),
+      NewAudit {
+        actor_id: user_id,
+        via,
+        organization_id: Some(organization_id),
+        project_id: None,
+        action: "organization.member.admit",
+        target: &format!("{handle}:{role}"),
+        result: AuditResult::Ok,
+        detail: None,
+      },
     )?;
   }
   Ok(())

@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use axum::http::request::Parts;
 use rmcp::handler::server::router::tool::ToolRouter;
 use rmcp::handler::server::wrapper::{Json, Parameters};
@@ -9,6 +11,7 @@ use rmcp::{
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
+use sdd_vault_core::clients::{ClientNameResolver, MCP_CLIENT_FALLBACK, resolved_name};
 use sdd_vault_core::markdown::tasks::{Malformed, Task};
 use sdd_vault_core::model::{Caller, DocumentKind, SpecStatus, StoreError, StoreResult};
 use sdd_vault_core::store::Store;
@@ -17,9 +20,14 @@ use sdd_vault_core::store::specs::SpecSummary;
 use sdd_vault_core::store::tasks::{ActiveStatus, SpecMarker};
 use sdd_vault_core::templates;
 
+use crate::auth::ClientHint;
+
+pub const DEFAULT_CLIENT_NAME: &str = "rmcp";
+
 #[derive(Clone)]
 pub struct SddVaultMcp {
   store: Store,
+  client_names: Option<Arc<dyn ClientNameResolver>>,
   tool_router: ToolRouter<Self>,
 }
 
@@ -102,6 +110,7 @@ pub struct RevisionOutput {
   pub message: String,
   #[serde(skip_serializing_if = "Option::is_none")]
   pub version: Option<String>,
+  pub client: Option<String>,
 }
 
 impl From<RevisionMeta> for RevisionOutput {
@@ -112,6 +121,7 @@ impl From<RevisionMeta> for RevisionOutput {
       created_at: r.created_at,
       message: r.message,
       version: r.version,
+      client: r.client,
     }
   }
 }
@@ -449,9 +459,10 @@ pub fn to_mcp_error(error: StoreError) -> McpError {
 
 #[tool_router]
 impl SddVaultMcp {
-  pub fn new(store: Store) -> Self {
+  pub fn new(store: Store, client_names: Option<Arc<dyn ClientNameResolver>>) -> Self {
     Self {
       store,
+      client_names,
       tool_router: Self::tool_router(),
     }
   }
@@ -468,12 +479,34 @@ impl SddVaultMcp {
       .map_err(to_mcp_error)
   }
 
-  fn caller(&self, ctx: &RequestContext<RoleServer>) -> Result<Caller, McpError> {
-    ctx
+  async fn caller(&self, ctx: &RequestContext<RoleServer>) -> Result<Caller, McpError> {
+    let parts = ctx
       .extensions
       .get::<Parts>()
-      .and_then(|parts| parts.extensions.get::<Caller>().cloned())
-      .ok_or_else(|| to_mcp_error(StoreError::Unauthenticated))
+      .ok_or_else(|| to_mcp_error(StoreError::Unauthenticated))?;
+    let mut caller = parts
+      .extensions
+      .get::<Caller>()
+      .cloned()
+      .ok_or_else(|| to_mcp_error(StoreError::Unauthenticated))?;
+    let named = ctx
+      .client_info()
+      .map(|info| info.name.trim().to_string())
+      .filter(|name| !name.is_empty() && name != DEFAULT_CLIENT_NAME);
+    caller.via.client = match (named, parts.extensions.get::<ClientHint>()) {
+      (Some(name), _) => name,
+      (None, Some(hint)) => {
+        resolved_name(
+          self.client_names.as_deref(),
+          &hint.subject,
+          hint.client_id.as_deref(),
+          MCP_CLIENT_FALLBACK,
+        )
+        .await
+      }
+      (None, None) => MCP_CLIENT_FALLBACK.to_string(),
+    };
+    Ok(caller)
   }
 
   #[tool(
@@ -483,7 +516,7 @@ impl SddVaultMcp {
     &self,
     ctx: RequestContext<RoleServer>,
   ) -> Result<Json<ProjectsOutput>, McpError> {
-    let caller = self.caller(&ctx)?;
+    let caller = self.caller(&ctx).await?;
     let projects = self.run(move |store| store.list_projects(&caller)).await?;
     Ok(Json(ProjectsOutput {
       projects: projects
@@ -505,7 +538,7 @@ impl SddVaultMcp {
     Parameters(p): Parameters<ProjectParams>,
     ctx: RequestContext<RoleServer>,
   ) -> Result<Json<SpecsOutput>, McpError> {
-    let caller = self.caller(&ctx)?;
+    let caller = self.caller(&ctx).await?;
     let specs = self
       .run(move |store| store.list_specs(&caller, &p.project))
       .await?;
@@ -522,7 +555,7 @@ impl SddVaultMcp {
     Parameters(p): Parameters<ProjectParams>,
     ctx: RequestContext<RoleServer>,
   ) -> Result<Json<ActiveSpecOutput>, McpError> {
-    let caller = self.caller(&ctx)?;
+    let caller = self.caller(&ctx).await?;
     let active = self
       .run(move |store| store.active_spec(&caller, &p.project))
       .await?;
@@ -543,7 +576,7 @@ impl SddVaultMcp {
     Parameters(p): Parameters<DocumentParams>,
     ctx: RequestContext<RoleServer>,
   ) -> Result<Json<DocumentOutput>, McpError> {
-    let caller = self.caller(&ctx)?;
+    let caller = self.caller(&ctx).await?;
     let kind = parse_kind(&p.kind)?;
     let doc = self
       .run(move |store| store.get_document(&caller, &p.project, p.number, kind))
@@ -560,7 +593,7 @@ impl SddVaultMcp {
     Parameters(p): Parameters<ProjectParams>,
     ctx: RequestContext<RoleServer>,
   ) -> Result<Json<ConstitutionOutput>, McpError> {
-    let caller = self.caller(&ctx)?;
+    let caller = self.caller(&ctx).await?;
     let c = self
       .run(move |store| store.get_constitution(&caller, &p.project))
       .await?;
@@ -593,7 +626,7 @@ impl SddVaultMcp {
     Parameters(p): Parameters<CreateSpecParams>,
     ctx: RequestContext<RoleServer>,
   ) -> Result<Json<CreatedSpecOutput>, McpError> {
-    let caller = self.caller(&ctx)?;
+    let caller = self.caller(&ctx).await?;
     let created = self
       .run(move |store| store.create_spec(&caller, &p.project, &p.slug))
       .await?;
@@ -613,7 +646,7 @@ impl SddVaultMcp {
     Parameters(p): Parameters<PutDocumentParams>,
     ctx: RequestContext<RoleServer>,
   ) -> Result<Json<RevisionIdOutput>, McpError> {
-    let caller = self.caller(&ctx)?;
+    let caller = self.caller(&ctx).await?;
     let kind = parse_kind(&p.kind)?;
     let revision_id = self
       .run(move |store| {
@@ -639,7 +672,7 @@ impl SddVaultMcp {
     Parameters(p): Parameters<PutConstitutionParams>,
     ctx: RequestContext<RoleServer>,
   ) -> Result<Json<RevisionIdOutput>, McpError> {
-    let caller = self.caller(&ctx)?;
+    let caller = self.caller(&ctx).await?;
     let revision_id = self
       .run(move |store| {
         store.put_constitution(
@@ -663,7 +696,7 @@ impl SddVaultMcp {
     Parameters(p): Parameters<SetStatusParams>,
     ctx: RequestContext<RoleServer>,
   ) -> Result<Json<StatusOutput>, McpError> {
-    let caller = self.caller(&ctx)?;
+    let caller = self.caller(&ctx).await?;
     let status: SpecStatus = p.status.parse().map_err(to_mcp_error)?;
     let number = p.number;
     let status = self
@@ -683,7 +716,7 @@ impl SddVaultMcp {
     Parameters(p): Parameters<MarkTaskParams>,
     ctx: RequestContext<RoleServer>,
   ) -> Result<Json<MarkedTaskOutput>, McpError> {
-    let caller = self.caller(&ctx)?;
+    let caller = self.caller(&ctx).await?;
     let marked = self
       .run(move |store| store.mark_task_done(&caller, &p.project, p.number, &p.task_id, &p.commit))
       .await?;
@@ -701,7 +734,7 @@ impl SddVaultMcp {
     Parameters(p): Parameters<ListTasksParams>,
     ctx: RequestContext<RoleServer>,
   ) -> Result<Json<TasksOutput>, McpError> {
-    let caller = self.caller(&ctx)?;
+    let caller = self.caller(&ctx).await?;
     let parsed = self
       .run(move |store| store.list_tasks(&caller, &p.project, p.number, p.pending_only))
       .await?;
@@ -723,7 +756,7 @@ impl SddVaultMcp {
     Parameters(p): Parameters<SpecParams>,
     ctx: RequestContext<RoleServer>,
   ) -> Result<Json<MarkersOutput>, McpError> {
-    let caller = self.caller(&ctx)?;
+    let caller = self.caller(&ctx).await?;
     let markers = self
       .run(move |store| store.list_markers(&caller, &p.project, p.number))
       .await?;
@@ -740,7 +773,7 @@ impl SddVaultMcp {
     Parameters(p): Parameters<ProjectParams>,
     ctx: RequestContext<RoleServer>,
   ) -> Result<Json<ProjectStatusOutput>, McpError> {
-    let caller = self.caller(&ctx)?;
+    let caller = self.caller(&ctx).await?;
     let status = self
       .run(move |store| store.project_status(&caller, &p.project))
       .await?;
@@ -759,7 +792,7 @@ impl SddVaultMcp {
     Parameters(p): Parameters<ListRevisionsParams>,
     ctx: RequestContext<RoleServer>,
   ) -> Result<Json<RevisionsOutput>, McpError> {
-    let caller = self.caller(&ctx)?;
+    let caller = self.caller(&ctx).await?;
     let kind = parse_kind(&p.kind)?;
     let revisions = self
       .run(move |store| store.list_revisions(&caller, &p.project, p.number, kind))
@@ -775,7 +808,7 @@ impl SddVaultMcp {
     Parameters(p): Parameters<GetRevisionParams>,
     ctx: RequestContext<RoleServer>,
   ) -> Result<Json<RevisionBodyOutput>, McpError> {
-    let caller = self.caller(&ctx)?;
+    let caller = self.caller(&ctx).await?;
     let revision = self
       .run(move |store| store.get_revision(&caller, &p.project, p.revision_id))
       .await?;

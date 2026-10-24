@@ -2,13 +2,17 @@ use axum::extract::FromRequestParts;
 use axum::http::Method;
 use axum::http::header::AUTHORIZATION;
 use axum::http::request::Parts;
+use sdd_vault_core::clients::{
+  API_CLIENT_FALLBACK, CLI_CLIENT_ID, CLI_CLIENT_NAME, WEB_APP_CLIENT_NAME, resolved_name,
+};
 use sdd_vault_core::keycloak::KeycloakError;
-use sdd_vault_core::model::{Caller, StoreError};
+use sdd_vault_core::model::{Caller, StoreError, Via};
 use sdd_vault_core::store::sessions::BrowserSession;
 use sdd_vault_core::store::users::Identity;
 
 use crate::cookies::{REQUEST_HEADER, SESSION_COOKIE, cookie};
 use crate::error::ApiError;
+use crate::origin::ClientOrigin;
 use crate::state::AppState;
 
 #[derive(Debug, Clone)]
@@ -33,14 +37,40 @@ fn changes_state(method: &Method) -> bool {
   !matches!(*method, Method::GET | Method::HEAD | Method::OPTIONS)
 }
 
-async fn from_bearer(token: &str, state: &AppState) -> Result<Principal, ApiError> {
+fn origin_of(parts: &Parts) -> Option<String> {
+  parts
+    .extensions
+    .get::<ClientOrigin>()
+    .and_then(|origin| origin.0.clone())
+}
+
+async fn bearer_client(state: &AppState, subject: &str, client_id: Option<&str>) -> String {
+  if client_id == Some(CLI_CLIENT_ID) {
+    return CLI_CLIENT_NAME.to_string();
+  }
+  resolved_name(
+    state.client_names.as_deref(),
+    subject,
+    client_id,
+    API_CLIENT_FALLBACK,
+  )
+  .await
+}
+
+async fn from_bearer(
+  token: &str,
+  origin: Option<String>,
+  state: &AppState,
+) -> Result<Principal, ApiError> {
   let claims = state.verifier.verify(token, &state.config.audience).await?;
   let identity = claims.identity();
+  let client = bearer_client(state, &identity.subject, claims.azp.as_deref()).await;
   let is_operator = claims.is_operator();
   let for_store = identity.clone();
   let caller = state
     .blocking(move |store| store.caller_for(&for_store, is_operator))
-    .await?;
+    .await?
+    .with_via(Via::new(client, origin));
   Ok(Principal {
     caller,
     identity,
@@ -125,7 +155,9 @@ async fn from_session(
       email: user.email,
       name: user.name,
     },
-    caller: session.caller,
+    caller: session
+      .caller
+      .with_via(Via::new(WEB_APP_CLIENT_NAME, origin_of(parts))),
     email_verified: true,
     via_session: true,
   })
@@ -142,7 +174,7 @@ impl FromRequestParts<AppState> for Principal {
       return Ok(principal.clone());
     }
     let principal = if let Some(token) = bearer_token(parts) {
-      from_bearer(token, state).await?
+      from_bearer(token, origin_of(parts), state).await?
     } else if let Some(secret) = cookie(&parts.headers, SESSION_COOKIE) {
       from_session(parts, secret, state).await?
     } else {

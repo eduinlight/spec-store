@@ -9,12 +9,13 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const revision = (id: number, message: string) => ({
+const revision = (id: number, message: string, client: string | null = null) => ({
   id,
   author: "alice",
   created_at: "2026-10-22T09:00:00.000Z",
   message,
   version: null,
+  client,
 });
 
 const project = {
@@ -157,7 +158,7 @@ test("a document can be shown raw, byte for byte", async () => {
 test("history lists revisions, older revisions say they are not current and diffs mark changes", async () => {
   baseApi({
     "GET /api/v1/projects/{org}/{project}/revisions": () => ({
-      revisions: [revision(12, "second"), revision(11, "first")],
+      revisions: [revision(12, "second", "Cursor"), revision(11, "first")],
     }),
     "GET /api/v1/projects/{org}/{project}/revisions/{id}": (_r, p) => ({
       body: p.id === "11" ? "# Old\n" : "# New\n",
@@ -184,6 +185,8 @@ test("history lists revisions, older revisions say they are not current and diff
   const rows = await screen.findAllByRole("row");
   expect(rows.length).toBe(3);
   expect(within(rows[1] as HTMLElement).getByText("Current")).toBeInTheDocument();
+  expect(screen.getByRole("columnheader", { name: "Client" })).toBeInTheDocument();
+  expect(within(rows[1] as HTMLElement).getByText("Cursor")).toBeInTheDocument();
   await router.navigate("/p/acme/demo/revisions/11");
   expect(await screen.findByText("This is not the current revision.")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Show the current revision" })).toHaveAttribute(
@@ -204,6 +207,10 @@ test("the organization audit trail pages through older entries", async () => {
     action: "spec.create",
     target: `00${id}-x`,
     created_at: "2026-10-22T09:00:00.000Z",
+    client: "Cursor",
+    origin: "203.0.113.7",
+    result: "ok",
+    detail: null,
   });
   const api = baseApi({
     "GET /api/v1/orgs/{org}": () => ({ ...acme, created_at: "2026-10-01T10:00:00.000Z" }),
@@ -217,4 +224,43 @@ test("the organization audit trail pages through older entries", async () => {
   await userEvent.click(screen.getByRole("link", { name: "Older" }));
   expect(await screen.findByText("001-x")).toBeInTheDocument();
   expect(api.calls.some((c) => c.path.includes("before=2"))).toBe(true);
+});
+
+test("the audit trail shows the client, the origin and the result of every entry", async () => {
+  const entry = (id: number, result: string, detail: string | null) => ({
+    id,
+    actor: "alice",
+    organization: "acme",
+    project: "acme/demo",
+    action: "document.put",
+    target: `001/spec-${id}`,
+    created_at: "2026-10-22T09:00:00.000Z",
+    client: id === 3 ? null : "Claude Code",
+    origin: id === 3 ? null : "198.51.100.4",
+    result,
+    detail,
+  });
+  baseApi({
+    "GET /api/v1/orgs/{org}": () => ({ ...acme, created_at: "2026-10-01T10:00:00.000Z" }),
+    "GET /api/v1/orgs/{org}/audit": () => ({
+      entries: [
+        entry(3, "ok", null),
+        entry(2, "conflict", "expected r12, current r13"),
+        entry(1, "denied", null),
+      ],
+      has_more: false,
+    }),
+  });
+  renderAt("/o/acme/audit");
+  expect(await screen.findByText("001/spec-3")).toBeInTheDocument();
+  expect(screen.getByRole("columnheader", { name: "Via" })).toBeInTheDocument();
+  expect(screen.getByRole("columnheader", { name: "Origin" })).toBeInTheDocument();
+  expect(screen.getByRole("columnheader", { name: "Result" })).toBeInTheDocument();
+  const rows = screen.getAllByRole("row");
+  expect(within(rows[1] as HTMLElement).getByText("OK")).toBeInTheDocument();
+  expect(within(rows[2] as HTMLElement).getByText("Claude Code")).toBeInTheDocument();
+  expect(within(rows[2] as HTMLElement).getByText("198.51.100.4")).toBeInTheDocument();
+  expect(within(rows[2] as HTMLElement).getByText("Conflict")).toBeInTheDocument();
+  expect(within(rows[2] as HTMLElement).getByText("expected r12, current r13")).toBeInTheDocument();
+  expect(within(rows[3] as HTMLElement).getByText("Denied")).toBeInTheDocument();
 });

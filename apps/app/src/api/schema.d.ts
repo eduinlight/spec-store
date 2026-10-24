@@ -669,11 +669,15 @@ export interface components {
         EntryOutput: {
             action: string;
             actor: string;
+            client?: string | null;
             created_at: string;
+            detail?: string | null;
             /** Format: int64 */
             id: number;
             organization?: string | null;
+            origin?: string | null;
             project?: string | null;
+            result: string;
             target: string;
         };
         ErrorBody: {
@@ -814,6 +818,7 @@ export interface components {
         };
         RevisionOutput: {
             author: string;
+            client?: string | null;
             created_at: string;
             /** Format: int64 */
             id: number;

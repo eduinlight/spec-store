@@ -16,6 +16,7 @@ pub struct RevisionOutput {
   pub created_at: String,
   pub message: String,
   pub version: Option<String>,
+  pub client: Option<String>,
 }
 
 impl From<RevisionMeta> for RevisionOutput {
@@ -26,6 +27,7 @@ impl From<RevisionMeta> for RevisionOutput {
       created_at: m.created_at,
       message: m.message,
       version: m.version,
+      client: m.client,
     }
   }
 }

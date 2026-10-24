@@ -34,6 +34,10 @@ pub struct EntryOutput {
   pub action: String,
   pub target: String,
   pub created_at: String,
+  pub client: Option<String>,
+  pub origin: Option<String>,
+  pub result: String,
+  pub detail: Option<String>,
 }
 
 impl From<AuditEntry> for EntryOutput {
@@ -46,6 +50,10 @@ impl From<AuditEntry> for EntryOutput {
       action: e.action,
       target: e.target,
       created_at: e.created_at,
+      client: e.client,
+      origin: e.origin,
+      result: e.result.as_str().to_string(),
+      detail: e.detail,
     }
   }
 }

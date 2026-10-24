@@ -94,6 +94,7 @@ diesel::table! {
     author_id -> BigInt,
     message -> Text,
     created_at -> Timestamptz,
+    client -> Nullable<Text>,
   }
 }
 
@@ -106,6 +107,10 @@ diesel::table! {
     action -> Text,
     target -> Text,
     created_at -> Timestamptz,
+    client -> Nullable<Text>,
+    origin -> Nullable<Text>,
+    result -> Text,
+    detail -> Nullable<Text>,
   }
 }
 

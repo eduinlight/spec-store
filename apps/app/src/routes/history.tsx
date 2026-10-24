@@ -36,6 +36,7 @@ export function History() {
             <tr>
               <th className="py-2 pr-3">{t("history.revision", { id: "" })}</th>
               <th className="py-2 pr-3">{t("history.author")}</th>
+              <th className="py-2 pr-3">{t("history.client")}</th>
               <th className="py-2 pr-3">{t("history.when")}</th>
               <th className="py-2 pr-3">{t("history.message")}</th>
               <th className="py-2">{t("history.diff")}</th>
@@ -61,6 +62,7 @@ export function History() {
                   )}
                 </td>
                 <td className="py-2 pr-3">{revision.author}</td>
+                <td className="py-2 pr-3">{revision.client ?? "—"}</td>
                 <td className="py-2 pr-3">{date(revision.created_at)}</td>
                 <td className="py-2 pr-3">{revision.message}</td>
                 <td className="py-2">

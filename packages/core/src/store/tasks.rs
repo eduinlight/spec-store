@@ -10,6 +10,7 @@ use crate::schema::specs;
 use crate::store::documents::{append_revision, current_revision, document_id};
 use crate::store::projects::access_in;
 use crate::store::projects::visible_projects;
+use crate::store::refusals::Attempt;
 use crate::store::specs::{SpecRow, SpecSummary, active_spec_in, list_specs_in, spec_by_number};
 use crate::store::{Store, audit};
 
@@ -209,7 +210,8 @@ impl Store {
     commit: &str,
   ) -> StoreResult<MarkedTask> {
     validate_commit(commit)?;
-    self.with_tx(|tx| {
+    let attempt = Attempt::project("task.done", project, format!("{number:03}/{task_id}"));
+    self.audited(caller, attempt, |tx| {
       let access = access_in(tx, caller, project)?;
       if !access.can_write() {
         return Err(StoreError::Forbidden);
@@ -233,10 +235,10 @@ impl Store {
         .map(|l| l.strip_suffix('\r').unwrap_or(l).to_string())
         .unwrap_or_default();
       let message = format!("{task_id}: done, commit {commit}");
-      let revision_id = append_revision(tx, doc_id, &new_body, None, caller.user_id, &message)?;
+      let revision_id = append_revision(tx, doc_id, &new_body, None, caller, &message)?;
       audit(
         tx,
-        caller.user_id,
+        caller,
         Some(access.project_id),
         "task.done",
         &format!("{number:03}/{task_id}@{commit}"),

@@ -29,11 +29,78 @@ pub enum StoreError {
 
 pub type StoreResult<T> = Result<T, StoreError>;
 
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Via {
+  pub client: String,
+  pub origin: Option<String>,
+}
+
+impl Via {
+  pub fn new(client: impl Into<String>, origin: Option<String>) -> Self {
+    Via {
+      client: client.into(),
+      origin,
+    }
+  }
+
+  pub fn client_name(&self) -> Option<&str> {
+    Some(self.client.as_str()).filter(|c| !c.is_empty())
+  }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Caller {
   pub user_id: i64,
   pub handle: String,
   pub is_operator: bool,
+  pub via: Via,
+}
+
+impl Caller {
+  pub fn with_via(mut self, via: Via) -> Self {
+    self.via = via;
+    self
+  }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum AuditResult {
+  Ok,
+  Denied,
+  Conflict,
+}
+
+impl AuditResult {
+  pub const ALL: [AuditResult; 3] = [AuditResult::Ok, AuditResult::Denied, AuditResult::Conflict];
+
+  pub fn as_str(self) -> &'static str {
+    match self {
+      AuditResult::Ok => "ok",
+      AuditResult::Denied => "denied",
+      AuditResult::Conflict => "conflict",
+    }
+  }
+}
+
+impl FromStr for AuditResult {
+  type Err = StoreError;
+
+  fn from_str(s: &str) -> Result<Self, Self::Err> {
+    AuditResult::ALL
+      .into_iter()
+      .find(|r| r.as_str() == s)
+      .ok_or_else(|| {
+        StoreError::Validation(format!(
+          "unknown audit result {s:?}; valid results: ok, denied, conflict"
+        ))
+      })
+  }
+}
+
+impl fmt::Display for AuditResult {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    f.write_str(self.as_str())
+  }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

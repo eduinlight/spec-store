@@ -1,3 +1,4 @@
+use std::net::SocketAddr;
 use std::sync::Arc;
 
 use anyhow::Context;
@@ -35,6 +36,7 @@ async fn main() -> anyhow::Result<()> {
       .unwrap_or_else(|| "sdd-vault-app".into()),
     app_client_secret: env.required("KEYCLOAK_APP_CLIENT_SECRET")?,
     session_key: env.required("SESSION_SEALING_KEY")?,
+    trusted_proxy_hops: env.parsed("TRUSTED_PROXY_HOPS", 0)?,
   };
   let smtp = SmtpSettings::from_env(&env)?;
   let bind = env
@@ -58,10 +60,13 @@ async fn main() -> anyhow::Result<()> {
     .await
     .with_context(|| format!("binding {bind}"))?;
   tracing::info!(%bind, "SDD Vault API listening");
-  axum::serve(listener, router(state))
-    .with_graceful_shutdown(shutdown_signal())
-    .await
-    .context("serving HTTP")
+  axum::serve(
+    listener,
+    router(state).into_make_service_with_connect_info::<SocketAddr>(),
+  )
+  .with_graceful_shutdown(shutdown_signal())
+  .await
+  .context("serving HTTP")
 }
 
 async fn shutdown_signal() {

@@ -145,6 +145,7 @@ export const en = {
     author: "Author",
     when: "When",
     message: "Message",
+    client: "Client",
     current: "Current",
     notCurrent: "This is not the current revision.",
     showCurrent: "Show the current revision",
@@ -160,6 +161,14 @@ export const en = {
     when: "When",
     older: "Older",
     newer: "Newer",
+    via: "Via",
+    origin: "Origin",
+    result: "Result",
+    results: {
+      ok: "OK",
+      denied: "Denied",
+      conflict: "Conflict",
+    },
   },
   profileView: {
     title: "Your profile",

@@ -7,6 +7,7 @@ use crate::model::{
 };
 use crate::schema::{documents, projects, specs};
 use crate::store::projects::access_in;
+use crate::store::refusals::Attempt;
 use crate::store::{Store, audit};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -168,7 +169,8 @@ impl Store {
     project: &str,
     slug: &str,
   ) -> StoreResult<CreatedSpec> {
-    self.with_tx(|tx| {
+    let attempt = Attempt::project("spec.create", project, slug);
+    self.audited(caller, attempt, |tx| {
       let access = access_in(tx, caller, project)?;
       if !access.can_write() {
         return Err(StoreError::Forbidden);
@@ -204,13 +206,7 @@ impl Store {
           specs::branch.eq(&branch),
         ))
         .execute(tx)?;
-      audit(
-        tx,
-        caller.user_id,
-        Some(access.project_id),
-        "spec.create",
-        &branch,
-      )?;
+      audit(tx, caller, Some(access.project_id), "spec.create", &branch)?;
       Ok(CreatedSpec {
         number,
         slug: slug.to_string(),
@@ -227,7 +223,8 @@ impl Store {
     number: i64,
     to: SpecStatus,
   ) -> StoreResult<SpecStatus> {
-    self.with_tx(|tx| {
+    let attempt = Attempt::project("spec.status", project, format!("{number:03}:{to}"));
+    self.audited(caller, attempt, |tx| {
       let access = access_in(tx, caller, project)?;
       let role = access
         .role
@@ -254,7 +251,7 @@ impl Store {
         .execute(tx)?;
       audit(
         tx,
-        caller.user_id,
+        caller,
         Some(access.project_id),
         "spec.status",
         &format!("{number:03}:{}→{to}", spec.status),
