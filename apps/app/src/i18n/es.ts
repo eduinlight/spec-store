@@ -99,10 +99,6 @@ export const es: Translation = {
   },
   placeholder: {
     comingSoon: "Próximamente",
-    activity: {
-      title: "Actividad",
-      body: "Pronto verás en vivo lo que personas y agentes cambian en este proyecto.",
-    },
     members: {
       title: "Miembros del proyecto",
       body: "Pronto podrás invitar personas y gestionar sus roles por proyecto. Por ahora, gestiónalos en los ajustes del proyecto.",
@@ -275,7 +271,6 @@ export const es: Translation = {
       title: "Specs activas",
       viewAll: "Ver todas",
       empty: "No hay specs activas.",
-      phase: "Fase: {{phase}}",
       draftSub: "En especificación · {{branch}}",
       progress: "{{done}} / {{total}}",
     },
@@ -343,7 +338,7 @@ export const es: Translation = {
       projectCreate: "creó el proyecto",
       projectArchive: "archivó el proyecto",
       projectRestore: "restauró el proyecto",
-      projectRepo: "fijó el repositorio en {{target}}",
+      projectRepo: "fijó el repositorio",
       projectRepoCleared: "quitó el repositorio",
       projectCopy: "copió el proyecto a {{target}}",
       projectImport: "importó un árbol SDD",

@@ -1,5 +1,6 @@
 import type { RouteObject } from "react-router";
 import * as activeSpecs from "~/routes/active-specs";
+import * as activity from "~/routes/activity";
 import * as audit from "~/routes/audit";
 import * as constitution from "~/routes/constitution";
 import * as diff from "~/routes/diff";
@@ -79,7 +80,11 @@ export const routes: RouteObject[] = [
             Component: activeSpecs.ActiveSpecs,
           },
           { path: "p/:org/:project/specs", loader: specs.loader, Component: specs.Specs },
-          { path: "p/:org/:project/activity", Component: placeholders.ActivityPlaceholder },
+          {
+            path: "p/:org/:project/activity",
+            loader: activity.loader,
+            Component: activity.Activity,
+          },
           { path: "p/:org/:project/members", Component: placeholders.MembersPlaceholder },
           { path: "account/tokens", Component: placeholders.TokensPlaceholder },
           { path: "account/preferences", Component: placeholders.PreferencesPlaceholder },

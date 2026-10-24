@@ -97,10 +97,6 @@ export const en = {
   },
   placeholder: {
     comingSoon: "Coming soon",
-    activity: {
-      title: "Activity",
-      body: "A live feed of what people and agents change in this project is coming.",
-    },
     members: {
       title: "Project members",
       body: "Inviting people and managing their roles per project is coming. For now, manage them in the project settings.",
@@ -270,7 +266,6 @@ export const en = {
       title: "Active specs",
       viewAll: "View all",
       empty: "No active specs.",
-      phase: "Phase: {{phase}}",
       draftSub: "In specification · {{branch}}",
       progress: "{{done}} / {{total}}",
     },
@@ -338,7 +333,7 @@ export const en = {
       projectCreate: "created the project",
       projectArchive: "archived the project",
       projectRestore: "restored the project",
-      projectRepo: "set the repository to {{target}}",
+      projectRepo: "set the repository",
       projectRepoCleared: "cleared the repository",
       projectCopy: "copied the project to {{target}}",
       projectImport: "imported an SDD tree",

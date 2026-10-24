@@ -90,7 +90,7 @@ function Kpi({ label, tip, value, sub, tone = "flat" }: KpiProps) {
   return (
     <div className="flex flex-col gap-1 rounded bg-white px-6 py-5">
       <span className="flex items-center gap-1.5 text-xs text-[var(--neutral-500)]">
-        {label}
+        <span>{label}</span>
         <InfoTip label={label} text={tip} />
       </span>
       <span className="font-numeric text-3xl font-medium leading-[38px] text-[var(--neutral-700)]">
@@ -141,7 +141,7 @@ function Kpis({ overview, days }: { overview: OverviewData; days: number }) {
   return (
     <section
       aria-label={t("overview.title")}
-      className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr))]"
+      className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr))]"
     >
       <Kpi
         label={t("overview.kpi.activeSpecs")}
@@ -425,11 +425,7 @@ export function Overview() {
                     {!spec.draft && (
                       <span className="flex flex-col gap-1.5">
                         <span className="flex justify-between text-xs text-[var(--neutral-500)]">
-                          <span>
-                            {spec.current_phase
-                              ? t("overview.active.phase", { phase: spec.current_phase })
-                              : ""}
-                          </span>
+                          <span>{spec.current_phase ?? ""}</span>
                           <span className="font-numeric">
                             {t("overview.active.progress", {
                               done: spec.tasks_done,
