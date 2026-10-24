@@ -52,6 +52,7 @@ diesel::table! {
     name -> Text,
     repository_url -> Nullable<Text>,
     created_at -> Timestamptz,
+    archived_at -> Nullable<Timestamptz>,
   }
 }
 

@@ -7,6 +7,7 @@ pub mod projects;
 pub mod refusals;
 pub mod sessions;
 pub mod specs;
+pub mod summaries;
 pub mod tasks;
 pub mod transfer;
 pub mod users;

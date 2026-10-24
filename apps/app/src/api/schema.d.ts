@@ -628,6 +628,14 @@ export interface components {
             tasks_done: number;
             tasks_total: number;
         };
+        ActiveSpecOutput: {
+            /** Format: int64 */
+            number: number;
+            slug: string;
+            status: string;
+            tasks_done: number;
+            tasks_total: number;
+        };
         AuthorizedClient: {
             client_id: string;
             granted_at: string;
@@ -703,6 +711,11 @@ export interface components {
         };
         LanguageInput: {
             language: string;
+        };
+        LastActivityOutput: {
+            actor: string;
+            at: string;
+            client?: string | null;
         };
         LogoutOutput: {
             logout_url: string;
@@ -795,8 +808,14 @@ export interface components {
             slug: string;
         };
         ProjectSummaryOutput: {
+            active_spec?: components["schemas"]["ActiveSpecOutput"] | null;
             address: string;
+            archived: boolean;
+            constitution_updated_at?: string | null;
+            constitution_version?: string | null;
+            last_activity?: components["schemas"]["LastActivityOutput"] | null;
             name: string;
+            open_markers: number;
             role?: string | null;
             slug: string;
         };

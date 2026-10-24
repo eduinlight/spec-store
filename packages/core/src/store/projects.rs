@@ -262,22 +262,6 @@ impl Store {
     })
   }
 
-  pub fn list_organization_projects(
-    &self,
-    caller: &Caller,
-    organization: &str,
-  ) -> StoreResult<Vec<VisibleProject>> {
-    self.with_conn(|conn| {
-      crate::store::organizations::readable_organization(conn, caller, organization)?;
-      Ok(
-        visible_projects(conn, caller)?
-          .into_iter()
-          .filter(|p| p.address.organization == organization)
-          .collect(),
-      )
-    })
-  }
-
   pub fn access(&self, caller: &Caller, slug: &str) -> StoreResult<Access> {
     self.with_conn(|conn| access_in(conn, caller, slug))
   }
@@ -348,15 +332,32 @@ pub struct VisibleProject {
   pub address: ProjectRef,
   pub name: String,
   pub role: Option<Role>,
+  pub archived: bool,
 }
 
-type VisibleRow = (i64, String, String, String, Option<String>, Option<String>);
+type VisibleRow = (
+  i64,
+  String,
+  String,
+  String,
+  Option<String>,
+  Option<String>,
+  bool,
+);
 
 pub fn visible_projects(
   conn: &mut PgConnection,
   caller: &Caller,
 ) -> StoreResult<Vec<VisibleProject>> {
-  let rows: Vec<VisibleRow> = projects::table
+  visible_projects_in(conn, caller, None)
+}
+
+pub fn visible_projects_in(
+  conn: &mut PgConnection,
+  caller: &Caller,
+  organization: Option<&str>,
+) -> StoreResult<Vec<VisibleProject>> {
+  let mut query = projects::table
     .inner_join(organizations::table)
     .left_join(
       memberships::table.on(
@@ -379,11 +380,16 @@ pub fn visible_projects(
       projects::name,
       memberships::role.nullable(),
       organization_members::role.nullable(),
+      projects::archived_at.is_not_null(),
     ))
     .order((organizations::slug, projects::slug))
-    .load(conn)?;
+    .into_boxed();
+  if let Some(organization) = organization {
+    query = query.filter(organizations::slug.eq(organization));
+  }
+  let rows: Vec<VisibleRow> = query.load(conn)?;
   let mut visible = Vec::new();
-  for (id, organization, slug, name, project_role, org_role) in rows {
+  for (id, organization, slug, name, project_role, org_role, archived) in rows {
     let role = if org_role.as_deref() == Some(OrgRole::Owner.as_str()) {
       Some(Role::Owner)
     } else {
@@ -397,6 +403,7 @@ pub fn visible_projects(
       address: ProjectRef::new(&organization, &slug),
       name,
       role,
+      archived,
     });
   }
   Ok(visible)

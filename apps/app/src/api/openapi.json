@@ -3006,6 +3006,36 @@
           }
         }
       },
+      "ActiveSpecOutput": {
+        "type": "object",
+        "required": [
+          "number",
+          "slug",
+          "status",
+          "tasks_done",
+          "tasks_total"
+        ],
+        "properties": {
+          "number": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "tasks_done": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tasks_total": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
       "AuthorizedClient": {
         "type": "object",
         "required": [
@@ -3311,6 +3341,27 @@
         "properties": {
           "language": {
             "type": "string"
+          }
+        }
+      },
+      "LastActivityOutput": {
+        "type": "object",
+        "required": [
+          "actor",
+          "at"
+        ],
+        "properties": {
+          "actor": {
+            "type": "string"
+          },
+          "at": {
+            "type": "string"
+          },
+          "client": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
@@ -3687,14 +3738,55 @@
         "required": [
           "address",
           "slug",
-          "name"
+          "name",
+          "archived",
+          "open_markers"
         ],
         "properties": {
+          "active_spec": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ActiveSpecOutput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "address": {
             "type": "string"
           },
+          "archived": {
+            "type": "boolean"
+          },
+          "constitution_updated_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "constitution_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "last_activity": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/LastActivityOutput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "name": {
             "type": "string"
+          },
+          "open_markers": {
+            "type": "integer",
+            "minimum": 0
           },
           "role": {
             "type": [

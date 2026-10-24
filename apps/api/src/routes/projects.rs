@@ -2,6 +2,7 @@ use axum::Json;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use sdd_vault_core::model::Role;
+use sdd_vault_core::store::summaries::ProjectSummary;
 use serde::{Deserialize, Serialize};
 
 use crate::auth::Principal;
@@ -20,6 +21,55 @@ pub struct ProjectSummaryOutput {
   pub slug: String,
   pub name: String,
   pub role: Option<String>,
+  pub archived: bool,
+  pub constitution_version: Option<String>,
+  pub constitution_updated_at: Option<String>,
+  pub active_spec: Option<ActiveSpecOutput>,
+  pub last_activity: Option<LastActivityOutput>,
+  pub open_markers: usize,
+}
+
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+pub struct ActiveSpecOutput {
+  pub number: i64,
+  pub slug: String,
+  pub status: String,
+  pub tasks_done: usize,
+  pub tasks_total: usize,
+}
+
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+pub struct LastActivityOutput {
+  pub actor: String,
+  pub client: Option<String>,
+  pub at: String,
+}
+
+impl From<ProjectSummary> for ProjectSummaryOutput {
+  fn from(summary: ProjectSummary) -> Self {
+    ProjectSummaryOutput {
+      address: summary.address.to_string(),
+      slug: summary.slug,
+      name: summary.name,
+      role: summary.role.map(|r| r.as_str().to_string()),
+      archived: summary.archived,
+      constitution_version: summary.constitution.as_ref().map(|c| c.version.clone()),
+      constitution_updated_at: summary.constitution.map(|c| c.updated_at),
+      active_spec: summary.active_spec.map(|spec| ActiveSpecOutput {
+        number: spec.number,
+        slug: spec.slug,
+        status: spec.status.as_str().to_string(),
+        tasks_done: spec.tasks_done,
+        tasks_total: spec.tasks_total,
+      }),
+      last_activity: summary.last_activity.map(|a| LastActivityOutput {
+        actor: a.actor,
+        client: a.client,
+        at: a.at,
+      }),
+      open_markers: summary.open_markers,
+    }
+  }
 }
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
@@ -78,18 +128,10 @@ pub async fn list(
 ) -> Result<Json<ProjectsOutput>, ApiError> {
   let caller = principal.caller;
   let projects = state
-    .blocking(move |store| store.list_organization_projects(&caller, &org))
+    .blocking(move |store| store.project_summaries(&caller, &org))
     .await?;
   Ok(Json(ProjectsOutput {
-    projects: projects
-      .into_iter()
-      .map(|p| ProjectSummaryOutput {
-        address: p.address.to_string(),
-        slug: p.address.project.clone(),
-        name: p.name,
-        role: p.role.map(|r| r.as_str().to_string()),
-      })
-      .collect(),
+    projects: projects.into_iter().map(Into::into).collect(),
   }))
 }
 
