@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use sdd_vault_core::clients::{CachedResolver, ClientNameResolver, KeycloakConsentNames};
 use sdd_vault_core::crypto::{CryptoError, Sealer};
 use sdd_vault_core::identity::Verifier;
 use sdd_vault_core::keycloak::{KeycloakAdmin, OidcClient};
@@ -17,6 +18,7 @@ pub struct ApiConfig {
   pub app_client_id: String,
   pub app_client_secret: String,
   pub session_key: String,
+  pub trusted_proxy_hops: usize,
 }
 
 impl ApiConfig {
@@ -37,6 +39,7 @@ pub struct AppState {
   pub keycloak_admin: Option<Arc<KeycloakAdmin>>,
   pub sealer: Arc<Sealer>,
   pub oidc: Arc<OidcClient>,
+  pub client_names: Option<Arc<dyn ClientNameResolver>>,
 }
 
 impl AppState {
@@ -58,6 +61,7 @@ impl AppState {
       keycloak_admin: None,
       sealer: Arc::new(sealer),
       oidc: Arc::new(oidc),
+      client_names: None,
     })
   }
 
@@ -66,7 +70,14 @@ impl AppState {
   }
 
   pub fn with_keycloak_admin(mut self, admin: Arc<KeycloakAdmin>) -> AppState {
+    let names = KeycloakConsentNames::new(admin.clone());
+    self.client_names = Some(Arc::new(CachedResolver::new(Arc::new(names))));
     self.keycloak_admin = Some(admin);
+    self
+  }
+
+  pub fn with_client_names(mut self, names: Arc<dyn ClientNameResolver>) -> AppState {
+    self.client_names = Some(names);
     self
   }
 
