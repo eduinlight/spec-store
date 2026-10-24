@@ -59,7 +59,8 @@ test("a new person signs up, verifies the email, lands in the app and signs out"
   await expect(page.getByRole("heading", { name: "Your profile" })).toBeVisible();
   await expect(page.getByText(email)).toBeVisible();
 
-  await page.getByRole("button", { name: "Sign out" }).click();
+  await page.getByRole("button", { name: "User menu" }).click();
+  await page.getByRole("menuitem", { name: "Sign out" }).click();
   await page.waitForURL(new RegExp(`^${keycloak}/realms/sdd-vault/protocol/openid-connect/auth`));
   await page.goto(`${app}/profile`);
   await expect(page).toHaveURL(
