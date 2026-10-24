@@ -70,9 +70,9 @@ fn documented() -> OpenApiRouter<AppState> {
 
 pub fn openapi() -> OpenApi {
   let (_, mut api) = documented().split_for_parts();
-  api.info.title = "spec-store API".into();
+  api.info.title = "SDD Vault API".into();
   api.info.version = env!("CARGO_PKG_VERSION").into();
-  api.info.description = Some("JSON API of spec-store for the browser app and the CLI".into());
+  api.info.description = Some("JSON API of SDD Vault for the browser app and the CLI".into());
   api
 }
 

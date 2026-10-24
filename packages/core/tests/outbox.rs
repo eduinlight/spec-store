@@ -3,13 +3,13 @@ mod common;
 use std::sync::{Arc, Barrier};
 use std::thread;
 
-use spec_store_core::store::outbox::{OutboxMessage, RETRY_WINDOW_SECONDS};
+use sdd_vault_core::store::outbox::{OutboxMessage, RETRY_WINDOW_SECONDS};
 
-fn enqueue(store: &spec_store_core::store::Store, n: usize) {
+fn enqueue(store: &sdd_vault_core::store::Store, n: usize) {
   for i in 0..n {
     store
       .with_tx(|tx| {
-        spec_store_core::store::outbox::enqueue(
+        sdd_vault_core::store::outbox::enqueue(
           tx,
           "invitation",
           &format!("person{i}@example.com"),
@@ -24,9 +24,9 @@ fn enqueue(store: &spec_store_core::store::Store, n: usize) {
 #[test]
 fn messages_are_enqueued_inside_the_callers_transaction() {
   let store = common::test_store();
-  let result: Result<(), spec_store_core::model::StoreError> = store.with_tx(|tx| {
-    spec_store_core::store::outbox::enqueue(tx, "invitation", "a@example.com", "en", "{}")?;
-    Err(spec_store_core::model::StoreError::Validation(
+  let result: Result<(), sdd_vault_core::model::StoreError> = store.with_tx(|tx| {
+    sdd_vault_core::store::outbox::enqueue(tx, "invitation", "a@example.com", "en", "{}")?;
+    Err(sdd_vault_core::model::StoreError::Validation(
       "abort".into(),
     ))
   });

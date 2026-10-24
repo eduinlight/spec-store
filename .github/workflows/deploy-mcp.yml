@@ -32,7 +32,7 @@ jobs:
     needs: image
     uses: ./.github/workflows/cd-bump.yml
     with:
-      image: ghcr.io/eduinlight/spec-store-mcp
+      image: ghcr.io/eduinlight/sdd-vault-mcp
       tag: ${{ github.sha }}
       overlay: staging
     secrets: inherit

@@ -34,7 +34,7 @@ jobs:
     needs: image
     uses: ./.github/workflows/cd-bump.yml
     with:
-      image: ghcr.io/eduinlight/spec-store-app
+      image: ghcr.io/eduinlight/sdd-vault-app
       tag: ${{ github.sha }}
       overlay: staging
     secrets: inherit

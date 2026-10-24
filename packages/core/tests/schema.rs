@@ -2,7 +2,7 @@ mod common;
 
 use diesel::pg::Pg;
 use diesel::prelude::*;
-use spec_store_core::schema;
+use sdd_vault_core::schema;
 
 fn declared_columns<Q>(query: Q) -> Vec<String>
 where

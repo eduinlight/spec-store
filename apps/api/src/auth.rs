@@ -2,10 +2,10 @@ use axum::extract::FromRequestParts;
 use axum::http::Method;
 use axum::http::header::AUTHORIZATION;
 use axum::http::request::Parts;
-use spec_store_core::keycloak::KeycloakError;
-use spec_store_core::model::{Caller, StoreError};
-use spec_store_core::store::sessions::BrowserSession;
-use spec_store_core::store::users::Identity;
+use sdd_vault_core::keycloak::KeycloakError;
+use sdd_vault_core::model::{Caller, StoreError};
+use sdd_vault_core::store::sessions::BrowserSession;
+use sdd_vault_core::store::users::Identity;
 
 use crate::cookies::{REQUEST_HEADER, SESSION_COOKIE, cookie};
 use crate::error::ApiError;

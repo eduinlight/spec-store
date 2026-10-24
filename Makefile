@@ -18,7 +18,7 @@ env: .env
 install: env docker-up
 	pnpm install --frozen-lockfile
 	@echo
-	@echo "spec-store services are ready:"
+	@echo "sdd-vault services are ready:"
 	@echo "    postgres  localhost:$${POSTGRES_PORT:-55432}"
 	@echo "    mailpit   http://localhost:$${MAILPIT_UI_PORT:-58025}"
 
@@ -34,7 +34,7 @@ test-services: env
 	$(COMPOSE) up -d --wait postgres mailpit
 
 test-sweep:
-	$(COMPOSE) exec -T postgres psql -U postgres -d postgres -tAc "SELECT datname FROM pg_database WHERE datname LIKE 'spec\_store\_test\_%' OR datname LIKE 'spec\_store\_tpl\_%'" | while read -r db; do \
+	$(COMPOSE) exec -T postgres psql -U postgres -d postgres -tAc "SELECT datname FROM pg_database WHERE datname LIKE 'sdd\_vault\_test\_%' OR datname LIKE 'sdd\_vault\_tpl\_%'" | while read -r db; do \
 		[ -n "$$db" ] && $(COMPOSE) exec -T postgres psql -U postgres -d postgres -qc "DROP DATABASE IF EXISTS \"$$db\" WITH (FORCE)" </dev/null; \
 	done; true
 
@@ -42,12 +42,12 @@ OPENAPI_JSON := apps/app/src/api/openapi.json
 OPENAPI_TYPES := apps/app/src/api/schema.d.ts
 
 openapi:
-	cargo run -q --locked -p spec-store-api -- openapi > $(OPENAPI_JSON)
+	cargo run -q --locked -p sdd-vault-api -- openapi > $(OPENAPI_JSON)
 	pnpm --filter app exec openapi-typescript src/api/openapi.json -o src/api/schema.d.ts --silent
 
 openapi-check:
 	@tmp=$$(mktemp -d); \
-	cargo run -q --locked -p spec-store-api -- openapi > $$tmp/openapi.json; \
+	cargo run -q --locked -p sdd-vault-api -- openapi > $$tmp/openapi.json; \
 	pnpm --filter app exec openapi-typescript $$tmp/openapi.json -o $$tmp/schema.d.ts --silent; \
 	if ! diff -q $$tmp/openapi.json $(OPENAPI_JSON) >/dev/null || ! diff -q $$tmp/schema.d.ts $(OPENAPI_TYPES) >/dev/null; then \
 		echo "the API contract changed: run make openapi and commit the result" >&2; rm -rf $$tmp; exit 1; \
@@ -69,7 +69,7 @@ test: test-services test-sweep
 	pnpm -r --if-present test
 
 test-perf: test-services
-	cargo test --release --locked -p spec-store-core --test perf --test perf_import -p spec-store-api --test perf_read -p spec-store-cli --test perf_import -- --ignored --nocapture
+	cargo test --release --locked -p sdd-vault-core --test perf --test perf_import -p sdd-vault-api --test perf_read -p sdd-vault-cli --test perf_import -- --ignored --nocapture
 
 e2e: docker-up
 	pnpm exec playwright test

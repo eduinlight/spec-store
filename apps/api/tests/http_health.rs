@@ -1,7 +1,7 @@
 mod common;
 
 use axum::http::StatusCode;
-use spec_store_core::identity::{IdentityConfig, Verifier};
+use sdd_vault_core::identity::{IdentityConfig, Verifier};
 
 #[tokio::test]
 async fn liveness_always_answers() {
@@ -34,8 +34,8 @@ async fn readiness_fails_when_the_database_is_unreachable() {
 #[tokio::test]
 async fn readiness_fails_when_the_identity_provider_is_unreachable() {
   let verifier = Verifier::new(IdentityConfig {
-    issuer: "http://127.0.0.1:1/realms/spec-store".into(),
-    jwks_url: "http://127.0.0.1:1/realms/spec-store/protocol/openid-connect/certs".into(),
+    issuer: "http://127.0.0.1:1/realms/sdd-vault".into(),
+    jwks_url: "http://127.0.0.1:1/realms/sdd-vault/protocol/openid-connect/certs".into(),
   });
   let app = common::app_with(common::config(), Some(verifier)).await;
   let response = app.get("/readyz").await;

@@ -95,7 +95,7 @@ async fn owners_change_roles_and_remove_members_but_never_the_last_owner() {
     .state
     .store
     .caller_for(
-      &spec_store_core::store::users::Identity {
+      &sdd_vault_core::store::users::Identity {
         subject: "subject-bob".into(),
         handle: "bob".into(),
         email: "bob@example.com".into(),
@@ -107,7 +107,7 @@ async fn owners_change_roles_and_remove_members_but_never_the_last_owner() {
   app
     .state
     .store
-    .admit_organization_member("acme", bob.user_id, spec_store_core::model::OrgRole::Member)
+    .admit_organization_member("acme", bob.user_id, sdd_vault_core::model::OrgRole::Member)
     .unwrap();
 
   let promote = app

@@ -1,5 +1,5 @@
 use clap::Parser;
-use spec_store_cli::cli::{Cli, run};
+use sdd_vault_cli::cli::{Cli, run};
 
 #[tokio::main]
 async fn main() {

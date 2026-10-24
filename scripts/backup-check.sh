@@ -27,13 +27,13 @@ INSERT INTO documents (project_id, kind) SELECT id, 'constitution' FROM projects
 INSERT INTO revisions (document_id, body, author_id, message) SELECT d.id, '# Constitution ' || n, u.id, 'revision ' || n FROM documents d, users u, generate_series(1, 5) n;
 SQL
 
-docker build -q -t spec-store-backup:check -f deploy/backup/Dockerfile . >/dev/null
+docker build -q -t sdd-vault-backup:check -f deploy/backup/Dockerfile . >/dev/null
 run() {
   docker run --rm --network "$network" \
     -e PGHOST=postgres -e PGUSER=postgres -e PGPASSWORD \
     -e PLATFORM_DATABASE=backup_check -e OTHER_DATABASES=keycloak \
     -e BACKUP_REMOTE=/backups -v "$store:/backups" \
-    --entrypoint "$1" spec-store-backup:check
+    --entrypoint "$1" sdd-vault-backup:check
 }
 
 run /usr/local/bin/backup.sh

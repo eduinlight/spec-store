@@ -1,32 +1,32 @@
 use anyhow::Context;
 use clap::{Parser, Subcommand};
+use sdd_vault_core::address::ProjectRef;
+use sdd_vault_core::keycloak::encode_segment;
 use serde_json::{Value, json};
-use spec_store_core::address::ProjectRef;
-use spec_store_core::keycloak::encode_segment;
 
 use crate::client::ApiClient;
 use crate::credentials::{CredentialStore, Credentials};
 use crate::login::{self, Endpoints, now};
 
-pub const DEFAULT_API: &str = "https://api-spec-store.eduindev.com";
-pub const DEFAULT_ISSUER: &str = "https://auth-spec-store.eduindev.com/realms/spec-store";
+pub const DEFAULT_API: &str = "https://api-sddvault.eduindev.com";
+pub const DEFAULT_ISSUER: &str = "https://auth-sddvault.eduindev.com/realms/sdd-vault";
 
 #[derive(Parser, Debug)]
 #[command(
-  name = "spec-store",
+  name = "sddvault",
   version,
-  about = "Command-line tool for the hosted spec-store"
+  about = "Command-line tool for the hosted SDD Vault"
 )]
 pub struct Cli {
-  #[arg(long, global = true, env = "SPEC_STORE_API", default_value = DEFAULT_API)]
+  #[arg(long, global = true, env = "SDD_VAULT_API", default_value = DEFAULT_API)]
   pub api: String,
-  #[arg(long, global = true, env = "SPEC_STORE_ISSUER", default_value = DEFAULT_ISSUER)]
+  #[arg(long, global = true, env = "SDD_VAULT_ISSUER", default_value = DEFAULT_ISSUER)]
   pub issuer: String,
   #[arg(
     long,
     global = true,
-    env = "SPEC_STORE_CLIENT_ID",
-    default_value = "spec-store-cli"
+    env = "SDD_VAULT_CLIENT_ID",
+    default_value = "sdd-vault-cli"
   )]
   pub client_id: String,
   #[command(subcommand)]
@@ -106,7 +106,7 @@ pub enum OrgMemberCommand {
 
 #[derive(Subcommand, Debug)]
 pub enum ProjectCommand {
-  #[command(about = "Create a project: spec-store project create <org>/<project> <name>")]
+  #[command(about = "Create a project: sddvault project create <org>/<project> <name>")]
   Create { project: String, name: String },
   #[command(about = "List your projects, optionally in one organization")]
   List { org: Option<String> },

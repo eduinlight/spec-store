@@ -1,6 +1,6 @@
 mod common;
 
-use spec_store_core::model::OrgRole;
+use sdd_vault_core::model::OrgRole;
 
 fn ok(output: &std::process::Output) -> String {
   assert!(
@@ -27,7 +27,7 @@ fn admit(env: &common::TestEnv, org: &str, handle: &str) {
   let person = env
     .store
     .caller_for(
-      &spec_store_core::store::users::Identity {
+      &sdd_vault_core::store::users::Identity {
         subject: format!("subject-{handle}"),
         handle: handle.to_string(),
         email: format!("{handle}@example.com"),

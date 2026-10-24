@@ -1,13 +1,13 @@
 mod common;
 
-use spec_store_core::store::Store;
+use sdd_vault_core::store::Store;
 
 use std::fs;
 use std::path::Path;
 
-use spec_store_core::model::{Caller, DocumentKind, Role, SpecStatus, StoreError};
-use spec_store_core::store::transfer::{ImportOptions, ImportReport, StatusNotice};
-use spec_store_core::tree::{ProjectTree, scan};
+use sdd_vault_core::model::{Caller, DocumentKind, Role, SpecStatus, StoreError};
+use sdd_vault_core::store::transfer::{ImportOptions, ImportReport, StatusNotice};
+use sdd_vault_core::tree::{ProjectTree, scan};
 
 struct Fixture {
   store: common::TestStore,

@@ -5,7 +5,7 @@ use serde_json::json;
 
 #[test]
 fn no_documented_route_writes_specs_documents_constitutions_or_statuses() {
-  let api = spec_store_api::router::openapi();
+  let api = sdd_vault_api::router::openapi();
   let writes = ["post", "put", "patch", "delete"];
   let api = serde_json::to_value(&api).unwrap();
   for (path, item) in api["paths"].as_object().unwrap() {

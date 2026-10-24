@@ -4,12 +4,12 @@ use axum::extract::{Query, State};
 use axum::http::header::{LOCATION, SET_COOKIE};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
+use sdd_vault_core::keycloak::{AuthorizeRequest, KeycloakError, pkce_pair};
+use sdd_vault_core::model::StoreError;
+use sdd_vault_core::secrets::random_secret;
+use sdd_vault_core::store::sessions::NewSession;
 use serde::Deserialize;
 use serde_json::json;
-use spec_store_core::keycloak::{AuthorizeRequest, KeycloakError, pkce_pair};
-use spec_store_core::model::StoreError;
-use spec_store_core::secrets::random_secret;
-use spec_store_core::store::sessions::NewSession;
 
 use crate::cookies::{
   REQUEST_HEADER, SESSION_COOKIE, cleared_session_cookie, cookie, language, session_cookie,

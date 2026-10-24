@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
-use spec_store_core::crypto::{CryptoError, Sealer};
-use spec_store_core::identity::Verifier;
-use spec_store_core::keycloak::{KeycloakAdmin, OidcClient};
-use spec_store_core::model::StoreResult;
-use spec_store_core::store::Store;
+use sdd_vault_core::crypto::{CryptoError, Sealer};
+use sdd_vault_core::identity::Verifier;
+use sdd_vault_core::keycloak::{KeycloakAdmin, OidcClient};
+use sdd_vault_core::model::StoreResult;
+use sdd_vault_core::store::Store;
 
 use crate::error::ApiError;
 
@@ -72,7 +72,7 @@ impl AppState {
 
   pub fn admin(&self) -> Result<Arc<KeycloakAdmin>, ApiError> {
     self.keycloak_admin.clone().ok_or_else(|| {
-      ApiError::Store(spec_store_core::model::StoreError::Unavailable(
+      ApiError::Store(sdd_vault_core::model::StoreError::Unavailable(
         "the identity provider administration".into(),
       ))
     })

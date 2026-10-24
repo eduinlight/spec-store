@@ -1,8 +1,8 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "spec-store API",
-    "description": "JSON API of spec-store for the browser app and the CLI",
+    "title": "SDD Vault API",
+    "description": "JSON API of SDD Vault for the browser app and the CLI",
     "contact": {
       "name": "Juha Kukkonen",
       "email": "juha7kukkonen@gmail.com"

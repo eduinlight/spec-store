@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
 use anyhow::Context;
-use spec_store_core::config::{DatabaseSettings, Env, identity_from_env};
-use spec_store_core::identity::Verifier;
-use spec_store_core::store::Store;
-use spec_store_mcp::{AppState, McpConfig, router};
+use sdd_vault_core::config::{DatabaseSettings, Env, identity_from_env};
+use sdd_vault_core::identity::Verifier;
+use sdd_vault_core::store::Store;
+use sdd_vault_mcp::{AppState, McpConfig, router};
 use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
@@ -22,7 +22,7 @@ async fn main() -> anyhow::Result<()> {
     authorization_server: identity.issuer.clone(),
     scopes: env
       .optional("MCP_SCOPES")
-      .unwrap_or_else(|| "openid spec-store-mcp".into())
+      .unwrap_or_else(|| "openid sdd-vault-mcp".into())
       .split_whitespace()
       .map(str::to_string)
       .collect(),
@@ -38,7 +38,7 @@ async fn main() -> anyhow::Result<()> {
   let listener = tokio::net::TcpListener::bind(&bind)
     .await
     .with_context(|| format!("binding {bind}"))?;
-  tracing::info!(%bind, "spec-store MCP server listening");
+  tracing::info!(%bind, "SDD Vault MCP server listening");
   axum::serve(listener, router(state))
     .with_graceful_shutdown(shutdown_signal())
     .await

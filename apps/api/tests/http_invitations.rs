@@ -3,9 +3,9 @@ mod common;
 use std::time::Duration;
 
 use axum::http::StatusCode;
+use sdd_vault_api::outbox::Sender;
+use sdd_vault_testkit::mailpit;
 use serde_json::{Value, json};
-use spec_store_api::outbox::Sender;
-use spec_store_testkit::mailpit;
 
 async fn org(app: &common::TestApp) {
   let created = app

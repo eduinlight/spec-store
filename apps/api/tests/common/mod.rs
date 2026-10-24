@@ -6,19 +6,19 @@ use axum::Router;
 use axum::body::Body;
 use axum::http::{Request, Response};
 use http_body_util::BodyExt;
+use sdd_vault_api::{ApiConfig, AppState, router};
+use sdd_vault_core::identity::{IdentityConfig, Verifier};
+use sdd_vault_core::keycloak::{AdminConfig, KeycloakAdmin};
+use sdd_vault_core::store::Store;
+use sdd_vault_testkit::keycloak::{ADMIN_CLIENT_ID, ADMIN_CLIENT_SECRET, REALM};
+use sdd_vault_testkit::{FakeKeycloak, TestDb, TokenSpec};
 use serde_json::Value;
-use spec_store_api::{ApiConfig, AppState, router};
-use spec_store_core::identity::{IdentityConfig, Verifier};
-use spec_store_core::keycloak::{AdminConfig, KeycloakAdmin};
-use spec_store_core::store::Store;
-use spec_store_testkit::keycloak::{ADMIN_CLIENT_ID, ADMIN_CLIENT_SECRET, REALM};
-use spec_store_testkit::{FakeKeycloak, TestDb, TokenSpec};
 use tower::ServiceExt;
 
-pub const API_AUDIENCE: &str = "spec-store-api";
+pub const API_AUDIENCE: &str = "sdd-vault-api";
 
 pub fn migrate(url: &str) {
-  spec_store_core::db::open_with_size(url, 1).expect("migrate template");
+  sdd_vault_core::db::open_with_size(url, 1).expect("migrate template");
 }
 
 pub struct TestApp {
@@ -31,7 +31,7 @@ pub struct TestApp {
 pub const APP_URL: &str = "https://app.example.test";
 
 pub const LANDING_URL: &str = "https://example.test";
-pub const SESSION_COOKIE: &str = "__Host-spec_store_session";
+pub const SESSION_COOKIE: &str = "__Host-sdd_vault_session";
 
 pub fn config() -> ApiConfig {
   ApiConfig {
@@ -39,9 +39,9 @@ pub fn config() -> ApiConfig {
     audience: API_AUDIENCE.into(),
     app_url: APP_URL.into(),
     landing_url: LANDING_URL.into(),
-    app_client_id: spec_store_testkit::keycloak::APP_CLIENT_ID.into(),
-    app_client_secret: spec_store_testkit::keycloak::APP_CLIENT_SECRET.into(),
-    session_key: spec_store_core::crypto::Sealer::generate_key(),
+    app_client_id: sdd_vault_testkit::keycloak::APP_CLIENT_ID.into(),
+    app_client_secret: sdd_vault_testkit::keycloak::APP_CLIENT_SECRET.into(),
+    session_key: sdd_vault_core::crypto::Sealer::generate_key(),
   }
 }
 
@@ -96,12 +96,12 @@ pub fn set_cookie(response: &Response<Body>) -> Option<String> {
     .find(|c| c.starts_with(SESSION_COOKIE))
 }
 
-pub fn smtp() -> spec_store_core::config::SmtpSettings {
-  spec_store_core::config::SmtpSettings {
-    host: spec_store_testkit::mailpit::smtp_host(),
-    port: spec_store_testkit::mailpit::smtp_port(),
-    from: "no-reply@spec-store.test".into(),
-    from_name: "spec-store".into(),
+pub fn smtp() -> sdd_vault_core::config::SmtpSettings {
+  sdd_vault_core::config::SmtpSettings {
+    host: sdd_vault_testkit::mailpit::smtp_host(),
+    port: sdd_vault_testkit::mailpit::smtp_port(),
+    from: "no-reply@sddvault.test".into(),
+    from_name: "sdd-vault".into(),
     username: None,
     password: None,
     starttls: false,
@@ -245,7 +245,7 @@ impl TestApp {
       .header("host", "app.example.test")
       .header("cookie", cookie.to_string());
     if csrf {
-      request = request.header("x-spec-store-request", "1");
+      request = request.header("x-sdd-vault-request", "1");
     }
     let body = match body {
       Some(value) => {
@@ -288,12 +288,12 @@ impl TestApp {
     cookie.split(';').next().unwrap().to_string()
   }
 
-  pub fn person(&self, handle: &str) -> spec_store_core::model::Caller {
+  pub fn person(&self, handle: &str) -> sdd_vault_core::model::Caller {
     self
       .state
       .store
       .caller_for(
-        &spec_store_core::store::users::Identity {
+        &sdd_vault_core::store::users::Identity {
           subject: format!("subject-{handle}"),
           handle: handle.to_string(),
           email: format!("{handle}@example.com"),
@@ -309,7 +309,7 @@ impl TestApp {
     self
       .state
       .store
-      .admit_organization_member(org, caller.user_id, spec_store_core::model::OrgRole::Member)
+      .admit_organization_member(org, caller.user_id, sdd_vault_core::model::OrgRole::Member)
       .unwrap();
   }
 

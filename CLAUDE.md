@@ -1,6 +1,6 @@
-# spec-store
+# sdd-vault
 
-Hosted, multi-tenant store for Spec Driven Development documents (constitution, spec, plan, tasks, research, validation). Organizations own projects; people sign in through Keycloak; AI agents connect to the MCP server with MCP authorization; the `spec-store` CLI signs in with a device code. A Rust workspace holds the business rules (`packages/core`), the JSON API (`apps/api`), the MCP server (`apps/mcp`) and the CLI (`apps/cli`); the browser app (`apps/app`) and the landing page (`apps/landing`) are React. PostgreSQL is the only state. Documents are markdown with append-only revisions; the server indexes FRs, tasks, status and markers for queries.
+Hosted, multi-tenant store for Spec Driven Development documents (constitution, spec, plan, tasks, research, validation). Organizations own projects; people sign in through Keycloak; AI agents connect to the MCP server with MCP authorization; the `sdd-vault` CLI signs in with a device code. A Rust workspace holds the business rules (`packages/core`), the JSON API (`apps/api`), the MCP server (`apps/mcp`) and the CLI (`apps/cli`); the browser app (`apps/app`) and the landing page (`apps/landing`) are React. PostgreSQL is the only state. Documents are markdown with append-only revisions; the server indexes FRs, tasks, status and markers for queries.
 
 ## Commands
 

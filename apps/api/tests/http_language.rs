@@ -20,9 +20,9 @@ async fn choosing_a_language_sets_the_shared_cookie_and_the_identity_provider_lo
     .get_all("set-cookie")
     .iter()
     .map(|v| v.to_str().unwrap().to_string())
-    .find(|c| c.starts_with("spec_store_lang="))
+    .find(|c| c.starts_with("sdd_vault_lang="))
     .expect("language cookie");
-  assert!(cookie.starts_with("spec_store_lang=es"), "{cookie}");
+  assert!(cookie.starts_with("sdd_vault_lang=es"), "{cookie}");
   assert!(cookie.contains("Domain=example.test"), "{cookie}");
   assert!(cookie.contains("Max-Age=31536000"), "{cookie}");
   let attributes = app

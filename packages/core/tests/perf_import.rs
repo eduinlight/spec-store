@@ -3,9 +3,9 @@ mod common;
 use std::fs;
 use std::time::{Duration, Instant};
 
-use spec_store_core::store::Store;
-use spec_store_core::store::transfer::ImportOptions;
-use spec_store_core::tree::scan;
+use sdd_vault_core::store::Store;
+use sdd_vault_core::store::transfer::ImportOptions;
+use sdd_vault_core::tree::scan;
 
 const SPECS: usize = 100;
 const DOCUMENT_BYTES: usize = 20 * 1024;

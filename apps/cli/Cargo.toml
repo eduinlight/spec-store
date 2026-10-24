@@ -1,6 +1,6 @@
 [package]
-name = "spec-store-cli"
-description = "spec-store command-line tool: device sign-in, organizations, projects, import and export"
+name = "sdd-vault-cli"
+description = "SDD Vault command-line tool: device sign-in, organizations, projects, import and export"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -8,7 +8,7 @@ license.workspace = true
 repository.workspace = true
 
 [[bin]]
-name = "spec-store"
+name = "sddvault"
 path = "src/main.rs"
 
 [dependencies]
@@ -18,13 +18,13 @@ keyring = "4"
 reqwest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-spec-store-core = { workspace = true }
+sdd-vault-core = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 
 [dev-dependencies]
 serde_json = { workspace = true }
 tokio = { workspace = true, features = ["process", "io-util"] }
-spec-store-api = { path = "../api" }
-spec-store-testkit = { workspace = true }
+sdd-vault-api = { path = "../api" }
+sdd-vault-testkit = { workspace = true }
 axum = { workspace = true }

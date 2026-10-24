@@ -1,7 +1,7 @@
 mod common;
 
-use spec_store_core::model::StoreError;
-use spec_store_core::store::users::Identity;
+use sdd_vault_core::model::StoreError;
+use sdd_vault_core::store::users::Identity;
 
 fn identity(subject: &str, handle: &str, email: &str, name: &str) -> Identity {
   Identity {

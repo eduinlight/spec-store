@@ -1,6 +1,6 @@
 mod common;
 
-use spec_store_core::model::{DocumentKind, OrgRole, Role, StoreError};
+use sdd_vault_core::model::{DocumentKind, OrgRole, Role, StoreError};
 
 #[test]
 fn every_change_is_audited_with_organization_and_project_and_visible_to_the_right_people() {

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use spec_store_core::identity::Verifier;
-use spec_store_core::store::Store;
+use sdd_vault_core::identity::Verifier;
+use sdd_vault_core::store::Store;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct McpConfig {
@@ -58,18 +58,18 @@ mod tests {
   fn metadata_url_inserts_the_well_known_segment_before_the_path() {
     let config = McpConfig {
       allowed_hosts: Vec::new(),
-      resource: "https://mcp-spec-store.eduindev.com/mcp".into(),
+      resource: "https://mcp-sddvault.eduindev.com/mcp".into(),
       authorization_server: "https://auth/realms/x".into(),
       scopes: Vec::new(),
     };
     assert_eq!(
       config.resource_origin(),
-      "https://mcp-spec-store.eduindev.com"
+      "https://mcp-sddvault.eduindev.com"
     );
     assert_eq!(config.resource_path(), "/mcp");
     assert_eq!(
       config.metadata_url(),
-      "https://mcp-spec-store.eduindev.com/.well-known/oauth-protected-resource/mcp"
+      "https://mcp-sddvault.eduindev.com/.well-known/oauth-protected-resource/mcp"
     );
   }
 }

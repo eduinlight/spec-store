@@ -1,7 +1,7 @@
 mod common;
 
+use sdd_vault_testkit::TokenSpec;
 use serde_json::{Value, json};
-use spec_store_testkit::TokenSpec;
 
 const METADATA: &str = "https://mcp.example.test/.well-known/oauth-protected-resource/mcp";
 
@@ -51,7 +51,7 @@ async fn unauthenticated_request_is_told_where_to_authorize() {
     "{header}"
   );
   assert!(
-    header.contains("scope=\"openid spec-store-mcp\""),
+    header.contains("scope=\"openid sdd-vault-mcp\""),
     "{header}"
   );
 }
@@ -74,7 +74,7 @@ async fn protected_resource_metadata_names_the_authorization_server() {
     );
     assert_eq!(
       body["scopes_supported"],
-      json!(["openid", "spec-store-mcp"]),
+      json!(["openid", "sdd-vault-mcp"]),
       "{path}"
     );
     assert_eq!(
@@ -88,9 +88,7 @@ async fn protected_resource_metadata_names_the_authorization_server() {
 #[tokio::test]
 async fn token_for_another_audience_is_rejected() {
   let mcp = common::start().await;
-  let token = mcp
-    .keycloak
-    .mint(&TokenSpec::new("alice", "spec-store-api"));
+  let token = mcp.keycloak.mint(&TokenSpec::new("alice", "sdd-vault-api"));
   let response = post(&mcp, Some(&token)).await;
   assert_eq!(response.status(), 401);
   let header = challenge(&response);

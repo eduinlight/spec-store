@@ -1,18 +1,18 @@
 export const en = {
   meta: {
-    title: "spec-store — Specs your agents can trust",
+    title: "SDD Vault — Specs your agents can trust",
     description:
       "Keep your Spec Driven Development documents in one place your team and your AI agents share.",
   },
   nav: { signIn: "Sign in", language: "Español", languageHref: "/es" },
   hero: {
     headline: "Specs your agents can trust",
-    body: "spec-store keeps your Spec Driven Development documents — constitution, specs, plans and tasks — in one place your team and your AI agents share.",
+    body: "SDD Vault keeps your Spec Driven Development documents — constitution, specs, plans and tasks — in one place your team and your AI agents share.",
     signUp: "Create your account",
     signIn: "Sign in",
   },
   features: {
-    title: "Why spec-store",
+    title: "Why SDD Vault",
     agents: {
       title: "Built for agents",
       body: "Connect Claude Code or any MCP client by approving it in your browser. It reads and writes specs with exactly your access.",
@@ -26,5 +26,5 @@ export const en = {
       body: "Organizations own their projects. Invite people, give them roles and keep every tenant separate.",
     },
   },
-  footer: { rights: "spec-store" },
+  footer: { rights: "SDD Vault" },
 };

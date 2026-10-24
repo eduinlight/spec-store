@@ -46,8 +46,7 @@ export function Root() {
       <header className="border-b bg-background">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-4 px-6 py-3">
           <Link to="/" className="flex items-center gap-2 font-semibold">
-            <img src="/logo.svg" alt="" className="size-7" />
-            {t("app.name")}
+            <img src="/logo-horizontal.png" alt={t("app.name")} className="h-7 w-auto" />
           </Link>
           {organizations.length > 0 && (
             <label className="flex items-center gap-2 text-sm">

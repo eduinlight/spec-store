@@ -1,6 +1,6 @@
 mod common;
 
-use spec_store_core::model::{Caller, DocumentKind, Role, SpecStatus, StoreError};
+use sdd_vault_core::model::{Caller, DocumentKind, Role, SpecStatus, StoreError};
 
 const TASKS: &str = "# Tasks — Spec 001
 
@@ -305,7 +305,7 @@ fn list_markers_across_documents() {
   assert_eq!(markers[0].document_kind, DocumentKind::Spec);
   assert_eq!(
     markers[0].kind,
-    spec_store_core::markdown::markers::MarkerKind::Clarification
+    sdd_vault_core::markdown::markers::MarkerKind::Clarification
   );
   assert_eq!(markers[0].heading, "5. Functional requirements");
   assert_eq!(markers[0].text, "which actor?");
@@ -313,7 +313,7 @@ fn list_markers_across_documents() {
   assert_eq!(markers[2].document_kind, DocumentKind::Plan);
   assert_eq!(
     markers[2].kind,
-    spec_store_core::markdown::markers::MarkerKind::Research
+    sdd_vault_core::markdown::markers::MarkerKind::Research
   );
   assert_eq!(markers[2].text, "rmcp version");
   assert!(matches!(

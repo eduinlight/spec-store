@@ -9,16 +9,16 @@ use rmcp::{
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use spec_store_core::markdown::tasks::{Malformed, Task};
-use spec_store_core::model::{Caller, DocumentKind, SpecStatus, StoreError, StoreResult};
-use spec_store_core::store::Store;
-use spec_store_core::store::documents::RevisionMeta;
-use spec_store_core::store::specs::SpecSummary;
-use spec_store_core::store::tasks::{ActiveStatus, SpecMarker};
-use spec_store_core::templates;
+use sdd_vault_core::markdown::tasks::{Malformed, Task};
+use sdd_vault_core::model::{Caller, DocumentKind, SpecStatus, StoreError, StoreResult};
+use sdd_vault_core::store::Store;
+use sdd_vault_core::store::documents::RevisionMeta;
+use sdd_vault_core::store::specs::SpecSummary;
+use sdd_vault_core::store::tasks::{ActiveStatus, SpecMarker};
+use sdd_vault_core::templates;
 
 #[derive(Clone)]
-pub struct SpecStoreMcp {
+pub struct SddVaultMcp {
   store: Store,
   tool_router: ToolRouter<Self>,
 }
@@ -38,7 +38,7 @@ pub struct ProjectsOutput {
 #[derive(Deserialize, schemars::JsonSchema)]
 pub struct ProjectParams {
   #[schemars(
-    description = "Project address: <organization>/<project>, for example acme/spec-store"
+    description = "Project address: <organization>/<project>, for example acme/sdd-vault"
   )]
   pub project: String,
 }
@@ -46,7 +46,7 @@ pub struct ProjectParams {
 #[derive(Deserialize, schemars::JsonSchema)]
 pub struct DocumentParams {
   #[schemars(
-    description = "Project address: <organization>/<project>, for example acme/spec-store"
+    description = "Project address: <organization>/<project>, for example acme/sdd-vault"
   )]
   pub project: String,
   #[schemars(description = "Spec number, for example 1 for spec 001")]
@@ -138,7 +138,7 @@ pub struct TemplateOutput {
 #[derive(Deserialize, schemars::JsonSchema)]
 pub struct CreateSpecParams {
   #[schemars(
-    description = "Project address: <organization>/<project>, for example acme/spec-store"
+    description = "Project address: <organization>/<project>, for example acme/sdd-vault"
   )]
   pub project: String,
   #[schemars(description = "Spec slug: one to four lowercase words joined by hyphens")]
@@ -148,7 +148,7 @@ pub struct CreateSpecParams {
 #[derive(Deserialize, schemars::JsonSchema)]
 pub struct PutDocumentParams {
   #[schemars(
-    description = "Project address: <organization>/<project>, for example acme/spec-store"
+    description = "Project address: <organization>/<project>, for example acme/sdd-vault"
   )]
   pub project: String,
   #[schemars(description = "Spec number")]
@@ -168,7 +168,7 @@ pub struct PutDocumentParams {
 #[derive(Deserialize, schemars::JsonSchema)]
 pub struct PutConstitutionParams {
   #[schemars(
-    description = "Project address: <organization>/<project>, for example acme/spec-store"
+    description = "Project address: <organization>/<project>, for example acme/sdd-vault"
   )]
   pub project: String,
   #[schemars(description = "Full markdown body of the constitution")]
@@ -186,7 +186,7 @@ pub struct PutConstitutionParams {
 #[derive(Deserialize, schemars::JsonSchema)]
 pub struct SetStatusParams {
   #[schemars(
-    description = "Project address: <organization>/<project>, for example acme/spec-store"
+    description = "Project address: <organization>/<project>, for example acme/sdd-vault"
   )]
   pub project: String,
   #[schemars(description = "Spec number")]
@@ -198,7 +198,7 @@ pub struct SetStatusParams {
 #[derive(Deserialize, schemars::JsonSchema)]
 pub struct MarkTaskParams {
   #[schemars(
-    description = "Project address: <organization>/<project>, for example acme/spec-store"
+    description = "Project address: <organization>/<project>, for example acme/sdd-vault"
   )]
   pub project: String,
   #[schemars(description = "Spec number")]
@@ -237,7 +237,7 @@ pub struct MarkedTaskOutput {
 #[derive(Deserialize, schemars::JsonSchema)]
 pub struct SpecParams {
   #[schemars(
-    description = "Project address: <organization>/<project>, for example acme/spec-store"
+    description = "Project address: <organization>/<project>, for example acme/sdd-vault"
   )]
   pub project: String,
   #[schemars(description = "Spec number")]
@@ -247,7 +247,7 @@ pub struct SpecParams {
 #[derive(Deserialize, schemars::JsonSchema)]
 pub struct ListTasksParams {
   #[schemars(
-    description = "Project address: <organization>/<project>, for example acme/spec-store"
+    description = "Project address: <organization>/<project>, for example acme/sdd-vault"
   )]
   pub project: String,
   #[schemars(description = "Spec number")]
@@ -372,7 +372,7 @@ pub struct ProjectStatusOutput {
 #[derive(Deserialize, schemars::JsonSchema)]
 pub struct ListRevisionsParams {
   #[schemars(
-    description = "Project address: <organization>/<project>, for example acme/spec-store"
+    description = "Project address: <organization>/<project>, for example acme/sdd-vault"
   )]
   pub project: String,
   #[schemars(description = "Spec number; omit it for the constitution")]
@@ -386,7 +386,7 @@ pub struct ListRevisionsParams {
 #[derive(Deserialize, schemars::JsonSchema)]
 pub struct GetRevisionParams {
   #[schemars(
-    description = "Project address: <organization>/<project>, for example acme/spec-store"
+    description = "Project address: <organization>/<project>, for example acme/sdd-vault"
   )]
   pub project: String,
   #[schemars(description = "Revision id as returned by the write tools or list_revisions")]
@@ -448,7 +448,7 @@ pub fn to_mcp_error(error: StoreError) -> McpError {
 }
 
 #[tool_router]
-impl SpecStoreMcp {
+impl SddVaultMcp {
   pub fn new(store: Store) -> Self {
     Self {
       store,
@@ -789,10 +789,10 @@ impl SpecStoreMcp {
 }
 
 #[tool_handler(router = self.tool_router)]
-impl ServerHandler for SpecStoreMcp {
+impl ServerHandler for SddVaultMcp {
   fn get_info(&self) -> ServerConfig {
     ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
-      .with_server_info(Implementation::new("spec-store", env!("CARGO_PKG_VERSION")))
+      .with_server_info(Implementation::new("sdd-vault", env!("CARGO_PKG_VERSION")))
       .with_instructions(
         "Store of Spec Driven Development documents. Projects are addressed as <organization>/<project> and specs by number. \
          Read documents with get_document, the constitution with get_constitution and templates with get_template.",

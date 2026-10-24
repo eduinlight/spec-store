@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
-use spec_store_core::model::{DocumentKind, Role};
+use sdd_vault_core::model::{DocumentKind, Role};
 
 const CALLERS: usize = 10;
 const READS_PER_CALLER: usize = 20;

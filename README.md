@@ -1,4 +1,4 @@
-# spec-store
+# sdd-vault
 
 Hosted store for Spec Driven Development documents (constitution, spec, plan, tasks, research,
 validation), shared by teams and their AI agents. Organizations own projects; people sign in with
@@ -11,7 +11,7 @@ append-only revision with an audit entry, stored in PostgreSQL.
 ```
  browser ── app / landing (nginx) ──┐
                                     ├── api (axum) ──┐
- spec-store CLI ── bearer token ────┘                ├── packages/core ── PostgreSQL
+ sdd-vault CLI ── bearer token ────┘                ├── packages/core ── PostgreSQL
  AI agent ── MCP over HTTP ───────────── mcp (rmcp) ─┘
                  └──────── Keycloak (sign-in, MCP and device authorization) ────────┘
 ```
@@ -26,28 +26,28 @@ append-only revision with an audit entry, stored in PostgreSQL.
 - Invitation emails go through an outbox table in PostgreSQL, so a write and its email commit
   together.
 
-## Using spec-store
+## Using sdd-vault
 
 ### CLI
 
 ```sh
-cargo install --locked --git https://github.com/eduinlight/spec-store spec-store-cli
-spec-store login                      # opens the browser with a device code
-spec-store org create acme "Acme"
-spec-store project create acme/demo "Demo"
-spec-store import acme/demo .         # docs/constitution.md and specs/NNN-name/*.md
-spec-store export acme/demo ./out
+cargo install --locked --git https://github.com/eduinlight/sdd-vault sdd-vault-cli
+sddvault login                      # opens the browser with a device code
+sddvault org create acme "Acme"
+sddvault project create acme/demo "Demo"
+sddvault import acme/demo .         # docs/constitution.md and specs/NNN-name/*.md
+sddvault export acme/demo ./out
 ```
 
-`--api`, `--issuer` and `--client-id` (or `SPEC_STORE_API`, `SPEC_STORE_ISSUER`,
-`SPEC_STORE_CLIENT_ID`) point the CLI at another environment. They default to production.
+`--api`, `--issuer` and `--client-id` (or `SDD_VAULT_API`, `SDD_VAULT_ISSUER`,
+`SDD_VAULT_CLIENT_ID`) point the CLI at another environment. They default to production.
 
 ### MCP
 
 Add the server to an MCP client as a Streamable HTTP server:
 
 ```sh
-claude mcp add --transport http spec-store https://mcp-spec-store.eduindev.com/mcp
+claude mcp add --transport http sdd-vault https://mcp-sddvault.eduindev.com/mcp
 ```
 
 On the first call, the server answers with where to authorize. The client opens Keycloak in the
@@ -63,7 +63,7 @@ access. Revoke an approved agent from the profile page in the app.
 | `packages/ui` | Shared design tokens, Tailwind theme, shadcn components and language helpers |
 | `apps/api` | JSON API (axum): browser sign-in, organizations, projects, read views, import and export, invitation emails |
 | `apps/mcp` | MCP server (rmcp over Streamable HTTP) with MCP authorization |
-| `apps/cli` | `spec-store` command-line tool with device sign-in |
+| `apps/cli` | `sdd-vault` command-line tool with device sign-in |
 | `apps/app` | Browser app (React 19, React Router 7, Vite) |
 | `apps/landing` | Public landing page (React Router 7, prerendered) |
 | `deploy/` | Dockerfiles, nginx configs, Keycloak theme and realm, PostgreSQL init and backup jobs |
@@ -85,14 +85,14 @@ and generates every password, client secret and key in it. With the default port
 | Service | Address |
 |---|---|
 | Landing | http://localhost:5174 |
-| App | http://localhost:5173 (sign in as `dev` with `SPEC_STORE_DEV_PASSWORD`; `ops` with `SPEC_STORE_OPS_PASSWORD` is a platform operator) |
+| App | http://localhost:5173 (sign in as `dev` with `SDD_VAULT_DEV_PASSWORD`; `ops` with `SDD_VAULT_OPS_PASSWORD` is a platform operator) |
 | API | http://localhost:54000 |
 | MCP | http://localhost:54100/mcp |
 | Keycloak admin | http://localhost:58080/admin (`KEYCLOAK_ADMIN_USER` with `KEYCLOAK_ADMIN_PASSWORD`) |
 | Mailpit inbox | http://localhost:58025 |
 
 The app dev server proxies `/api` and `/auth` to the API, so the browser sees a single origin, as
-it does in production. Keycloak imports the realm from `deploy/keycloak/realm/spec-store.json`
+it does in production. Keycloak imports the realm from `deploy/keycloak/realm/sdd-vault.json`
 and the test people from `deploy/keycloak/dev/` on its first start; run `make uninstall` and
 `make install` to start over.
 

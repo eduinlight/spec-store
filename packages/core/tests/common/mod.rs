@@ -8,17 +8,17 @@ use diesel::connection::SimpleConnection;
 use diesel::dsl::sql;
 use diesel::prelude::*;
 use diesel::sql_types::{BigInt, Double, Nullable, Text};
-use spec_store_core::model::{Caller, OrgRole};
-use spec_store_core::store::Store;
-use spec_store_core::store::users::Identity;
-use spec_store_testkit::TestDb;
+use sdd_vault_core::model::{Caller, OrgRole};
+use sdd_vault_core::store::Store;
+use sdd_vault_core::store::users::Identity;
+use sdd_vault_testkit::TestDb;
 
 static COUNTER: AtomicUsize = AtomicUsize::new(0);
 
 pub const ORG: &str = "acme";
 
 pub fn migrate(url: &str) {
-  spec_store_core::db::open_with_size(url, 1).expect("migrate template");
+  sdd_vault_core::db::open_with_size(url, 1).expect("migrate template");
 }
 
 pub struct TestStore {
@@ -84,7 +84,7 @@ pub fn join(store: &Store, _owner: &Caller, org: &str, member: &Caller) {
 pub fn temp_dir(label: &str) -> PathBuf {
   let n = COUNTER.fetch_add(1, Ordering::SeqCst);
   let dir = std::env::temp_dir()
-    .join("spec-store-tests")
+    .join("sdd-vault-tests")
     .join(format!("{label}-{}-{n}", std::process::id()));
   if dir.exists() {
     std::fs::remove_dir_all(&dir).expect("clear temp dir");

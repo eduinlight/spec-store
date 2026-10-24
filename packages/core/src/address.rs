@@ -42,10 +42,10 @@ mod tests {
 
   #[test]
   fn parses_and_formats_addresses() {
-    let address = ProjectRef::parse("acme/spec-store").unwrap();
+    let address = ProjectRef::parse("acme/sdd-vault").unwrap();
     assert_eq!(address.organization, "acme");
-    assert_eq!(address.project, "spec-store");
-    assert_eq!(address.to_string(), "acme/spec-store");
+    assert_eq!(address.project, "sdd-vault");
+    assert_eq!(address.to_string(), "acme/sdd-vault");
   }
 
   #[test]

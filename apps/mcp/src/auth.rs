@@ -4,7 +4,7 @@ use axum::http::StatusCode;
 use axum::http::header::{AUTHORIZATION, WWW_AUTHENTICATE};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
-use spec_store_core::identity::IdentityError;
+use sdd_vault_core::identity::IdentityError;
 
 use crate::state::AppState;
 

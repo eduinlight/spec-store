@@ -2,9 +2,9 @@ use axum::Json;
 use axum::http::StatusCode;
 use axum::http::header::WWW_AUTHENTICATE;
 use axum::response::{IntoResponse, Response};
+use sdd_vault_core::identity::IdentityError;
+use sdd_vault_core::model::StoreError;
 use serde_json::json;
-use spec_store_core::identity::IdentityError;
-use spec_store_core::model::StoreError;
 
 #[derive(Debug, serde::Serialize, utoipa::ToSchema)]
 pub struct ErrorBody {
@@ -44,7 +44,7 @@ pub fn error_code(error: &StoreError) -> (StatusCode, &'static str) {
 fn unauthenticated() -> Response {
   (
     StatusCode::UNAUTHORIZED,
-    [(WWW_AUTHENTICATE, "Bearer realm=\"spec-store\"")],
+    [(WWW_AUTHENTICATE, "Bearer realm=\"sdd-vault\"")],
     Json(json!({ "code": "unauthenticated", "message": "authentication required" })),
   )
     .into_response()

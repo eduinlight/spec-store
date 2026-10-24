@@ -11,11 +11,11 @@ pub enum LoginError {
   Unreachable(String),
   #[error("the identity provider refused the sign-in: {0}")]
   Refused(String),
-  #[error("sign-in timed out after {0} seconds without approval; run spec-store login again")]
+  #[error("sign-in timed out after {0} seconds without approval; run sddvault login again")]
   TimedOut(u64),
   #[error("sign-in was denied in the browser")]
   Denied,
-  #[error("the session ended; run spec-store login again")]
+  #[error("the session ended; run sddvault login again")]
   SessionEnded,
 }
 

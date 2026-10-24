@@ -3,8 +3,8 @@ use axum::extract::State;
 use axum::http::StatusCode;
 use axum::http::header::SET_COOKIE;
 use axum::response::{IntoResponse, Response};
+use sdd_vault_core::model::StoreError;
 use serde::{Deserialize, Serialize};
-use spec_store_core::model::StoreError;
 
 use crate::cookies::language_cookie;
 use crate::error::ApiError;

@@ -14,7 +14,7 @@ async fn a_session_cookie_authenticates_reads() {
       .browser(
         "GET",
         "/api/v1/me",
-        "__Host-spec_store_session=forged",
+        "__Host-sdd_vault_session=forged",
         false,
         None
       )

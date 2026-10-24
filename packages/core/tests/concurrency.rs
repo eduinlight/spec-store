@@ -3,8 +3,8 @@ mod common;
 use std::sync::{Arc, Barrier};
 use std::thread;
 
-use spec_store_core::model::{Caller, DocumentKind, StoreError};
-use spec_store_core::store::Store;
+use sdd_vault_core::model::{Caller, DocumentKind, StoreError};
+use sdd_vault_core::store::Store;
 
 fn setup() -> (common::TestStore, Caller) {
   let store = common::test_store();

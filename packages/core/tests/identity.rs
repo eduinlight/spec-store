@@ -1,5 +1,5 @@
-use spec_store_core::identity::{IdentityConfig, IdentityError, Verifier};
-use spec_store_testkit::{FakeKeycloak, TestKey, TokenSpec};
+use sdd_vault_core::identity::{IdentityConfig, IdentityError, Verifier};
+use sdd_vault_testkit::{FakeKeycloak, TestKey, TokenSpec};
 
 const AUDIENCE: &str = "https://mcp.example.test/mcp";
 
@@ -40,7 +40,7 @@ async fn token_past_expiry_is_rejected_without_leeway() {
 async fn wrong_audience_is_rejected() {
   let keycloak = FakeKeycloak::start().await;
   let verifier = verifier(&keycloak);
-  let token = keycloak.mint(&TokenSpec::new("alice", "spec-store-api"));
+  let token = keycloak.mint(&TokenSpec::new("alice", "sdd-vault-api"));
   assert!(matches!(
     verifier.verify(&token, AUDIENCE).await,
     Err(IdentityError::Invalid(_))
@@ -100,8 +100,8 @@ async fn unknown_key_triggers_one_key_set_refresh() {
 #[tokio::test]
 async fn unreachable_key_set_is_unavailable() {
   let verifier = Verifier::new(IdentityConfig {
-    issuer: "http://127.0.0.1:1/realms/spec-store".into(),
-    jwks_url: "http://127.0.0.1:1/realms/spec-store/protocol/openid-connect/certs".into(),
+    issuer: "http://127.0.0.1:1/realms/sdd-vault".into(),
+    jwks_url: "http://127.0.0.1:1/realms/sdd-vault/protocol/openid-connect/certs".into(),
   });
   let keycloak = FakeKeycloak::start().await;
   let token = keycloak.mint(&TokenSpec::new("alice", AUDIENCE));

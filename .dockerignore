@@ -7,8 +7,8 @@
 !packages/ui/src/styles/tokens.css
 !apps/landing/build/client/**
 !apps/app/dist/**
-!target/release/spec-store-api
-!target/release/spec-store-mcp
-!target/linux/release/spec-store-api
-!target/linux/release/spec-store-mcp
+!target/release/sdd-vault-api
+!target/release/sdd-vault-mcp
+!target/linux/release/sdd-vault-api
+!target/linux/release/sdd-vault-mcp
 !deploy/backup/*.sh

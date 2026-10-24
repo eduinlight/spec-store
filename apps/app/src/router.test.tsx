@@ -53,7 +53,7 @@ test("a person without organizations sees the onboarding form and their invitati
     "GET /api/v1/orgs/{org}/projects": () => ({ projects: [] }),
   });
   renderAt("/");
-  expect(await screen.findByRole("heading", { name: "Welcome to spec-store" })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Welcome to SDD Vault" })).toBeInTheDocument();
   expect(screen.getByText("Beta Inc")).toBeInTheDocument();
   expect(screen.getByText("Invited by bob")).toBeInTheDocument();
   await userEvent.type(screen.getByLabelText("Organization address"), "acme");

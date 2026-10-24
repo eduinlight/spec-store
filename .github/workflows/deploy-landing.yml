@@ -29,13 +29,13 @@ jobs:
     with:
       deliverable: landing
       tags: ${{ github.sha }} latest
-      app_url: https://staging-app-spec-store.eduindev.com
+      app_url: https://staging-app-sddvault.eduindev.com
 
   bump-cd:
     needs: image
     uses: ./.github/workflows/cd-bump.yml
     with:
-      image: ghcr.io/eduinlight/spec-store-landing
+      image: ghcr.io/eduinlight/sdd-vault-landing
       tag: ${{ github.sha }}
       overlay: staging
     secrets: inherit

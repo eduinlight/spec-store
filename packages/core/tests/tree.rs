@@ -3,10 +3,8 @@ mod common;
 use std::fs;
 use std::path::Path;
 
-use spec_store_core::model::{DocumentKind, MAX_BODY_BYTES};
-use spec_store_core::tree::{
-  ExportFile, ProjectTree, TargetState, plan_export, scan, write_export,
-};
+use sdd_vault_core::model::{DocumentKind, MAX_BODY_BYTES};
+use sdd_vault_core::tree::{ExportFile, ProjectTree, TargetState, plan_export, scan, write_export};
 
 fn put(root: &Path, relative: &str, bytes: &[u8]) {
   let path = root.join(relative);

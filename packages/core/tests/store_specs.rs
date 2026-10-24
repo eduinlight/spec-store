@@ -1,8 +1,8 @@
 mod common;
 
-use spec_store_core::store::Store;
+use sdd_vault_core::store::Store;
 
-use spec_store_core::model::{Caller, DocumentKind, Role, SpecStatus, StoreError};
+use sdd_vault_core::model::{Caller, DocumentKind, Role, SpecStatus, StoreError};
 
 struct Fixture {
   store: common::TestStore,

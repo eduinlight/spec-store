@@ -2323,6 +2323,105 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 
 [[package]]
+name = "sdd-vault-api"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "diesel",
+ "http-body-util",
+ "reqwest",
+ "rmcp",
+ "sdd-vault-core",
+ "sdd-vault-mcp",
+ "sdd-vault-testkit",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "tower",
+ "tracing",
+ "tracing-subscriber",
+ "utoipa",
+ "utoipa-axum",
+]
+
+[[package]]
+name = "sdd-vault-cli"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "clap",
+ "keyring",
+ "reqwest",
+ "sdd-vault-api",
+ "sdd-vault-core",
+ "sdd-vault-testkit",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
+name = "sdd-vault-core"
+version = "0.2.0"
+dependencies = [
+ "aws-lc-rs",
+ "base64 0.22.1",
+ "chrono",
+ "diesel",
+ "diesel_migrations",
+ "jsonwebtoken",
+ "lettre",
+ "rand",
+ "reqwest",
+ "sdd-vault-testkit",
+ "serde",
+ "serde_json",
+ "sha2",
+ "similar",
+ "thiserror",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "sdd-vault-mcp"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "diesel",
+ "reqwest",
+ "rmcp",
+ "schemars",
+ "sdd-vault-core",
+ "sdd-vault-testkit",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "sdd-vault-testkit"
+version = "0.2.0"
+dependencies = [
+ "aws-lc-rs",
+ "axum",
+ "base64 0.22.1",
+ "diesel",
+ "jsonwebtoken",
+ "reqwest",
+ "serde_json",
+ "sha2",
+ "tokio",
+]
+
+[[package]]
 name = "secret-service"
 version = "5.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2566,105 +2665,6 @@ checksum = "c3d1e2c7f27f8d4cb10542a02c49005dbd6e93095799d6f3be745fae9f8fedd4"
 dependencies = [
  "libc",
  "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "spec-store-api"
-version = "0.2.0"
-dependencies = [
- "anyhow",
- "axum",
- "diesel",
- "http-body-util",
- "reqwest",
- "rmcp",
- "serde",
- "serde_json",
- "spec-store-core",
- "spec-store-mcp",
- "spec-store-testkit",
- "thiserror",
- "tokio",
- "tower",
- "tracing",
- "tracing-subscriber",
- "utoipa",
- "utoipa-axum",
-]
-
-[[package]]
-name = "spec-store-cli"
-version = "0.2.0"
-dependencies = [
- "anyhow",
- "axum",
- "clap",
- "keyring",
- "reqwest",
- "serde",
- "serde_json",
- "spec-store-api",
- "spec-store-core",
- "spec-store-testkit",
- "thiserror",
- "tokio",
-]
-
-[[package]]
-name = "spec-store-core"
-version = "0.2.0"
-dependencies = [
- "aws-lc-rs",
- "base64 0.22.1",
- "chrono",
- "diesel",
- "diesel_migrations",
- "jsonwebtoken",
- "lettre",
- "rand",
- "reqwest",
- "serde",
- "serde_json",
- "sha2",
- "similar",
- "spec-store-testkit",
- "thiserror",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "spec-store-mcp"
-version = "0.2.0"
-dependencies = [
- "anyhow",
- "axum",
- "diesel",
- "reqwest",
- "rmcp",
- "schemars",
- "serde",
- "serde_json",
- "spec-store-core",
- "spec-store-testkit",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "spec-store-testkit"
-version = "0.2.0"
-dependencies = [
- "aws-lc-rs",
- "axum",
- "base64 0.22.1",
- "diesel",
- "jsonwebtoken",
- "reqwest",
- "serde_json",
- "sha2",
- "tokio",
 ]
 
 [[package]]

@@ -1,7 +1,7 @@
 mod common;
 
-use spec_store_core::db;
-use spec_store_core::store::Store;
+use sdd_vault_core::db;
+use sdd_vault_core::store::Store;
 
 const EXPECTED_TABLES: [&str; 14] = [
   "__diesel_schema_migrations",
@@ -22,7 +22,7 @@ const EXPECTED_TABLES: [&str; 14] = [
 
 #[test]
 fn open_creates_every_table() {
-  let test_db = spec_store_testkit::TestDb::empty();
+  let test_db = sdd_vault_testkit::TestDb::empty();
   let pool = db::open(&test_db.url).expect("open");
   let names = common::table_names(&mut pool.get().unwrap());
   assert_eq!(names, EXPECTED_TABLES);
@@ -30,7 +30,7 @@ fn open_creates_every_table() {
 
 #[test]
 fn reopening_applies_nothing_new() {
-  let test_db = spec_store_testkit::TestDb::empty();
+  let test_db = sdd_vault_testkit::TestDb::empty();
   {
     let _first = db::open(&test_db.url).expect("first open");
   }
@@ -43,7 +43,7 @@ fn reopening_applies_nothing_new() {
 
 #[test]
 fn store_keeps_its_data_across_opens() {
-  let test_db = spec_store_testkit::TestDb::empty();
+  let test_db = sdd_vault_testkit::TestDb::empty();
   {
     let store = Store::open(&test_db.url).expect("first open");
     common::person(&store, "root");
@@ -67,7 +67,7 @@ fn unreachable_database_is_a_pool_error() {
     .err()
     .expect("fails");
   assert!(
-    matches!(error, spec_store_core::model::StoreError::Pool(_)),
+    matches!(error, sdd_vault_core::model::StoreError::Pool(_)),
     "{error:?}"
   );
 }

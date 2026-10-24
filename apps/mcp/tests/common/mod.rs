@@ -7,12 +7,12 @@ use rmcp::ServiceExt;
 use rmcp::service::{RoleClient, RunningService};
 use rmcp::transport::StreamableHttpClientTransport;
 use rmcp::transport::streamable_http_client::StreamableHttpClientTransportConfig;
-use spec_store_core::identity::{IdentityConfig, Verifier};
-use spec_store_core::model::{Caller, OrgRole};
-use spec_store_core::store::Store;
-use spec_store_core::store::users::Identity;
-use spec_store_mcp::{AppState, McpConfig, router};
-use spec_store_testkit::{FakeKeycloak, TestDb, TokenSpec};
+use sdd_vault_core::identity::{IdentityConfig, Verifier};
+use sdd_vault_core::model::{Caller, OrgRole};
+use sdd_vault_core::store::Store;
+use sdd_vault_core::store::users::Identity;
+use sdd_vault_mcp::{AppState, McpConfig, router};
+use sdd_vault_testkit::{FakeKeycloak, TestDb, TokenSpec};
 use tokio::task::JoinHandle;
 
 pub type Client = RunningService<RoleClient, ()>;
@@ -20,7 +20,7 @@ pub type Client = RunningService<RoleClient, ()>;
 pub const RESOURCE: &str = "https://mcp.example.test/mcp";
 
 pub fn migrate(url: &str) {
-  spec_store_core::db::open_with_size(url, 1).expect("migrate template");
+  sdd_vault_core::db::open_with_size(url, 1).expect("migrate template");
 }
 
 pub struct TestMcp {
@@ -43,7 +43,7 @@ pub fn config(keycloak: &FakeKeycloak) -> McpConfig {
     allowed_hosts: Vec::new(),
     resource: RESOURCE.into(),
     authorization_server: keycloak.issuer(),
-    scopes: vec!["openid".into(), "spec-store-mcp".into()],
+    scopes: vec!["openid".into(), "sdd-vault-mcp".into()],
   }
 }
 

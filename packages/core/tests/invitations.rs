@@ -1,7 +1,7 @@
 mod common;
 
-use spec_store_core::model::{Caller, OrgRole, StoreError};
-use spec_store_core::store::invitations::{InvitationState, NewInvitation};
+use sdd_vault_core::model::{Caller, OrgRole, StoreError};
+use sdd_vault_core::store::invitations::{InvitationState, NewInvitation};
 
 const ACCEPT_BASE: &str = "https://app.example.test/invitations";
 

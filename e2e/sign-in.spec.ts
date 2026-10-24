@@ -1,9 +1,13 @@
 import { expect, type Page, test } from "@playwright/test";
 
 const app = process.env.APP_URL ?? "http://localhost:5173";
-const keycloak = process.env.KEYCLOAK_URL ?? "http://localhost:58080";
-const mailpit = process.env.MAILPIT_URL ?? "http://localhost:58025";
-const evidence = "specs/005-saas-foundation/evidence";
+const keycloak =
+  process.env.KEYCLOAK_URL ??
+  process.env.KEYCLOAK_ISSUER?.replace(/\/realms\/.*$/, "") ??
+  "http://localhost:58080";
+const mailpit =
+  process.env.MAILPIT_URL ?? `http://localhost:${process.env.MAILPIT_UI_PORT ?? "58025"}`;
+const evidence = "test-results/evidence";
 const password = crypto.randomUUID();
 
 async function latestLink(page: Page, address: string): Promise<string> {
@@ -29,7 +33,7 @@ test("a new person signs up, verifies the email, lands in the app and signs out"
   const email = `${username}@example.test`;
   await page.goto(`${app}/profile`);
   await expect(page).toHaveURL(
-    new RegExp(`^${keycloak}/realms/spec-store/protocol/openid-connect/auth`),
+    new RegExp(`^${keycloak}/realms/sdd-vault/protocol/openid-connect/auth`),
   );
   await page.getByRole("link", { name: "Register" }).click();
   await page.fill("#username", username);
@@ -56,18 +60,18 @@ test("a new person signs up, verifies the email, lands in the app and signs out"
   await expect(page.getByText(email)).toBeVisible();
 
   await page.getByRole("button", { name: "Sign out" }).click();
-  await page.waitForURL(new RegExp(`^${keycloak}/realms/spec-store/protocol/openid-connect/auth`));
+  await page.waitForURL(new RegExp(`^${keycloak}/realms/sdd-vault/protocol/openid-connect/auth`));
   await page.goto(`${app}/profile`);
   await expect(page).toHaveURL(
-    new RegExp(`^${keycloak}/realms/spec-store/protocol/openid-connect/auth`),
+    new RegExp(`^${keycloak}/realms/sdd-vault/protocol/openid-connect/auth`),
   );
   await expect(page.locator("#username")).toBeVisible();
 });
 
 test("the sign-in page follows the Spanish language choice", async ({ page, context }) => {
-  await context.addCookies([{ name: "spec_store_lang", value: "es", url: app }]);
+  await context.addCookies([{ name: "sdd_vault_lang", value: "es", url: app }]);
   await page.goto(`${app}/`);
-  await expect(page).toHaveURL(/ui_locales=es|kc_locale=es|realms\/spec-store/);
+  await expect(page).toHaveURL(/ui_locales=es|kc_locale=es|realms\/sdd-vault/);
   await expect(page.getByRole("heading", { name: /Inicia sesión/ })).toBeVisible();
   await page.screenshot({ path: `${evidence}/app-sign-in-es.png`, fullPage: true });
 });

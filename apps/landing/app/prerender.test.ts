@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 const client = resolve(import.meta.dirname, "../build/client");
 const english = readFileSync(resolve(client, "index.html"), "utf8");
 const spanish = readFileSync(resolve(client, "es/index.html"), "utf8");
-const app = process.env.VITE_APP_URL ?? "https://app-spec-store.eduindev.com";
+const app = process.env.VITE_APP_URL ?? "https://app-sddvault.eduindev.com";
 
 test("the English page is complete in the first HTML response", () => {
   expect(english).toContain('<html lang="en"');

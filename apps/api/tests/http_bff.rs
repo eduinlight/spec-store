@@ -8,7 +8,7 @@ use axum::http::StatusCode;
 async fn login_redirects_to_the_identity_provider_with_pkce_and_the_chosen_language() {
   let app = common::app().await;
   let response = app
-    .start_login("?return_to=%2Fprojects%2Facme", Some("spec_store_lang=es"))
+    .start_login("?return_to=%2Fprojects%2Facme", Some("sdd_vault_lang=es"))
     .await;
   assert_eq!(response.status(), StatusCode::FOUND);
   let url = common::location(&response);
@@ -21,7 +21,7 @@ async fn login_redirects_to_the_identity_provider_with_pkce_and_the_chosen_langu
   );
   assert_eq!(
     common::query_param(&url, "client_id").as_deref(),
-    Some("spec-store-app")
+    Some("sdd-vault-app")
   );
   assert_eq!(
     common::query_param(&url, "response_type").as_deref(),
@@ -111,7 +111,7 @@ async fn logout_ends_the_session_and_hands_back_the_identity_provider_logout_url
     .browser(
       "POST",
       "/auth/logout",
-      &format!("{cookie}; spec_store_lang=es"),
+      &format!("{cookie}; sdd_vault_lang=es"),
       true,
       None,
     )
@@ -131,7 +131,7 @@ async fn logout_ends_the_session_and_hands_back_the_identity_provider_logout_url
   assert!(common::query_param(url, "id_token_hint").is_some());
   assert_eq!(
     common::query_param(url, "client_id").as_deref(),
-    Some("spec-store-app")
+    Some("sdd-vault-app")
   );
   assert_eq!(
     common::query_param(url, "post_logout_redirect_uri").as_deref(),

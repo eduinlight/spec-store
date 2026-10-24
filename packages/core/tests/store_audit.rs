@@ -1,8 +1,8 @@
 mod common;
 
 use diesel::connection::SimpleConnection;
-use spec_store_core::model::{Role, StoreError};
-use spec_store_core::store::{Store, audit};
+use sdd_vault_core::model::{Role, StoreError};
+use sdd_vault_core::store::{Store, audit};
 
 fn insert_user(store: &Store, handle: &str) -> i64 {
   common::person(store, handle).user_id

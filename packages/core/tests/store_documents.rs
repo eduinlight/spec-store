@@ -1,6 +1,6 @@
 mod common;
 
-use spec_store_core::model::{Caller, DocumentKind, Role, StoreError};
+use sdd_vault_core::model::{Caller, DocumentKind, Role, StoreError};
 
 struct Fixture {
   store: common::TestStore,
@@ -356,7 +356,7 @@ fn reader_and_archived_cannot_write() {
       &f.owner,
       "acme/demo",
       1,
-      spec_store_core::model::SpecStatus::Archived,
+      sdd_vault_core::model::SpecStatus::Archived,
     )
     .unwrap();
   assert!(matches!(
@@ -438,7 +438,7 @@ fn constitution_owner_only_and_version_must_change() {
 #[test]
 fn rejects_over_1mb_and_keeps_bytes() {
   let f = fixture();
-  let limit = spec_store_core::model::MAX_BODY_BYTES;
+  let limit = sdd_vault_core::model::MAX_BODY_BYTES;
   assert!(matches!(
     f.store.put_document(
       &f.editor,

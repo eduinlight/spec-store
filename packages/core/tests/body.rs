@@ -1,8 +1,8 @@
 mod common;
 
-use spec_store_core::model::{DocumentKind, MAX_BODY_BYTES, Role, StoreError};
+use sdd_vault_core::model::{DocumentKind, MAX_BODY_BYTES, Role, StoreError};
 
-fn setup() -> (common::TestStore, spec_store_core::model::Caller) {
+fn setup() -> (common::TestStore, sdd_vault_core::model::Caller) {
   let store = common::test_store();
   let owner = common::person(&store, "owner");
   common::organization(&store, &owner, common::ORG);

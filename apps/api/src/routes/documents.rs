@@ -1,8 +1,8 @@
 use axum::Json;
 use axum::extract::{Path, State};
+use sdd_vault_core::model::DocumentKind;
+use sdd_vault_core::store::documents::RevisionMeta;
 use serde::Serialize;
-use spec_store_core::model::DocumentKind;
-use spec_store_core::store::documents::RevisionMeta;
 
 use crate::auth::Principal;
 use crate::error::{ApiError, ErrorBody};

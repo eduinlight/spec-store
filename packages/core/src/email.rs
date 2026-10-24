@@ -46,15 +46,15 @@ pub fn invitation_email(language: &str, payload: &Value) -> RenderedEmail {
   let expires = field(payload, "expires_at");
   let (subject, intro, action, expiry) = if language == "es" {
     (
-      format!("Te invitaron a unirte a {organization} en spec-store"),
-      format!("{inviter_name} ({inviter}) te invitó a unirte a {organization} en spec-store."),
+      format!("Te invitaron a unirte a {organization} en SDD Vault"),
+      format!("{inviter_name} ({inviter}) te invitó a unirte a {organization} en SDD Vault."),
       "Aceptar la invitación",
       format!("La invitación vence el {expires}."),
     )
   } else {
     (
-      format!("You are invited to join {organization} on spec-store"),
-      format!("{inviter_name} ({inviter}) invited you to join {organization} on spec-store."),
+      format!("You are invited to join {organization} on SDD Vault"),
+      format!("{inviter_name} ({inviter}) invited you to join {organization} on SDD Vault."),
       "Accept the invitation",
       format!("The invitation expires on {expires}."),
     )
@@ -163,7 +163,7 @@ mod tests {
     let en = invitation_email("en", &payload());
     assert_eq!(
       en.subject,
-      "You are invited to join Acme <Labs> on spec-store"
+      "You are invited to join Acme <Labs> on SDD Vault"
     );
     assert!(en.text.contains("Alice (alice) invited you"));
     assert!(en.text.contains("https://app.example/invitations/inv_x"));
