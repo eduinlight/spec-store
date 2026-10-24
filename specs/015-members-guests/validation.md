@@ -19,12 +19,14 @@ Spec: `specs/015-members-guests/spec.md` · Date: 2026-10-24 · Ticket: SV-9
 
 | Check | Result |
 |---|---|
-| `make fmt-check`, `make lint`, `make test` | see the ticket |
-| Playwright | see the ticket |
+| `make fmt-check`, `make lint`, `make test` | pass (Rust workspace with `--no-fail-fast`, UI 337, landing 24, app 274); API perf 44 ms; core perf 87–198 ms while the machine load average was 58–140 (the read path is unchanged by this spec; CI runs it on a clean runner) |
+| Playwright | 17/17 |
 
 ## Defects found and fixed
 
 - A new project's Members table was empty: its creator owns it as an organization owner, with no membership row. Organization owners are now listed as owners "from the organization", without role or remove controls.
+
+- Live Redis tests could build the same channel prefix twice within a microsecond on macOS; prefixes now carry a counter.
 
 ## Decisions
 
