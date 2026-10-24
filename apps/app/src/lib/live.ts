@@ -108,6 +108,7 @@ export function createLiveManager(dependencies: LiveDependencies): LiveManager {
       if (typeof message.subscribed === "string") {
         confirmed.add(message.subscribed);
         notifyState();
+        emit(message.subscribed, { type: "resync" });
       } else if (typeof message.unsubscribed === "string") {
         confirmed.delete(message.unsubscribed);
         notifyState();

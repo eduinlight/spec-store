@@ -203,3 +203,15 @@ test("ignores messages that are not JSON objects", () => {
   latest().onmessage?.(new MessageEvent("message", { data: "7" }));
   expect(seen).toEqual([]);
 });
+
+test("the confirmation of a subscription asks its listeners to refetch what happened before it", () => {
+  const manager = setup();
+  const demo: LiveEvent[] = [];
+  const other: LiveEvent[] = [];
+  manager.subscribe("acme/demo", (event) => demo.push(event));
+  manager.subscribe("acme/other", (event) => other.push(event));
+  latest().open();
+  latest().receive({ subscribed: "acme/demo" });
+  expect(demo).toEqual([{ type: "resync" }]);
+  expect(other).toEqual([]);
+});
