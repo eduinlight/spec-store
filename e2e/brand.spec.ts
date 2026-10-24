@@ -26,7 +26,8 @@ test("the landing page carries the SDD Vault brand", async ({ page }) => {
 
 test("the identity provider carries the SDD Vault brand", async ({ page }) => {
   await page.goto(signIn);
-  await expect(page.locator("#kc-header-wrapper")).toContainText("SDD Vault");
+  await expect(page.locator('.sdd-logo img[alt="SDD Vault"]')).toBeVisible();
+  await expect(page.locator("body")).toContainText("SDD Vault");
   await expect(page.locator("body")).not.toContainText(/spec[- ]?store/i);
   await expect(page.locator('link[rel="icon"]')).toHaveCount(1);
   await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute("content", "#1F4FE0");

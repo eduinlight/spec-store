@@ -35,7 +35,7 @@ test("a new person signs up, verifies the email, lands in the app and signs out"
   await expect(page).toHaveURL(
     new RegExp(`^${keycloak}/realms/sdd-vault/protocol/openid-connect/auth`),
   );
-  await page.getByRole("link", { name: "Register" }).click();
+  await page.getByRole("link", { name: "Create an account" }).click();
   await page.fill("#username", username);
   await page.fill("#email", email);
   await page.fill("#firstName", "End");
