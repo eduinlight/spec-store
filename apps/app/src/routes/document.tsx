@@ -12,29 +12,14 @@ import { projectParams } from "./project";
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const path = projectParams(params);
   return guard(request, async () => {
-    if (!params.kind) {
-      const constitution = await api
-        .GET("/api/v1/projects/{org}/{project}/constitution", { params: { path } })
-        .then(unwrap);
-      return {
-        address: `${path.org}/${path.project}`,
-        kind: "constitution",
-        number: null,
-        ...constitution,
-      };
-    }
-    const number = Number(params.number);
-    const document = await api
-      .GET("/api/v1/projects/{org}/{project}/specs/{number}/documents/{kind}", {
-        params: { path: { ...path, number, kind: params.kind } },
-      })
+    const constitution = await api
+      .GET("/api/v1/projects/{org}/{project}/constitution", { params: { path } })
       .then(unwrap);
     return {
       address: `${path.org}/${path.project}`,
-      kind: params.kind,
-      number,
-      version: null,
-      ...document,
+      kind: "constitution",
+      number: null,
+      ...constitution,
     };
   });
 }

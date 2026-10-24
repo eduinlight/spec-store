@@ -16,6 +16,11 @@ import * as projectSettings from "~/routes/project-settings";
 import * as revision from "~/routes/revision";
 import * as root from "~/routes/root";
 import * as spec from "~/routes/spec";
+import * as specDocument from "~/routes/spec-document";
+import * as specHistory from "~/routes/spec-history";
+import * as specMarkers from "~/routes/spec-markers";
+import * as specTasks from "~/routes/spec-tasks";
+import * as specTraceability from "~/routes/spec-traceability";
 import * as specs from "~/routes/specs";
 
 export const routes: RouteObject[] = [
@@ -87,11 +92,24 @@ export const routes: RouteObject[] = [
             loader: document.loader,
             Component: document.Document,
           },
-          { path: "p/:org/:project/specs/:number", loader: spec.loader, Component: spec.Spec },
           {
-            path: "p/:org/:project/specs/:number/:kind",
-            loader: document.loader,
-            Component: document.Document,
+            id: "spec",
+            path: "p/:org/:project/specs/:number",
+            loader: spec.loader,
+            shouldRevalidate: spec.shouldRevalidate,
+            Component: spec.Spec,
+            children: [
+              { index: true, loader: specDocument.loader, Component: specDocument.SpecDocument },
+              { path: "tasks", loader: specTasks.loader, Component: specTasks.SpecTasks },
+              {
+                path: "traceability",
+                loader: specTraceability.loader,
+                Component: specTraceability.SpecTraceability,
+              },
+              { path: "markers", loader: specMarkers.loader, Component: specMarkers.SpecMarkers },
+              { path: "history", loader: specHistory.loader, Component: specHistory.SpecHistory },
+              { path: ":kind", loader: specDocument.loader, Component: specDocument.SpecDocument },
+            ],
           },
           { path: "p/:org/:project/history", loader: history.loader, Component: history.History },
           {
