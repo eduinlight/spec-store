@@ -233,10 +233,10 @@ impl Store {
         .map(|l| l.strip_suffix('\r').unwrap_or(l).to_string())
         .unwrap_or_default();
       let message = format!("{task_id}: done, commit {commit}");
-      let revision_id = append_revision(tx, doc_id, &new_body, None, caller.user_id, &message)?;
+      let revision_id = append_revision(tx, doc_id, &new_body, None, caller, &message)?;
       audit(
         tx,
-        caller.user_id,
+        caller,
         Some(access.project_id),
         "task.done",
         &format!("{number:03}/{task_id}@{commit}"),

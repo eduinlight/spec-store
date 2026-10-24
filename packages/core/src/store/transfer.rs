@@ -161,12 +161,12 @@ impl Store {
           doc_id,
           &file.body,
           Some(version),
-          caller.user_id,
+          caller,
           &format!("import {}", file.relative_path),
         )?;
         audit(
           tx,
-          caller.user_id,
+          caller,
           Some(access.project_id),
           "constitution.put",
           &format!("v{version}@{revision_id}"),
@@ -184,13 +184,7 @@ impl Store {
           ))
           .returning(specs::id)
           .get_result(tx)?;
-        audit(
-          tx,
-          caller.user_id,
-          Some(access.project_id),
-          "spec.import",
-          &branch,
-        )?;
+        audit(tx, caller, Some(access.project_id), "spec.import", &branch)?;
         for (kind, file) in &spec.documents {
           let doc_id = ensure_document(tx, access.project_id, Some(spec_id), *kind)?;
           let revision_id = append_revision(
@@ -198,12 +192,12 @@ impl Store {
             doc_id,
             &file.body,
             None,
-            caller.user_id,
+            caller,
             &format!("import {}", file.relative_path),
           )?;
           audit(
             tx,
-            caller.user_id,
+            caller,
             Some(access.project_id),
             "document.put",
             &format!("{:03}/{kind}@{revision_id}", spec.number),

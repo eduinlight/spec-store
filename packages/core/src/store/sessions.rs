@@ -1,7 +1,7 @@
 use diesel::prelude::*;
 use diesel::sql_types::{Nullable, Timestamptz};
 
-use crate::model::{Caller, StoreError, StoreResult};
+use crate::model::{Caller, StoreError, StoreResult, Via};
 use crate::schema::{browser_sessions, login_attempts, users};
 use crate::secrets::{hash_token, random_secret};
 use crate::store::Store;
@@ -105,6 +105,7 @@ impl Store {
           user_id,
           handle,
           is_operator,
+          via: Via::default(),
         },
         identity_session_id,
         refresh_token_sealed,

@@ -204,13 +204,7 @@ impl Store {
           specs::branch.eq(&branch),
         ))
         .execute(tx)?;
-      audit(
-        tx,
-        caller.user_id,
-        Some(access.project_id),
-        "spec.create",
-        &branch,
-      )?;
+      audit(tx, caller, Some(access.project_id), "spec.create", &branch)?;
       Ok(CreatedSpec {
         number,
         slug: slug.to_string(),
@@ -254,7 +248,7 @@ impl Store {
         .execute(tx)?;
       audit(
         tx,
-        caller.user_id,
+        caller,
         Some(access.project_id),
         "spec.status",
         &format!("{number:03}:{}→{to}", spec.status),

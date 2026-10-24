@@ -167,13 +167,7 @@ impl Store {
         ))
         .returning((projects::id, iso_utc(projects::created_at)))
         .get_result(tx)?;
-      audit(
-        tx,
-        actor.user_id,
-        Some(id),
-        "project.create",
-        &address.to_string(),
-      )?;
+      audit(tx, actor, Some(id), "project.create", &address.to_string())?;
       Ok(Project {
         id,
         slug: address.project.clone(),
@@ -215,7 +209,7 @@ impl Store {
         .execute(tx)?;
       audit(
         tx,
-        actor.user_id,
+        actor,
         Some(access.project_id),
         "member.set",
         &format!("{handle}:{role}"),
@@ -241,13 +235,7 @@ impl Store {
           "membership of {handle:?} in project {project_slug:?}"
         )));
       }
-      audit(
-        tx,
-        actor.user_id,
-        Some(access.project_id),
-        "member.remove",
-        handle,
-      )
+      audit(tx, actor, Some(access.project_id), "member.remove", handle)
     })
   }
 
@@ -343,13 +331,7 @@ impl Store {
         Some(_) => slug.to_string(),
         None => format!("{slug} cleared"),
       };
-      audit(
-        tx,
-        actor.user_id,
-        Some(access.project_id),
-        "project.repo",
-        &target,
-      )
+      audit(tx, actor, Some(access.project_id), "project.repo", &target)
     })
   }
 }

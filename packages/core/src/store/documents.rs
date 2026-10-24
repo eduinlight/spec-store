@@ -15,6 +15,7 @@ pub struct RevisionMeta {
   pub created_at: String,
   pub message: String,
   pub version: Option<String>,
+  pub client: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -56,15 +57,18 @@ pub fn document_id(
   )
 }
 
-type RevisionMetaRow = (i64, String, String, String, Option<String>);
+type RevisionMetaRow = (i64, String, String, String, Option<String>, Option<String>);
 
-fn revision_meta((id, author, created_at, message, version): RevisionMetaRow) -> RevisionMeta {
+fn revision_meta(
+  (id, author, created_at, message, version, client): RevisionMetaRow,
+) -> RevisionMeta {
   RevisionMeta {
     id,
     author,
     created_at,
     message,
     version,
+    client,
   }
 }
 
@@ -84,6 +88,7 @@ pub fn current_revision(
         iso_utc(revisions::created_at),
         revisions::message,
         revisions::version,
+        revisions::client,
       ),
     ))
     .first(conn)
@@ -141,7 +146,7 @@ pub(crate) fn append_revision(
   document_id: i64,
   body: &str,
   version: Option<&str>,
-  author_id: i64,
+  author: &Caller,
   message: &str,
 ) -> StoreResult<i64> {
   let revision_id: i64 = diesel::insert_into(revisions::table)
@@ -149,8 +154,9 @@ pub(crate) fn append_revision(
       revisions::document_id.eq(document_id),
       revisions::body.eq(body),
       revisions::version.eq(version),
-      revisions::author_id.eq(author_id),
+      revisions::author_id.eq(author.user_id),
       revisions::message.eq(message),
+      revisions::client.eq(author.via.client_name()),
     ))
     .returning(revisions::id)
     .get_result(conn)?;
@@ -225,10 +231,10 @@ impl Store {
         expected_revision,
         &format!("{kind} document of spec {number:03}"),
       )?;
-      let revision_id = append_revision(tx, doc_id, body, None, caller.user_id, message)?;
+      let revision_id = append_revision(tx, doc_id, body, None, caller, message)?;
       audit(
         tx,
-        caller.user_id,
+        caller,
         Some(access.project_id),
         "document.put",
         &format!("{number:03}/{kind}@{revision_id}"),
@@ -267,10 +273,10 @@ impl Store {
         expected_revision,
         &format!("constitution of project {project:?}"),
       )?;
-      let revision_id = append_revision(tx, doc_id, body, Some(version), caller.user_id, message)?;
+      let revision_id = append_revision(tx, doc_id, body, Some(version), caller, message)?;
       audit(
         tx,
-        caller.user_id,
+        caller,
         Some(access.project_id),
         "constitution.put",
         &format!("v{version}@{revision_id}"),
@@ -329,6 +335,7 @@ impl Store {
           iso_utc(revisions::created_at),
           revisions::message,
           revisions::version,
+          revisions::client,
         ))
         .order(revisions::id.desc())
         .load(conn)?;
@@ -357,6 +364,7 @@ impl Store {
             iso_utc(revisions::created_at),
             revisions::message,
             revisions::version,
+            revisions::client,
           ),
           revisions::body,
           documents::kind,

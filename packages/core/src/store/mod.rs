@@ -15,7 +15,7 @@ use diesel::prelude::*;
 
 use crate::address::ProjectRef;
 use crate::db::{self, DbPool};
-use crate::model::{Caller, StoreError, StoreResult};
+use crate::model::{AuditResult, Caller, StoreError, StoreResult, Via};
 use crate::schema::{self, iso_utc};
 use crate::store::projects::access_in;
 
@@ -41,6 +41,10 @@ pub struct AuditEntry {
   pub action: String,
   pub target: String,
   pub created_at: String,
+  pub client: Option<String>,
+  pub origin: Option<String>,
+  pub result: AuditResult,
+  pub detail: Option<String>,
 }
 
 impl Store {
@@ -98,6 +102,10 @@ type AuditRow = (
   String,
   String,
   String,
+  Option<String>,
+  Option<String>,
+  String,
+  Option<String>,
 );
 
 pub(crate) fn audit_entries(
@@ -128,6 +136,10 @@ pub(crate) fn filtered_audit_entries(
       schema::audit_log::action,
       schema::audit_log::target,
       iso_utc(schema::audit_log::created_at),
+      schema::audit_log::client,
+      schema::audit_log::origin,
+      schema::audit_log::result,
+      schema::audit_log::detail,
     ))
     .order(schema::audit_log::id.desc())
     .limit(limit)
@@ -142,11 +154,23 @@ pub(crate) fn filtered_audit_entries(
     query = query.filter(schema::audit_log::id.lt(before));
   }
   let rows: Vec<AuditRow> = query.load(conn)?;
-  Ok(
-    rows
-      .into_iter()
-      .map(
-        |(id, actor, organization, project, action, target, created_at)| AuditEntry {
+  rows
+    .into_iter()
+    .map(
+      |(
+        id,
+        actor,
+        organization,
+        project,
+        action,
+        target,
+        created_at,
+        client,
+        origin,
+        result,
+        detail,
+      )| {
+        Ok(AuditEntry {
           id,
           project: match (&organization, project) {
             (Some(org), Some(project)) => Some(format!("{org}/{project}")),
@@ -157,10 +181,14 @@ pub(crate) fn filtered_audit_entries(
           action,
           target,
           created_at,
-        },
-      )
-      .collect(),
-  )
+          client,
+          origin,
+          result: result.parse()?,
+          detail,
+        })
+      },
+    )
+    .collect()
 }
 
 impl Store {
@@ -193,7 +221,7 @@ impl Store {
 
 pub fn audit(
   conn: &mut PgConnection,
-  actor_id: i64,
+  actor: &Caller,
   project_id: Option<i64>,
   action: &str,
   target: &str,
@@ -207,24 +235,55 @@ pub fn audit(
     ),
     None => None,
   };
-  audit_in(conn, actor_id, organization_id, project_id, action, target)
+  audit_in(conn, actor, organization_id, project_id, action, target)
 }
 
 pub fn audit_in(
   conn: &mut PgConnection,
-  actor_id: i64,
+  actor: &Caller,
   organization_id: Option<i64>,
   project_id: Option<i64>,
   action: &str,
   target: &str,
 ) -> StoreResult<()> {
+  insert_audit(
+    conn,
+    NewAudit {
+      actor_id: actor.user_id,
+      via: &actor.via,
+      organization_id,
+      project_id,
+      action,
+      target,
+      result: AuditResult::Ok,
+      detail: None,
+    },
+  )
+}
+
+pub(crate) struct NewAudit<'a> {
+  pub actor_id: i64,
+  pub via: &'a Via,
+  pub organization_id: Option<i64>,
+  pub project_id: Option<i64>,
+  pub action: &'a str,
+  pub target: &'a str,
+  pub result: AuditResult,
+  pub detail: Option<&'a str>,
+}
+
+pub(crate) fn insert_audit(conn: &mut PgConnection, entry: NewAudit<'_>) -> StoreResult<()> {
   diesel::insert_into(schema::audit_log::table)
     .values((
-      schema::audit_log::actor_id.eq(actor_id),
-      schema::audit_log::organization_id.eq(organization_id),
-      schema::audit_log::project_id.eq(project_id),
-      schema::audit_log::action.eq(action),
-      schema::audit_log::target.eq(target),
+      schema::audit_log::actor_id.eq(entry.actor_id),
+      schema::audit_log::organization_id.eq(entry.organization_id),
+      schema::audit_log::project_id.eq(entry.project_id),
+      schema::audit_log::action.eq(entry.action),
+      schema::audit_log::target.eq(entry.target),
+      schema::audit_log::client.eq(entry.via.client_name()),
+      schema::audit_log::origin.eq(entry.via.origin.as_deref()),
+      schema::audit_log::result.eq(entry.result.as_str()),
+      schema::audit_log::detail.eq(entry.detail),
     ))
     .execute(conn)?;
   Ok(())

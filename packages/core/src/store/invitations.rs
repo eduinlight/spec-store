@@ -292,7 +292,7 @@ impl Store {
       )?;
       audit_in(
         tx,
-        actor.user_id,
+        actor,
         Some(organization_id),
         None,
         "invitation.create",
@@ -384,7 +384,7 @@ impl Store {
       )?;
       audit_in(
         tx,
-        actor.user_id,
+        actor,
         Some(organization_id),
         None,
         "invitation.resend",
@@ -414,7 +414,7 @@ impl Store {
         .execute(tx)?;
       audit_in(
         tx,
-        actor.user_id,
+        actor,
         Some(organization_id),
         None,
         "invitation.revoke",
@@ -517,7 +517,13 @@ fn respond(
     None => ("declined", "invitation.decline"),
   };
   if state == "accepted" {
-    admit_member(conn, &preview.organization, caller.user_id, OrgRole::Member)?;
+    admit_member(
+      conn,
+      &preview.organization,
+      caller.user_id,
+      OrgRole::Member,
+      &caller.via,
+    )?;
   }
   diesel::update(invitations::table.filter(invitations::id.eq(preview.id)))
     .set((
@@ -528,7 +534,7 @@ fn respond(
     .execute(conn)?;
   audit_in(
     conn,
-    caller.user_id,
+    caller,
     Some(organization_id),
     None,
     action,

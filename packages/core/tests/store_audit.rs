@@ -1,11 +1,11 @@
 mod common;
 
 use diesel::connection::SimpleConnection;
-use sdd_vault_core::model::{Role, StoreError};
+use sdd_vault_core::model::{Caller, Role, StoreError};
 use sdd_vault_core::store::{Store, audit};
 
-fn insert_user(store: &Store, handle: &str) -> i64 {
-  common::person(store, handle).user_id
+fn insert_user(store: &Store, handle: &str) -> Caller {
+  common::person(store, handle)
 }
 
 fn insert_project(store: &Store, slug: &str) -> i64 {
@@ -57,10 +57,10 @@ fn audit_records_actor_project_action_target_and_time() {
   let alice = insert_user(&store, "alice");
   let project = insert_project(&store, "demo");
   store
-    .with_tx(|tx| audit(tx, alice, Some(project), "project.create", "demo"))
+    .with_tx(|tx| audit(tx, &alice, Some(project), "project.create", "demo"))
     .unwrap();
   store
-    .with_tx(|tx| audit(tx, alice, None, "user.create", "bob"))
+    .with_tx(|tx| audit(tx, &alice, None, "user.create", "bob"))
     .unwrap();
 
   let entries = store.list_audit(None, 10).unwrap();
@@ -91,11 +91,11 @@ fn list_audit_filters_by_project_and_limit() {
   let other = insert_project(&store, "other");
   for i in 0..3 {
     store
-      .with_tx(|tx| audit(tx, alice, Some(demo), "doc.put", &format!("spec-{i}")))
+      .with_tx(|tx| audit(tx, &alice, Some(demo), "doc.put", &format!("spec-{i}")))
       .unwrap();
   }
   store
-    .with_tx(|tx| audit(tx, alice, Some(other), "doc.put", "x"))
+    .with_tx(|tx| audit(tx, &alice, Some(other), "doc.put", "x"))
     .unwrap();
 
   let demo_entries = store.list_audit(Some("acme/demo"), 10).unwrap();

@@ -37,7 +37,7 @@ fn reopening_applies_nothing_new() {
   let pool = db::open(&test_db.url).expect("second open");
   assert_eq!(
     common::diesel_versions(&mut pool.get().unwrap()),
-    vec!["0001"]
+    vec!["0001", "0002"]
   );
 }
 
