@@ -134,7 +134,9 @@ export function ProjectMembers() {
   const rows = useFetcher();
   const [inviting, setInviting] = useState(false);
   const owner = project.role === "owner";
-  const owners = members.filter((member) => member.role === "owner").length;
+  const owners = members.filter(
+    (member) => member.role === "owner" && !member.from_organization,
+  ).length;
   const error = errorOf(rows.data);
 
   useOutcomeToast(rows, (done) =>
@@ -204,7 +206,9 @@ export function ProjectMembers() {
           </thead>
           <tbody>
             {members.map((member) => {
-              const locked = member.role === "owner" && owners === 1 && member.handle === me.handle;
+              const locked =
+                member.from_organization ||
+                (member.role === "owner" && owners === 1 && member.handle === me.handle);
               return (
                 <tr key={member.handle} className="border-b border-[var(--neutral-200)]">
                   <Cell>
@@ -217,6 +221,9 @@ export function ProjectMembers() {
                         <span className="flex items-center gap-2 text-xs text-[var(--neutral-500)]">
                           <span>@{member.handle}</span>
                           {member.guest && <Tag type="basic">{t("projectMembers.guest")}</Tag>}
+                          {member.from_organization && (
+                            <Tag type="primary">{t("projectMembers.organizationOwner")}</Tag>
+                          )}
                         </span>
                       </div>
                     </div>

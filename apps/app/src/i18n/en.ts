@@ -209,6 +209,7 @@ export const en = {
     lastActive: "Last active",
     never: "—",
     guest: "Guest",
+    organizationOwner: "Organization owner",
     roleOf: "Role of {{name}}",
     remove: "Remove {{name}}",
     removeAction: "Remove",

@@ -104,6 +104,7 @@ pub struct ProjectMemberOutput {
   pub guest: bool,
   pub joined_at: String,
   pub last_active_at: Option<String>,
+  pub from_organization: bool,
 }
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
@@ -244,6 +245,7 @@ pub async fn members(
         guest: m.guest,
         joined_at: m.joined_at,
         last_active_at: m.last_active_at,
+        from_organization: m.from_organization,
       })
       .collect(),
   }))

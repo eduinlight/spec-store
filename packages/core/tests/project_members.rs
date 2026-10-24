@@ -109,14 +109,31 @@ fn members_have_joined_guest_flag_and_owners_come_first() {
     listed,
     vec![
       ("owner", Role::Owner, false),
+      ("root", Role::Owner, false),
       ("editor", Role::Editor, false),
       ("guest", Role::Reader, true),
       ("reader", Role::Reader, false),
     ]
   );
-  assert_eq!(members[1].name, "editor");
+  let from_organization: Vec<&str> = members
+    .iter()
+    .filter(|m| m.from_organization)
+    .map(|m| m.handle.as_str())
+    .collect();
+  assert_eq!(from_organization, vec!["root"]);
+  assert_eq!(members[2].name, "editor");
   assert!(members.iter().all(|m| m.joined_at.ends_with('Z')));
-  assert!(members.iter().all(|m| m.last_active_at.is_none()));
+  assert!(
+    members
+      .iter()
+      .filter(|m| m.handle != "root")
+      .all(|m| m.last_active_at.is_none())
+  );
+  assert!(
+    members
+      .iter()
+      .any(|m| m.handle == "root" && m.last_active_at.is_some())
+  );
 }
 
 #[test]
@@ -197,7 +214,7 @@ fn only_people_with_access_read_the_members() {
   ));
   assert_eq!(
     f.store.project_members(&f.root, "acme/demo").unwrap().len(),
-    4
+    5
   );
 }
 

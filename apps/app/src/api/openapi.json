@@ -5106,9 +5106,13 @@
           "name",
           "role",
           "guest",
-          "joined_at"
+          "joined_at",
+          "from_organization"
         ],
         "properties": {
+          "from_organization": {
+            "type": "boolean"
+          },
           "guest": {
             "type": "boolean"
           },

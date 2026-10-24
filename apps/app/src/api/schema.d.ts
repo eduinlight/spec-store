@@ -1102,6 +1102,7 @@ export interface components {
             invited?: string | null;
         };
         ProjectMemberOutput: {
+            from_organization: boolean;
             guest: boolean;
             handle: string;
             joined_at: string;

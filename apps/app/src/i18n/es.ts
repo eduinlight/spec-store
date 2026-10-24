@@ -203,6 +203,7 @@ export const es: Translation = {
     lastActive: "Última actividad",
     never: "—",
     guest: "Invitado",
+    organizationOwner: "Propietario de la organización",
     roleOf: "Rol de {{name}}",
     remove: "Quitar a {{name}}",
     removeAction: "Quitar",

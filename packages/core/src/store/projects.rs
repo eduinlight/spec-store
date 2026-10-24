@@ -37,6 +37,7 @@ pub struct ProjectMember {
   pub guest: bool,
   pub joined_at: String,
   pub last_active_at: Option<String>,
+  pub from_organization: bool,
 }
 
 pub fn validate_repository_url(url: &str) -> StoreResult<()> {
@@ -442,9 +443,37 @@ impl Store {
             guest,
             joined_at,
             last_active_at: last_active.remove(&user_id),
+            from_organization: false,
           })
         })
         .collect::<StoreResult<Vec<_>>>()?;
+      let listed: std::collections::HashSet<String> =
+        members.iter().map(|member| member.handle.clone()).collect();
+      let owners: Vec<(i64, String, String, String)> = organization_members::table
+        .inner_join(users::table)
+        .filter(organization_members::organization_id.eq(access.organization_id))
+        .filter(organization_members::role.eq("owner"))
+        .select((
+          users::id,
+          users::handle,
+          users::name,
+          iso_utc(organization_members::created_at),
+        ))
+        .load(conn)?;
+      for (user_id, handle, name, joined_at) in owners {
+        if listed.contains(&handle) {
+          continue;
+        }
+        members.push(ProjectMember {
+          handle,
+          name,
+          role: Role::Owner,
+          guest: false,
+          joined_at,
+          last_active_at: last_active.remove(&user_id),
+          from_organization: true,
+        });
+      }
       members.sort_by(|a, b| {
         (a.role != Role::Owner)
           .cmp(&(b.role != Role::Owner))

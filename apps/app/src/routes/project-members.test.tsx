@@ -17,6 +17,7 @@ const members = [
     name: "Alice",
     role: "owner",
     guest: false,
+    from_organization: false,
     joined_at: "2026-10-01T10:00:00.000Z",
     last_active_at: new Date(Date.now() - 3_600_000).toISOString(),
   },
@@ -25,6 +26,7 @@ const members = [
     name: "Bob Builder",
     role: "editor",
     guest: false,
+    from_organization: false,
     joined_at: "2026-10-02T10:00:00.000Z",
     last_active_at: null,
   },
@@ -33,6 +35,7 @@ const members = [
     name: "Gia Guest",
     role: "reader",
     guest: true,
+    from_organization: false,
     joined_at: "2026-10-03T10:00:00.000Z",
     last_active_at: null,
   },
@@ -263,4 +266,28 @@ test("project settings link to the members page instead of managing members", as
   );
   expect(screen.queryByRole("button", { name: "Grant role" })).toBeNull();
   expect(screen.getByLabelText("Repository URL")).toBeInTheDocument();
+});
+
+test("organization owners are listed as owners without role or remove controls", async () => {
+  setup({
+    "GET /api/v1/projects/{org}/{project}/members": () => ({
+      members: [
+        ...members,
+        {
+          handle: "olga",
+          name: "Olga Org",
+          role: "owner",
+          guest: false,
+          from_organization: true,
+          joined_at: "2026-09-01T10:00:00.000Z",
+          last_active_at: null,
+        },
+      ],
+    }),
+  });
+  renderAt("/p/acme/demo/members");
+  const olga = await screen.findByRole("row", { name: /Olga Org/ });
+  expect(within(olga).getByText("Organization owner")).toBeInTheDocument();
+  expect(within(olga).queryByRole("combobox")).toBeNull();
+  expect(within(olga).queryByRole("button", { name: /Remove/ })).toBeNull();
 });
