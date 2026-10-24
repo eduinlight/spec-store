@@ -24,11 +24,16 @@ fn redis_url() -> Option<String> {
 }
 
 fn unique_prefix() -> String {
+  static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+  let sequence = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
   let nanos = std::time::SystemTime::now()
     .duration_since(std::time::UNIX_EPOCH)
     .unwrap()
     .as_nanos();
-  format!("sddvault-test-{}-{nanos}:project:", std::process::id())
+  format!(
+    "sddvault-test-{}-{nanos}-{sequence}:project:",
+    std::process::id()
+  )
 }
 
 async fn next_json(
