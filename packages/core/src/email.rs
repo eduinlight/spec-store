@@ -38,23 +38,54 @@ fn field<'a>(payload: &'a Value, name: &str) -> &'a str {
   payload[name].as_str().unwrap_or_default()
 }
 
+fn role_name(role: &str, spanish: bool) -> &str {
+  match (role, spanish) {
+    ("owner", true) => "propietario",
+    ("editor", true) => "editor",
+    ("reader", true) => "lector",
+    (other, _) => other,
+  }
+}
+
 pub fn invitation_email(language: &str, payload: &Value) -> RenderedEmail {
   let organization = field(payload, "organization_name");
   let inviter = field(payload, "inviter");
   let inviter_name = field(payload, "inviter_name");
   let url = field(payload, "accept_url");
   let expires = field(payload, "expires_at");
-  let (subject, intro, action, expiry) = if language == "es" {
-    (
+  let spanish = language == "es";
+  let project = payload["project_name"].as_str();
+  let (subject, intro) = match (project, spanish) {
+    (Some(project), true) => (
+      format!("Te invitaron al proyecto {project} en SDD Vault"),
+      format!(
+        "{inviter_name} ({inviter}) te invitó al proyecto {project} de {organization} en SDD Vault como {}.",
+        role_name(field(payload, "project_role"), true)
+      ),
+    ),
+    (Some(project), false) => (
+      format!("You are invited to the project {project} on SDD Vault"),
+      format!(
+        "{inviter_name} ({inviter}) invited you to the project {project} of {organization} on SDD Vault as {}.",
+        role_name(field(payload, "project_role"), false)
+      ),
+    ),
+    (None, true) => (
       format!("Te invitaron a unirte a {organization} en SDD Vault"),
       format!("{inviter_name} ({inviter}) te invitó a unirte a {organization} en SDD Vault."),
+    ),
+    (None, false) => (
+      format!("You are invited to join {organization} on SDD Vault"),
+      format!("{inviter_name} ({inviter}) invited you to join {organization} on SDD Vault."),
+    ),
+  };
+  let (action, expiry) = if spanish {
+    (
       "Aceptar la invitación",
       format!("La invitación vence el {expires}."),
     )
   } else {
     (
-      format!("You are invited to join {organization} on SDD Vault"),
-      format!("{inviter_name} ({inviter}) invited you to join {organization} on SDD Vault."),
       "Accept the invitation",
       format!("The invitation expires on {expires}."),
     )
@@ -170,6 +201,36 @@ mod tests {
     assert!(en.html.contains("Acme &lt;Labs&gt;"));
     let es = invitation_email("es", &payload());
     assert!(es.subject.starts_with("Te invitaron a unirte a Acme"));
+    assert!(es.text.contains("Aceptar la invitación"));
+  }
+
+  #[test]
+  fn project_invitation_names_the_project_the_inviter_and_the_role() {
+    let mut payload = payload();
+    payload["project"] = json!("acme/web");
+    payload["project_name"] = json!("Web <Shop>");
+    payload["project_role"] = json!("reader");
+    let en = invitation_email("en", &payload);
+    assert_eq!(
+      en.subject,
+      "You are invited to the project Web <Shop> on SDD Vault"
+    );
+    assert!(
+      en.text
+        .contains("Alice (alice) invited you to the project Web <Shop> of Acme <Labs>")
+    );
+    assert!(en.text.contains("as reader."));
+    assert!(en.html.contains("Web &lt;Shop&gt;"));
+    let es = invitation_email("es", &payload);
+    assert_eq!(
+      es.subject,
+      "Te invitaron al proyecto Web <Shop> en SDD Vault"
+    );
+    assert!(
+      es.text
+        .contains("Alice (alice) te invitó al proyecto Web <Shop> de Acme <Labs>")
+    );
+    assert!(es.text.contains("como lector."));
     assert!(es.text.contains("Aceptar la invitación"));
   }
 
