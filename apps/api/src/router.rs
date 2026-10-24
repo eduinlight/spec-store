@@ -12,7 +12,7 @@ use crate::hosts::check_host;
 use crate::origin::attach_origin;
 use crate::routes::{
   audit, clients, documents, history, invitations, me, members, organizations, projects, specs,
-  transfer,
+  transfer, views,
 };
 use crate::state::AppState;
 
@@ -51,6 +51,9 @@ fn documented() -> OpenApiRouter<AppState> {
     .routes(routes!(audit::project))
     .routes(routes!(specs::status))
     .routes(routes!(specs::list))
+    .routes(routes!(views::cards))
+    .routes(routes!(views::traceability))
+    .routes(routes!(views::readiness))
     .routes(routes!(specs::read))
     .routes(routes!(specs::tasks))
     .routes(routes!(specs::markers))

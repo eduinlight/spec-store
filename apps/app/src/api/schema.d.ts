@@ -564,6 +564,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{org}/{project}/specs/cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["specs_cards"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{org}/{project}/specs/{number}": {
         parameters: {
             query?: never;
@@ -612,6 +628,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{org}/{project}/specs/{number}/readiness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["specs_readiness"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{org}/{project}/specs/{number}/tasks": {
         parameters: {
             query?: never;
@@ -620,6 +652,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["specs_tasks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{org}/{project}/specs/{number}/traceability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["specs_traceability"];
         put?: never;
         post?: never;
         delete?: never;
@@ -683,6 +731,13 @@ export interface components {
             status: string;
             tasks_done: number;
             tasks_total: number;
+        };
+        AttributionOutput: {
+            at: string;
+            author: string;
+            client?: string | null;
+            /** Format: int64 */
+            revision: number;
         };
         AuthorizedClient: {
             client_id: string;
@@ -786,6 +841,7 @@ export interface components {
         };
         MarkersOutput: {
             markers: components["schemas"]["MarkerOutput"][];
+            resolved: components["schemas"]["ResolvedMarkerOutput"][];
         };
         Me: {
             email: string;
@@ -877,8 +933,25 @@ export interface components {
         ProjectsOutput: {
             projects: components["schemas"]["ProjectSummaryOutput"][];
         };
+        ReadinessItemOutput: {
+            count?: number | null;
+            key: string;
+            ok: boolean;
+            total?: number | null;
+        };
+        ReadinessOutput: {
+            items: components["schemas"]["ReadinessItemOutput"][];
+            ready: boolean;
+        };
         RepositoryInput: {
             url: string;
+        };
+        ResolvedMarkerOutput: {
+            document_kind: string;
+            heading: string;
+            kind: string;
+            resolved_by: components["schemas"]["AttributionOutput"];
+            text: string;
         };
         RevisionBodyOutput: {
             body: string;
@@ -905,6 +978,26 @@ export interface components {
         RoleInput: {
             role: string;
         };
+        SpecCardOutput: {
+            branch: string;
+            contributors: string[];
+            created_at: string;
+            documents: string[];
+            /** Format: int64 */
+            number: number;
+            open_markers: number;
+            requirement_count: number;
+            slug: string;
+            status: string;
+            summary: string;
+            tasks_done: number;
+            tasks_total: number;
+            title: string;
+            updated_at: string;
+        };
+        SpecCardsOutput: {
+            specs: components["schemas"]["SpecCardOutput"][];
+        };
         SpecOutput: {
             branch: string;
             kinds: string[];
@@ -923,6 +1016,7 @@ export interface components {
         };
         TaskOutput: {
             commit?: string | null;
+            completed_by?: components["schemas"]["AttributionOutput"] | null;
             description: string;
             done: boolean;
             done_when: string;
@@ -935,6 +1029,22 @@ export interface components {
         TasksOutput: {
             malformed: components["schemas"]["MalformedOutput"][];
             tasks: components["schemas"]["TaskOutput"][];
+        };
+        TraceRequirementOutput: {
+            id: string;
+            status: string;
+            tasks: components["schemas"]["TraceTaskOutput"][];
+            text: string;
+        };
+        TraceTaskOutput: {
+            commit?: string | null;
+            description: string;
+            done: boolean;
+            id: string;
+        };
+        TraceabilityOutput: {
+            requirements: components["schemas"]["TraceRequirementOutput"][];
+            tasks_without_requirements: components["schemas"]["TraceTaskOutput"][];
         };
     };
     responses: never;
@@ -3065,6 +3175,44 @@ export interface operations {
             };
         };
     };
+    specs_cards: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: string;
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpecCardsOutput"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
     specs_read: {
         parameters: {
             query?: never;
@@ -3191,6 +3339,45 @@ export interface operations {
             };
         };
     };
+    specs_readiness: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: string;
+                project: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadinessOutput"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
     specs_tasks: {
         parameters: {
             query?: never;
@@ -3210,6 +3397,45 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TasksOutput"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    specs_traceability: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: string;
+                project: string;
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TraceabilityOutput"];
                 };
             };
             401: {
