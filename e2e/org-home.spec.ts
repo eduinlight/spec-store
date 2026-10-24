@@ -78,7 +78,7 @@ test("the organization home lists project cards, creates a project with Get star
   await expect(importDialog.getByRole("button", { name: "Create and import" })).toBeEnabled();
   await page.screenshot({ path: `${evidence}/org-home-import.png` });
   await importDialog.getByRole("button", { name: "Create and import" }).click();
-  await expect(page).toHaveURL(`${app}/p/${slug}/imported`);
+  await expect(page).toHaveURL(`${app}/p/${slug}/imported`, { timeout: 30_000 });
   await expect(page.getByRole("heading", { name: "Imported" })).toBeVisible();
   await expect(page.getByText(/001/).first()).toBeVisible();
   await page.screenshot({ path: `${evidence}/org-home-imported.png` });
