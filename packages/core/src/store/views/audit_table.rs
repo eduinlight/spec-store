@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::str::FromStr;
 
 use chrono::{Duration, Utc};
@@ -149,14 +150,6 @@ pub enum AuditExportSelection {
   Query(AuditQuery),
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum Facet {
-  Actors,
-  Clients,
-  Actions,
-  Results,
-}
-
 #[derive(Clone, Copy)]
 struct ScopeIds {
   organization_id: i64,
@@ -216,7 +209,7 @@ fn scope_predicate(scope: ScopeIds) -> Predicate {
   }
 }
 
-fn predicate(scope: ScopeIds, query: &AuditQuery, skip: Option<Facet>) -> Predicate {
+fn base_predicate(scope: ScopeIds, query: &AuditQuery) -> Predicate {
   let mut all = scope_predicate(scope);
   if let Some(text) = query
     .text
@@ -236,7 +229,12 @@ fn predicate(scope: ScopeIds, query: &AuditQuery, skip: Option<Facet>) -> Predic
   if let Some(window) = query.period.window() {
     all = Box::new(all.and(audit_log::created_at.ge(Utc::now() - window)));
   }
-  if skip != Some(Facet::Actors) && !query.actors.is_empty() {
+  all
+}
+
+fn predicate(scope: ScopeIds, query: &AuditQuery) -> Predicate {
+  let mut all = base_predicate(scope, query);
+  if !query.actors.is_empty() {
     all = Box::new(
       all.and(
         audit_log::actor_id.eq_any(
@@ -247,7 +245,7 @@ fn predicate(scope: ScopeIds, query: &AuditQuery, skip: Option<Facet>) -> Predic
       ),
     );
   }
-  if skip != Some(Facet::Clients) && !query.clients.is_empty() {
+  if !query.clients.is_empty() {
     all = Box::new(
       all.and(
         audit_log::client
@@ -256,10 +254,10 @@ fn predicate(scope: ScopeIds, query: &AuditQuery, skip: Option<Facet>) -> Predic
       ),
     );
   }
-  if skip != Some(Facet::Actions) && !query.actions.is_empty() {
+  if !query.actions.is_empty() {
     all = Box::new(all.and(audit_log::action.eq_any(query.actions.clone())));
   }
-  if skip != Some(Facet::Results) && !query.results.is_empty() {
+  if !query.results.is_empty() {
     let results: Vec<String> = query
       .results
       .iter()
@@ -270,77 +268,96 @@ fn predicate(scope: ScopeIds, query: &AuditQuery, skip: Option<Facet>) -> Predic
   all
 }
 
-fn counted(rows: Vec<(String, i64)>) -> Vec<FacetCount> {
-  rows
+type Group = (i64, Option<String>, String, String, i64);
+
+fn ranked(counts: HashMap<String, i64>) -> Vec<FacetCount> {
+  let mut ranked: Vec<FacetCount> = counts
     .into_iter()
     .map(|(value, count)| FacetCount { value, count })
-    .collect()
-}
-
-fn actor_counts(
-  conn: &mut PgConnection,
-  scope: ScopeIds,
-  query: &AuditQuery,
-) -> StoreResult<Vec<(String, i64)>> {
-  let by_id: Vec<(i64, i64)> = audit_log::table
-    .filter(predicate(scope, query, Some(Facet::Actors)))
-    .group_by(audit_log::actor_id)
-    .select((audit_log::actor_id, count_star()))
-    .load(conn)?;
-  let ids: Vec<i64> = by_id.iter().map(|(id, _)| *id).collect();
-  let handles: Vec<(i64, String)> = users::table
-    .filter(users::id.eq_any(ids))
-    .select((users::id, users::handle))
-    .load(conn)?;
-  let mut counted: Vec<(String, i64)> = by_id
-    .into_iter()
-    .filter_map(|(id, count)| {
-      handles
-        .iter()
-        .find(|(candidate, _)| *candidate == id)
-        .map(|(_, handle)| (handle.clone(), count))
-    })
     .collect();
-  counted.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
-  Ok(counted)
+  ranked.sort_by(|a, b| b.count.cmp(&a.count).then_with(|| a.value.cmp(&b.value)));
+  ranked
 }
 
-fn facets(
+fn selected(chosen: &[String], value: Option<&str>) -> bool {
+  chosen.is_empty() || value.is_some_and(|v| chosen.iter().any(|c| c == v))
+}
+
+fn totals_and_facets(
   conn: &mut PgConnection,
   scope: ScopeIds,
   query: &AuditQuery,
-) -> StoreResult<AuditFacets> {
-  macro_rules! grouped {
-    ($facet:expr, $column:expr) => {
-      audit_log::table
-        .filter(predicate(scope, query, Some($facet)))
-        .group_by($column)
-        .select(($column, count_star()))
-        .order((count_star().desc(), $column.asc()))
-        .load::<(String, i64)>(conn)?
-    };
-  }
-  let actors = actor_counts(conn, scope, query)?;
-  let actions = grouped!(Facet::Actions, audit_log::action);
-  let results = grouped!(Facet::Results, audit_log::result);
-  let clients: Vec<(Option<String>, i64)> = audit_log::table
-    .filter(predicate(scope, query, Some(Facet::Clients)))
-    .filter(audit_log::client.is_not_null())
-    .group_by(audit_log::client)
-    .select((audit_log::client, count_star()))
-    .order((count_star().desc(), audit_log::client.asc()))
+) -> StoreResult<(i64, AuditFacets)> {
+  let groups: Vec<Group> = audit_log::table
+    .filter(base_predicate(scope, query))
+    .group_by((
+      audit_log::actor_id,
+      audit_log::client,
+      audit_log::action,
+      audit_log::result,
+    ))
+    .select((
+      audit_log::actor_id,
+      audit_log::client,
+      audit_log::action,
+      audit_log::result,
+      count_star(),
+    ))
     .load(conn)?;
-  Ok(AuditFacets {
-    actors: counted(actors),
-    clients: counted(
-      clients
-        .into_iter()
-        .filter_map(|(value, count)| value.map(|v| (v, count)))
-        .collect(),
-    ),
-    actions: counted(actions),
-    results: counted(results),
-  })
+  let actor_ids: Vec<i64> = groups.iter().map(|g| g.0).collect();
+  let handles: HashMap<i64, String> = users::table
+    .filter(users::id.eq_any(actor_ids))
+    .select((users::id, users::handle))
+    .load::<(i64, String)>(conn)?
+    .into_iter()
+    .collect();
+  let chosen_results: Vec<String> = query
+    .results
+    .iter()
+    .map(|r| r.as_str().to_string())
+    .collect();
+  let mut total = 0;
+  let mut actors: HashMap<String, i64> = HashMap::new();
+  let mut clients: HashMap<String, i64> = HashMap::new();
+  let mut actions: HashMap<String, i64> = HashMap::new();
+  let mut results: HashMap<String, i64> = HashMap::new();
+  for (actor_id, client, action, result, count) in groups {
+    let Some(handle) = handles.get(&actor_id) else {
+      continue;
+    };
+    let by_actor = selected(&query.actors, Some(handle));
+    let by_client = selected(&query.clients, client.as_deref());
+    let by_action = selected(&query.actions, Some(&action));
+    let by_result = selected(&chosen_results, Some(&result));
+    if by_actor && by_client && by_action && by_result {
+      total += count;
+    }
+    if by_client && by_action && by_result {
+      *actors.entry(handle.clone()).or_default() += count;
+    }
+    if by_actor
+      && by_action
+      && by_result
+      && let Some(client) = client.clone()
+    {
+      *clients.entry(client).or_default() += count;
+    }
+    if by_actor && by_client && by_result {
+      *actions.entry(action.clone()).or_default() += count;
+    }
+    if by_actor && by_client && by_action {
+      *results.entry(result).or_default() += count;
+    }
+  }
+  Ok((
+    total,
+    AuditFacets {
+      actors: ranked(actors),
+      clients: ranked(clients),
+      actions: ranked(actions),
+      results: ranked(results),
+    },
+  ))
 }
 
 fn ordered_ids(
@@ -397,13 +414,20 @@ fn entries_in_order(conn: &mut PgConnection, ids: &[i64]) -> StoreResult<Vec<Aud
 
 const CSV_HEADER: &str = "time,actor,client,action,target,result,detail,origin";
 
+const FORMULA_STARTS: [char; 6] = ['=', '+', '-', '@', '\t', '\r'];
+
 fn csv_field(value: &str, out: &mut String) {
-  if value.contains([',', '"', '\r', '\n']) {
+  let neutral = if value.starts_with(FORMULA_STARTS) {
+    format!("'{value}")
+  } else {
+    value.to_string()
+  };
+  if neutral.contains([',', '"', '\r', '\n']) {
     out.push('"');
-    out.push_str(&value.replace('"', "\"\""));
+    out.push_str(&neutral.replace('"', "\"\""));
     out.push('"');
   } else {
-    out.push_str(value);
+    out.push_str(&neutral);
   }
 }
 
@@ -450,19 +474,15 @@ impl Store {
     query.validate()?;
     self.with_conn(|conn| {
       let scope = authorize(conn, caller, scope)?;
-      let total = audit_log::table
-        .filter(predicate(scope, query, None))
-        .count()
-        .get_result::<i64>(conn)?;
       let offset = i64::from(query.page - 1) * i64::from(query.page_size);
       let ids = ordered_ids(
         conn,
-        predicate(scope, query, None),
+        predicate(scope, query),
         query.sort,
         Some((i64::from(query.page_size), offset)),
       )?;
       let entries = entries_in_order(conn, &ids)?;
-      let facets = facets(conn, scope, query)?;
+      let (total, facets) = totals_and_facets(conn, scope, query)?;
       Ok(AuditTable {
         entries,
         total,
@@ -493,7 +513,7 @@ impl Store {
           }
         }
         AuditExportSelection::Query(query) => {
-          ordered_ids(conn, predicate(ids_scope, query, None), query.sort, None)?
+          ordered_ids(conn, predicate(ids_scope, query), query.sort, None)?
         }
       };
       let entries = entries_in_order(conn, &ids)?;
@@ -507,5 +527,38 @@ impl Store {
       )?;
       Ok(csv_document(&entries))
     })
+  }
+}
+
+#[cfg(test)]
+mod csv_tests {
+  use super::csv_field;
+
+  fn field(value: &str) -> String {
+    let mut out = String::new();
+    csv_field(value, &mut out);
+    out
+  }
+
+  #[test]
+  fn cells_that_spreadsheets_would_run_as_formulas_are_kept_as_text() {
+    assert_eq!(
+      field("=HYPERLINK(\"http://x\")"),
+      "\"'=HYPERLINK(\"\"http://x\"\")\""
+    );
+    assert_eq!(field("+1"), "'+1");
+    assert_eq!(field("-2"), "'-2");
+    assert_eq!(field("@SUM(A1)"), "'@SUM(A1)");
+    assert_eq!(field("\tcmd"), "'\tcmd");
+  }
+
+  #[test]
+  fn ordinary_cells_are_written_as_they_are_and_quoted_when_needed() {
+    assert_eq!(field("001/spec@7"), "001/spec@7");
+    assert_eq!(
+      field("expected r1, current r2"),
+      "\"expected r1, current r2\""
+    );
+    assert_eq!(field("say \"hi\""), "\"say \"\"hi\"\"\"");
   }
 }

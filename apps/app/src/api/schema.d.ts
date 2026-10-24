@@ -228,6 +228,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orgs/{org}/audit/export.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["audit_organization_export"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/audit/table": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["audit_organization_table"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/orgs/{org}/invitations": {
         parameters: {
             query?: never;
@@ -396,6 +428,38 @@ export interface paths {
             cookie?: never;
         };
         get: operations["audit_project"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{org}/{project}/audit/export.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["audit_project_export"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{org}/{project}/audit/table": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["audit_project_table"];
         put?: never;
         post?: never;
         delete?: never;
@@ -964,6 +1028,17 @@ export interface components {
             current_revision?: number | null;
             message: string;
         };
+        FacetCountOutput: {
+            /** Format: int64 */
+            count: number;
+            value: string;
+        };
+        FacetsOutput: {
+            actions: components["schemas"]["FacetCountOutput"][];
+            actors: components["schemas"]["FacetCountOutput"][];
+            clients: components["schemas"]["FacetCountOutput"][];
+            results: components["schemas"]["FacetCountOutput"][];
+        };
         HunkOutput: {
             lines: components["schemas"]["DiffLineOutput"][];
         };
@@ -1218,6 +1293,16 @@ export interface components {
             active?: components["schemas"]["ActiveOutput"] | null;
             constitution_version?: string | null;
             specs: components["schemas"]["SpecOutput"][];
+        };
+        TableOutput: {
+            entries: components["schemas"]["EntryOutput"][];
+            facets: components["schemas"]["FacetsOutput"];
+            /** Format: int32 */
+            page: number;
+            /** Format: int32 */
+            page_size: number;
+            /** Format: int64 */
+            total: number;
         };
         TaskOutput: {
             commit?: string | null;
@@ -2031,6 +2116,141 @@ export interface operations {
             };
         };
     };
+    audit_organization_export: {
+        parameters: {
+            query?: {
+                /** @description Comma-separated entry ids; when present, only these entries are exported. */
+                ids?: string;
+                q?: string;
+                actor?: string[];
+                client?: string[];
+                action?: string[];
+                result?: string[];
+                period?: string;
+                sort?: string;
+            };
+            header?: never;
+            path: {
+                org: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    audit_organization_table: {
+        parameters: {
+            query?: {
+                /** @description Text matched against target, client and origin. */
+                q?: string;
+                /** @description Actor handle; repeat the parameter to select several. */
+                actor?: string[];
+                /** @description Client name; repeat the parameter to select several. */
+                client?: string[];
+                /** @description Action name; repeat the parameter to select several. */
+                action?: string[];
+                /** @description Result (ok, denied, conflict); repeat the parameter to select several. */
+                result?: string[];
+                /** @description day, week, month or all (default). */
+                period?: string;
+                /** @description newest (default) or oldest. */
+                sort?: string;
+                /** @description Page number starting at 1. */
+                page?: number;
+                /** @description 10, 25 (default), 50 or 100. */
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                org: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TableOutput"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
     invitations_list: {
         parameters: {
             query?: never;
@@ -2733,6 +2953,143 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PageOutput"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    audit_project_export: {
+        parameters: {
+            query?: {
+                /** @description Comma-separated entry ids; when present, only these entries are exported. */
+                ids?: string;
+                q?: string;
+                actor?: string[];
+                client?: string[];
+                action?: string[];
+                result?: string[];
+                period?: string;
+                sort?: string;
+            };
+            header?: never;
+            path: {
+                org: string;
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    audit_project_table: {
+        parameters: {
+            query?: {
+                /** @description Text matched against target, client and origin. */
+                q?: string;
+                /** @description Actor handle; repeat the parameter to select several. */
+                actor?: string[];
+                /** @description Client name; repeat the parameter to select several. */
+                client?: string[];
+                /** @description Action name; repeat the parameter to select several. */
+                action?: string[];
+                /** @description Result (ok, denied, conflict); repeat the parameter to select several. */
+                result?: string[];
+                /** @description day, week, month or all (default). */
+                period?: string;
+                /** @description newest (default) or oldest. */
+                sort?: string;
+                /** @description Page number starting at 1. */
+                page?: number;
+                /** @description 10, 25 (default), 50 or 100. */
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                org: string;
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TableOutput"];
                 };
             };
             401: {

@@ -69,7 +69,7 @@ test: test-services test-sweep
 	pnpm -r --if-present test
 
 test-perf: test-services
-	cargo test --release --locked -p sdd-vault-core --test perf --test perf_import -p sdd-vault-api --test perf_read -p sdd-vault-cli --test perf_import -- --ignored --nocapture
+	cargo test --release --locked -p sdd-vault-core --test perf --test perf_import --test perf_audit_table -p sdd-vault-api --test perf_read -p sdd-vault-cli --test perf_import -- --ignored --nocapture
 
 e2e: docker-up
 	pnpm exec playwright test

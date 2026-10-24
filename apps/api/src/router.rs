@@ -38,6 +38,8 @@ fn documented() -> OpenApiRouter<AppState> {
     .routes(routes!(projects::list, projects::create))
     .routes(routes!(audit::organization))
     .routes(routes!(audit::global))
+    .routes(routes!(audit::organization_table))
+    .routes(routes!(audit::organization_export))
     .routes(routes!(projects::read))
     .routes(routes!(projects::members))
     .routes(routes!(
@@ -55,6 +57,8 @@ fn documented() -> OpenApiRouter<AppState> {
     .routes(routes!(projects::archive))
     .routes(routes!(projects::restore))
     .routes(routes!(audit::project))
+    .routes(routes!(audit::project_table))
+    .routes(routes!(audit::project_export))
     .routes(routes!(specs::status))
     .routes(routes!(specs::list))
     .routes(routes!(views::cards))
