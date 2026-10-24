@@ -1,5 +1,7 @@
+pub mod markers;
 pub mod readiness;
 pub mod spec_list;
+pub mod task_history;
 pub mod traceability;
 
 use std::collections::HashMap;
@@ -8,7 +10,7 @@ use diesel::pg::PgConnection;
 use diesel::prelude::*;
 
 use crate::model::{Caller, DocumentKind, StoreResult};
-use crate::schema::{documents, revisions};
+use crate::schema::{documents, iso_utc, revisions, users};
 use crate::store::projects::access_in;
 use crate::store::specs::{SpecRow, spec_by_number};
 
@@ -56,4 +58,66 @@ pub(crate) fn spec_scope(
     project_id: access.project_id,
     spec,
   })
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RevisionRecord {
+  pub id: i64,
+  pub body: String,
+  pub author: String,
+  pub client: Option<String>,
+  pub at: String,
+}
+
+/// Every revision of a document with its body and attribution, oldest first.
+pub fn revision_records(
+  conn: &mut PgConnection,
+  document_id: i64,
+) -> StoreResult<Vec<RevisionRecord>> {
+  let rows: Vec<(i64, String, String, Option<String>, String)> = revisions::table
+    .inner_join(users::table)
+    .filter(revisions::document_id.eq(document_id))
+    .select((
+      revisions::id,
+      revisions::body,
+      users::handle,
+      revisions::client,
+      iso_utc(revisions::created_at),
+    ))
+    .order(revisions::id)
+    .load(conn)?;
+  Ok(
+    rows
+      .into_iter()
+      .map(|(id, body, author, client, at)| RevisionRecord {
+        id,
+        body,
+        author,
+        client,
+        at,
+      })
+      .collect(),
+  )
+}
+
+/// Ids of the documents of a spec, by kind.
+pub(crate) fn spec_document_ids(
+  conn: &mut PgConnection,
+  spec_id: i64,
+) -> StoreResult<Vec<(DocumentKind, i64)>> {
+  let rows: Vec<(String, i64)> = documents::table
+    .filter(documents::spec_id.eq(spec_id))
+    .select((documents::kind, documents::id))
+    .load(conn)?;
+  let mut found = rows
+    .into_iter()
+    .map(|(kind, id)| Ok((kind.parse()?, id)))
+    .collect::<StoreResult<Vec<(DocumentKind, i64)>>>()?;
+  found.sort_by_key(|(kind, _)| {
+    DocumentKind::SPEC_KINDS
+      .iter()
+      .position(|k| k == kind)
+      .unwrap_or(DocumentKind::SPEC_KINDS.len())
+  });
+  Ok(found)
 }

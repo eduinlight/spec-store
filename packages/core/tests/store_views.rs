@@ -177,6 +177,8 @@ fn outsiders_get_not_found_from_every_view() {
       .spec_readiness(&f.outsider, "acme/demo", 1)
       .map(|_| ()),
   );
+  denied(store.spec_markers(&f.outsider, "acme/demo", 1).map(|_| ()));
+  denied(store.spec_tasks(&f.outsider, "acme/demo", 1).map(|_| ()));
   denied(
     store
       .spec_traceability(&f.member, "acme/demo", 9)
@@ -269,6 +271,51 @@ fn a_spec_with_nothing_written_is_not_ready() {
       .requirements
       .is_empty()
   );
+  assert!(matches!(
+    f.store.spec_tasks(&f.root, "acme/demo", 1),
+    Err(StoreError::NotFound(_))
+  ));
+  let markers = f.store.spec_markers(&f.root, "acme/demo", 1).unwrap();
+  assert!(markers.open.is_empty() && markers.resolved.is_empty());
+}
+
+#[test]
+fn tasks_carry_the_attribution_of_the_revision_that_completed_them() {
+  let f = fixture();
+  seed_history(&f);
+  let tasks = f.store.spec_tasks(&f.member, "acme/demo", 1).unwrap();
+  assert_eq!(tasks.parsed.tasks.len(), 3);
+  let t01 = &tasks.completions["T01"];
+  assert_eq!(t01.author, "root");
+  assert_eq!(t01.client.as_deref(), Some("Claude Code"));
+  let t02 = &tasks.completions["T02"];
+  assert_eq!(t02.author, "member");
+  assert_eq!(t02.client, None);
+  assert!(t02.at >= t01.at);
+  assert!(!tasks.completions.contains_key("T03"));
+}
+
+#[test]
+fn markers_split_into_open_and_resolved_with_the_resolving_revision() {
+  let f = fixture();
+  seed_history(&f);
+  let markers = f.store.spec_markers(&f.member, "acme/demo", 1).unwrap();
+  assert_eq!(markers.open.len(), 1);
+  assert_eq!(markers.open[0].document_kind, DocumentKind::Plan);
+  assert_eq!(markers.open[0].text, "pdf library");
+  assert_eq!(markers.resolved.len(), 1);
+  let resolved = &markers.resolved[0];
+  assert_eq!(resolved.document_kind, DocumentKind::Spec);
+  assert_eq!(resolved.text, "which currency?");
+  assert_eq!(resolved.heading, "5. Functional requirements");
+  assert_eq!(resolved.resolved_by, "root");
+  assert_eq!(resolved.client.as_deref(), Some("Claude Code"));
+  let revisions = f
+    .store
+    .list_revisions(&f.member, "acme/demo", Some(1), DocumentKind::Spec)
+    .unwrap();
+  assert_eq!(resolved.revision_id, revisions[0].id);
+  assert_eq!(resolved.at, revisions[0].created_at);
 }
 
 #[test]
