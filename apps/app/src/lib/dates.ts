@@ -25,3 +25,9 @@ export function formatMonth(iso: string, language: Language): string {
 export function formatDay(iso: string, language: Language): string {
   return dayjs(iso).locale(language).format("LL");
 }
+
+export function formatShortDay(iso: string, language: Language, compact: boolean): string {
+  return dayjs(iso)
+    .locale(language)
+    .format(compact ? "D" : "D MMM");
+}

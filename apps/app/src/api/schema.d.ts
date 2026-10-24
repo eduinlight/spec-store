@@ -340,6 +340,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{org}/{project}/active": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["project_active_specs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{org}/{project}/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["project_activity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{org}/{project}/archive": {
         parameters: {
             query?: never;
@@ -463,6 +495,22 @@ export interface paths {
         put: operations["projects_set_member"];
         post?: never;
         delete: operations["projects_remove_member"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{org}/{project}/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["project_overview"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -725,12 +773,48 @@ export interface components {
             tasks_total: number;
         };
         ActiveSpecOutput: {
+            agent_prompt?: string | null;
+            branch: string;
+            current_phase?: string | null;
+            next_task?: components["schemas"]["NextTaskOutput"] | null;
             /** Format: int64 */
             number: number;
+            open_markers: number;
             slug: string;
             status: string;
             tasks_done: number;
             tasks_total: number;
+            title: string;
+        };
+        ActiveSpecsOutput: {
+            active?: components["schemas"]["ActiveSpecOutput"] | null;
+            drafts: components["schemas"]["DraftSpecOutput"][];
+        };
+        ActivityOutput: {
+            has_more: boolean;
+            rows: components["schemas"]["ActivityRowOutput"][];
+        };
+        ActivityRowOutput: {
+            action: string;
+            actor: string;
+            at: string;
+            /** Format: int64 */
+            audit_id: number;
+            client?: string | null;
+            detail?: string | null;
+            /** Format: int64 */
+            resolved_by_audit_id?: number | null;
+            result: string;
+            summary_key: string;
+            target: string;
+        };
+        AttentionOutput: {
+            count: number;
+            detail: string[];
+            kind: string;
+            /** Format: int64 */
+            spec_number: number;
+            spec_slug: string;
         };
         AttributionOutput: {
             at: string;
@@ -749,6 +833,11 @@ export interface components {
         AuthorizedClients: {
             clients: components["schemas"]["AuthorizedClient"][];
         };
+        ClientCountOutput: {
+            client: string;
+            /** Format: int64 */
+            count: number;
+        };
         ConstitutionOutput: {
             body: string;
             revision: components["schemas"]["RevisionOutput"];
@@ -759,11 +848,21 @@ export interface components {
             repository_url?: string | null;
             slug: string;
         };
+        CoverageOutput: {
+            covered: number;
+            /** Format: int64 */
+            spec_number: number;
+            total: number;
+        };
         CreatedInvitationOutput: {
             email: string;
             expires_at: string;
             /** Format: int64 */
             id: number;
+        };
+        DayCompletedOutput: {
+            by_client: components["schemas"]["ClientCountOutput"][];
+            day: string;
         };
         DiffLineOutput: {
             new_line?: number | null;
@@ -781,6 +880,21 @@ export interface components {
         DocumentOutput: {
             body: string;
             revision: components["schemas"]["RevisionOutput"];
+        };
+        DraftMarkerOutput: {
+            document_kind: string;
+            heading: string;
+            kind: string;
+            line: number;
+            text: string;
+        };
+        DraftSpecOutput: {
+            markers: components["schemas"]["DraftMarkerOutput"][];
+            /** Format: int64 */
+            number: number;
+            slug: string;
+            summary: string;
+            title: string;
         };
         EntryOutput: {
             action: string;
@@ -870,6 +984,13 @@ export interface components {
             name: string;
             slug: string;
         };
+        NextTaskOutput: {
+            description: string;
+            done_when: string;
+            frs: string[];
+            id: string;
+            parallel: boolean;
+        };
         OrganizationOutput: {
             created_at: string;
             name: string;
@@ -883,6 +1004,20 @@ export interface components {
         };
         OrganizationsOutput: {
             organizations: components["schemas"]["OrganizationSummaryOutput"][];
+        };
+        OverviewOutput: {
+            active_specs: number;
+            agents_active: number;
+            attention: components["schemas"]["AttentionOutput"][];
+            completed_per_day: components["schemas"]["DayCompletedOutput"][];
+            coverage?: components["schemas"]["CoverageOutput"] | null;
+            /** Format: int64 */
+            days: number;
+            open_markers: number;
+            /** Format: int64 */
+            tasks_completed: number;
+            /** Format: int64 */
+            tasks_completed_previous: number;
         };
         PageOutput: {
             entries: components["schemas"]["EntryOutput"][];
@@ -2365,6 +2500,94 @@ export interface operations {
             };
         };
     };
+    project_active_specs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: string;
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActiveSpecsOutput"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    project_activity: {
+        parameters: {
+            query?: {
+                filter?: string;
+                before?: number;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                org: string;
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityOutput"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
     projects_archive: {
         parameters: {
             query?: never;
@@ -2825,6 +3048,54 @@ export interface operations {
                 };
             };
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    project_overview: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path: {
+                org: string;
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OverviewOutput"];
+                };
+            };
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };

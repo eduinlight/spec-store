@@ -23,6 +23,7 @@ const apiEnv = {
   SMTP_HOST: process.env.SMTP_HOST ?? "localhost",
   SMTP_PORT: process.env.SMTP_PORT ?? "51025",
   SMTP_FROM: process.env.SMTP_FROM ?? "no-reply@sddvault.local",
+  ...(process.env.REDIS_URL ? { REDIS_URL: process.env.REDIS_URL } : {}),
 };
 
 export default defineConfig({

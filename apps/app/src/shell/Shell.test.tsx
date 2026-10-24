@@ -2,7 +2,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach } from "vitest";
 import { mockApi } from "~/test/api";
-import { acme, demoProject, me } from "~/test/fixtures";
+import { acme, demoProject, me, overviewData, projectDetail } from "~/test/fixtures";
 import { renderAt } from "~/test/render";
 
 afterEach(() => {
@@ -39,6 +39,11 @@ function shellApi(extra: Record<string, () => unknown> = {}) {
         tasks_total: 2,
       },
     }),
+    "GET /api/v1/projects/{org}/{project}": () => projectDetail(),
+    "GET /api/v1/projects/{org}/{project}/members": () => ({ members: [] }),
+    "GET /api/v1/projects/{org}/{project}/overview": () => overviewData(),
+    "GET /api/v1/projects/{org}/{project}/active": () => ({ active: null, drafts: [] }),
+    "GET /api/v1/projects/{org}/{project}/activity": () => ({ rows: [], has_more: false }),
     "PUT /api/v1/me/language": () => new Response(null, { status: 204 }),
     ...extra,
   });
@@ -70,8 +75,6 @@ test("the project switcher shows the active spec of the current project", async 
 test("every upcoming screen shows an empty state naming what is coming", async () => {
   shellApi();
   const screens: [string, string, RegExp][] = [
-    ["/p/acme/demo/active", "Active specs", /specs your team is working on/],
-    ["/p/acme/demo/activity", "Activity", /feed of what people and agents change/],
     ["/p/acme/demo/members", "Project members", /project settings/],
     ["/account/tokens", "My tokens", /tokens your agents use/],
     ["/account/preferences", "Preferences", /time zone/],

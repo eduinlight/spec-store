@@ -5,6 +5,7 @@ use anyhow::Context;
 use sdd_vault_core::config::{DatabaseSettings, Env, admin_from_env, identity_from_env};
 use sdd_vault_core::identity::Verifier;
 use sdd_vault_core::keycloak::KeycloakAdmin;
+use sdd_vault_core::redis_events::RedisPublisher;
 use sdd_vault_core::store::Store;
 use sdd_vault_mcp::{AppState, McpConfig, router};
 use tracing_subscriber::EnvFilter;
@@ -37,6 +38,15 @@ async fn main() -> anyhow::Result<()> {
     tokio::task::spawn_blocking(move || Store::open_with_size(&database.url, database.pool_size))
       .await?
       .context("opening the database and applying migrations")?;
+  let store = match env.optional("REDIS_URL") {
+    Some(url) => store.with_publisher(Arc::new(
+      RedisPublisher::spawn(&url).context("REDIS_URL must be a Redis connection URL")?,
+    )),
+    None => {
+      tracing::warn!("REDIS_URL is not set: writes through MCP do not reach live pages");
+      store
+    }
+  };
   let mut state = AppState::new(store, Arc::new(Verifier::new(identity)), config);
   match admin_from_env(&env)? {
     Some(admin) => state = state.with_keycloak_admin(Arc::new(KeycloakAdmin::new(admin))),

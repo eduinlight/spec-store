@@ -119,6 +119,15 @@ pub async fn app_with_pool(
   verifier: Option<Verifier>,
   pool_size: u32,
 ) -> TestApp {
+  app_wired(config, verifier, pool_size, |state| state).await
+}
+
+pub async fn app_wired(
+  config: ApiConfig,
+  verifier: Option<Verifier>,
+  pool_size: u32,
+  wire: impl FnOnce(AppState) -> AppState,
+) -> TestApp {
   let keycloak = FakeKeycloak::start().await;
   let db = TestDb::new(migrate);
   let store = Store::open_with_size(&db.url, pool_size).expect("store");
@@ -134,7 +143,8 @@ pub async fn app_with_pool(
     client_id: ADMIN_CLIENT_ID.into(),
     client_secret: ADMIN_CLIENT_SECRET.into(),
   });
-  let state = AppState::new(store, Arc::new(verifier), config).with_keycloak_admin(Arc::new(admin));
+  let state =
+    wire(AppState::new(store, Arc::new(verifier), config).with_keycloak_admin(Arc::new(admin)));
   TestApp {
     router: router(state.clone()),
     state,

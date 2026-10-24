@@ -13,7 +13,7 @@ export default defineConfig({
   server: {
     port,
     proxy: {
-      "/api": api,
+      "/api": { target: api, ws: true },
       "/auth": api,
     },
   },

@@ -1,4 +1,6 @@
 import type { RouteObject } from "react-router";
+import * as activeSpecs from "~/routes/active-specs";
+import * as activity from "~/routes/activity";
 import * as audit from "~/routes/audit";
 import * as constitution from "~/routes/constitution";
 import * as diff from "~/routes/diff";
@@ -9,9 +11,9 @@ import * as invitations from "~/routes/invitations";
 import * as members from "~/routes/members";
 import * as onboarding from "~/routes/onboarding";
 import * as organization from "~/routes/organization";
+import * as overview from "~/routes/overview";
 import * as placeholders from "~/routes/placeholder";
 import * as profile from "~/routes/profile";
-import * as project from "~/routes/project";
 import * as projectSettings from "~/routes/project-settings";
 import * as revision from "~/routes/revision";
 import * as root from "~/routes/root";
@@ -72,9 +74,17 @@ export const routes: RouteObject[] = [
             action: profile.action,
             Component: profile.Profile,
           },
-          { path: "p/:org/:project/active", Component: placeholders.ActiveSpecsPlaceholder },
+          {
+            path: "p/:org/:project/active",
+            loader: activeSpecs.loader,
+            Component: activeSpecs.ActiveSpecs,
+          },
           { path: "p/:org/:project/specs", loader: specs.loader, Component: specs.Specs },
-          { path: "p/:org/:project/activity", Component: placeholders.ActivityPlaceholder },
+          {
+            path: "p/:org/:project/activity",
+            loader: activity.loader,
+            Component: activity.Activity,
+          },
           { path: "p/:org/:project/members", Component: placeholders.MembersPlaceholder },
           { path: "account/tokens", Component: placeholders.TokensPlaceholder },
           { path: "account/preferences", Component: placeholders.PreferencesPlaceholder },
@@ -86,7 +96,7 @@ export const routes: RouteObject[] = [
             action: projectSettings.action,
             Component: projectSettings.ProjectSettings,
           },
-          { path: "p/:org/:project", loader: project.loader, Component: project.Project },
+          { path: "p/:org/:project", loader: overview.loader, Component: overview.Overview },
           {
             path: "p/:org/:project/constitution",
             loader: constitution.loader,

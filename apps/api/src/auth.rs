@@ -1,7 +1,7 @@
 use axum::extract::FromRequestParts;
-use axum::http::Method;
 use axum::http::header::AUTHORIZATION;
 use axum::http::request::Parts;
+use axum::http::{HeaderMap, Method};
 use sdd_vault_core::clients::{
   API_CLIENT_FALLBACK, CLI_CLIENT_ID, CLI_CLIENT_NAME, WEB_APP_CLIENT_NAME, resolved_name,
 };
@@ -24,8 +24,11 @@ pub struct Principal {
 }
 
 pub fn bearer_token(parts: &Parts) -> Option<&str> {
-  parts
-    .headers
+  bearer_in(&parts.headers)
+}
+
+pub fn bearer_in(headers: &HeaderMap) -> Option<&str> {
+  headers
     .get(AUTHORIZATION)
     .and_then(|value| value.to_str().ok())
     .and_then(|value| value.strip_prefix("Bearer "))

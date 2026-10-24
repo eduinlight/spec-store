@@ -1,4 +1,7 @@
+pub mod active;
+pub mod activity;
 pub mod markers;
+pub mod overview;
 pub mod readiness;
 pub mod spec_list;
 pub mod task_history;
@@ -9,10 +12,12 @@ use std::collections::HashMap;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 
-use crate::model::{Caller, DocumentKind, StoreResult};
+use crate::markdown::markers::scan_markers;
+use crate::model::{Caller, DocumentKind, SpecStatus, StoreResult};
 use crate::schema::{documents, iso_utc, revisions, users};
 use crate::store::projects::access_in;
-use crate::store::specs::{SpecRow, spec_by_number};
+use crate::store::specs::{SpecRow, spec_by_number, spec_rows_in};
+use crate::store::tasks::SpecMarker;
 
 pub(crate) type BodiesBySpec = HashMap<i64, HashMap<DocumentKind, String>>;
 
@@ -120,4 +125,50 @@ pub(crate) fn spec_document_ids(
       .unwrap_or(DocumentKind::SPEC_KINDS.len())
   });
   Ok(found)
+}
+
+pub(crate) struct LiveSpec {
+  pub row: SpecRow,
+  pub bodies: HashMap<DocumentKind, String>,
+}
+
+impl LiveSpec {
+  pub fn body(&self, kind: DocumentKind) -> Option<&str> {
+    self.bodies.get(&kind).map(String::as_str)
+  }
+
+  pub fn markers(&self) -> Vec<SpecMarker> {
+    DocumentKind::SPEC_KINDS
+      .into_iter()
+      .filter_map(|kind| self.bodies.get(&kind).map(|body| (kind, body)))
+      .flat_map(|(kind, body)| {
+        scan_markers(body).into_iter().map(move |m| SpecMarker {
+          document_kind: kind,
+          kind: m.kind,
+          heading: m.heading,
+          text: m.text,
+          line: m.line,
+        })
+      })
+      .collect()
+  }
+}
+
+/// Non-archived specs of a project with their current documents, by number ascending; the last one is the active spec.
+pub(crate) fn live_specs(conn: &mut PgConnection, project_id: i64) -> StoreResult<Vec<LiveSpec>> {
+  let rows: Vec<SpecRow> = spec_rows_in(conn, project_id)?
+    .into_iter()
+    .filter(|row| row.status != SpecStatus::Archived)
+    .collect();
+  let ids: Vec<i64> = rows.iter().map(|row| row.id).collect();
+  let mut bodies = current_bodies(conn, &ids)?;
+  Ok(
+    rows
+      .into_iter()
+      .map(|row| LiveSpec {
+        bodies: bodies.remove(&row.id).unwrap_or_default(),
+        row,
+      })
+      .collect(),
+  )
 }

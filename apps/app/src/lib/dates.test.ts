@@ -1,4 +1,4 @@
-import { formatDate } from "./dates";
+import { formatDate, formatShortDay } from "./dates";
 
 const now = new Date("2026-10-22T12:00:00.000Z");
 
@@ -12,4 +12,10 @@ test("times from seven days on are absolute in the viewer's time zone", () => {
   expect(formatDate("2026-10-01T18:30:00.000Z", "en", now)).toBe("October 1, 2026 2:30 PM");
   expect(formatDate("2026-10-01T18:30:00.000Z", "es", now)).toBe("1 de octubre de 2026 14:30");
   expect(formatDate("2026-10-15T12:00:00.000Z", "en", now)).toBe("October 15, 2026 8:00 AM");
+});
+
+test("chart day labels are short, and compact for long periods", () => {
+  expect(formatShortDay("2026-10-24", "en", false)).toBe("24 Oct");
+  expect(formatShortDay("2026-10-24", "es", false)).toBe("24 oct");
+  expect(formatShortDay("2026-10-24", "en", true)).toBe("24");
 });

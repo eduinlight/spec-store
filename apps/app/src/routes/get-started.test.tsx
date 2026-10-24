@@ -2,7 +2,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach } from "vitest";
 import { mockApi } from "~/test/api";
-import { acme, me, summary } from "~/test/fixtures";
+import { acme, me, summary, viewRoutes } from "~/test/fixtures";
 import { renderAt } from "~/test/render";
 
 afterEach(() => {
@@ -44,6 +44,7 @@ function setup({
     "GET /api/v1/projects/{org}/{project}/members": () => ({
       members: [{ handle: "alice", role: "owner" }],
     }),
+    ...viewRoutes(),
     "GET /api/v1/orgs/{org}/members": () => ({ members: [] }),
     "POST /api/v1/projects/{org}/{project}/archive": () => new Response(null, { status: 204 }),
     "POST /api/v1/projects/{org}/{project}/restore": () => new Response(null, { status: 204 }),

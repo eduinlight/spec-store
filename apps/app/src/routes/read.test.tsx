@@ -110,27 +110,6 @@ function baseApi(extra: Record<string, Parameters<typeof mockApi>[0][string]> = 
   });
 }
 
-test("the project page shows the constitution, specs, progress and members", async () => {
-  baseApi();
-  renderAt("/p/acme/demo");
-  expect(await screen.findByRole("heading", { name: "Demo" })).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Version 1.2" })).toHaveAttribute(
-    "href",
-    "/p/acme/demo/constitution",
-  );
-  for (const link of screen.getAllByRole("link", { name: /001-first/ })) {
-    expect(link).toHaveAttribute("href", "/p/acme/demo/specs/1");
-  }
-  expect(screen.getByText("1 of 2 tasks done")).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "https://github.com/acme/demo" })).toBeInTheDocument();
-  const members = screen.getByRole("list", { name: "Members" });
-  expect(
-    within(members)
-      .getAllByRole("listitem")
-      .map((li) => li.textContent),
-  ).toEqual([expect.stringContaining("alice"), expect.stringContaining("rita")]);
-});
-
 test("history lists revisions, older revisions say they are not current and diffs mark changes", async () => {
   baseApi({
     "GET /api/v1/projects/{org}/{project}/revisions": () => ({

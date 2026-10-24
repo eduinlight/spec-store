@@ -27,7 +27,7 @@ export function OrganizationList({
     <div
       role="group"
       aria-label={t("shell.organizations")}
-      className="border-b border-[var(--neutral-200)] py-2"
+      className="max-h-[40vh] shrink-0 overflow-y-auto border-b border-[var(--neutral-200)] py-2"
     >
       <div className="px-5 pb-1.5 pt-2 text-xs leading-[18px] text-[var(--neutral-500)]">
         {t("shell.organizations")}
