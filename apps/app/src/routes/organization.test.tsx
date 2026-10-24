@@ -54,7 +54,7 @@ test("a project card shows its role, constitution, active spec, progress, last a
   expect(card.getByText("Claude Code")).toBeInTheDocument();
   await userEvent.hover(card.getByText("? 2 open"));
   expect(await screen.findByRole("tooltip")).toHaveTextContent(
-    "2 open questions in the active spec",
+    "Open questions in the active spec: 2",
   );
 });
 

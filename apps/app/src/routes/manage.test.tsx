@@ -133,7 +133,7 @@ test("the invitation link lets the invited person accept or decline", async () =
   ).toBeInTheDocument();
 });
 
-test("owners create projects and manage roles and the repository URL", async () => {
+test("owners manage project roles and the repository URL", async () => {
   const project = {
     address: "acme/demo",
     organization: "acme",
@@ -145,7 +145,6 @@ test("owners create projects and manage roles and the repository URL", async () 
   };
   const api = mockApi({
     ...session,
-    "POST /api/v1/orgs/{org}/projects": () => json(project, 201),
     "GET /api/v1/projects/{org}/{project}": () => project,
     "GET /api/v1/projects/{org}/{project}/members": () => ({
       members: [{ handle: "alice", role: "owner" }],
@@ -163,18 +162,7 @@ test("owners create projects and manage roles and the repository URL", async () 
     "DELETE /api/v1/projects/{org}/{project}/repository-url": () =>
       new Response(null, { status: 204 }),
   });
-  const { router } = renderAt("/o/acme/projects/new");
-  await userEvent.type(await screen.findByLabelText("Project address"), "demo");
-  await userEvent.type(screen.getByLabelText("Project name"), "Demo");
-  await userEvent.click(screen.getByRole("button", { name: "Create project" }));
-  await waitFor(() =>
-    expect(called(api, "POST", "/api/v1/orgs/acme/projects")?.body).toEqual({
-      slug: "demo",
-      name: "Demo",
-    }),
-  );
-  await waitFor(() => expect(router.state.location.pathname).toBe("/p/acme/demo/settings"));
-
+  renderAt("/p/acme/demo/settings");
   await userEvent.selectOptions(await screen.findByLabelText("Person"), "bob");
   await userEvent.selectOptions(screen.getByLabelText("Role"), "editor");
   await userEvent.click(screen.getByRole("button", { name: "Grant role" }));

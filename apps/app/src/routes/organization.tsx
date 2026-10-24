@@ -1,8 +1,16 @@
 import { Button, Tabs, type TabsKey } from "@workspace/ui/taptap";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { type LoaderFunctionArgs, useLoaderData, useNavigate } from "react-router";
+import {
+  type LoaderFunctionArgs,
+  Outlet,
+  useLoaderData,
+  useNavigate,
+  useOutletContext,
+  useSearchParams,
+} from "react-router";
 import { api, unwrap } from "~/api/client";
+import { NewProjectDialog, START_OPTIONS, type StartOption } from "~/components/new-project-dialog";
 import { ProjectCard, type ProjectSummary } from "~/components/project-card";
 import { guard } from "~/lib/session";
 
@@ -27,8 +35,27 @@ const FILTER_RULES: Record<ProjectFilter, (project: ProjectSummary) => boolean> 
   archived: (project) => project.archived,
 };
 
+type OrganizationData = Awaited<ReturnType<typeof loader>>;
+
+export function NewProject() {
+  const { organization, projects } = useOutletContext<OrganizationData>();
+  const [params] = useSearchParams();
+  const navigate = useNavigate();
+  const requested = params.get("start") as StartOption;
+  if (organization.role !== "owner") return null;
+  return (
+    <NewProjectDialog
+      organization={organization}
+      projects={projects}
+      initialStart={START_OPTIONS.includes(requested) ? requested : "empty"}
+      onClose={() => navigate(`/o/${organization.slug}`)}
+    />
+  );
+}
+
 export function Organization() {
-  const { organization, projects } = useLoaderData() as Awaited<ReturnType<typeof loader>>;
+  const data = useLoaderData() as OrganizationData;
+  const { organization, projects } = data;
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [filter, setFilter] = useState<ProjectFilter>("mine");
@@ -73,6 +100,7 @@ export function Organization() {
           </span>
         </div>
       )}
+      <Outlet context={data} />
     </div>
   );
 }

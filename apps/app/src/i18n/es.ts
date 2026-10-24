@@ -277,7 +277,7 @@ export const es: Translation = {
     progressLabel: "Progreso de las tareas",
     noActivity: "Sin actividad todavía",
     markers: "? {{count}} abiertas",
-    markersTip: "{{count}} preguntas abiertas en la spec activa",
+    markersTip: "Preguntas abiertas en la spec activa: {{count}}",
     archived: "Archivado",
     archivedNote: "Solo lectura. Se conserva su historial.",
   },
@@ -302,9 +302,8 @@ export const es: Translation = {
     chooseFolder: "Elegir carpeta",
     changeFolder: "Elegir otra carpeta",
     folderHelp: "Elige la carpeta que contiene docs/constitution.md y specs/.",
-    folderRead: "{{folder}}: {{specs}} specs y {{documents}} documentos encontrados.",
-    folderSkipped:
-      "{{count}} archivos y carpetas no forman parte de un árbol SDD y se dejarán fuera.",
+    folderRead: "{{folder}} — specs: {{specs}}, documentos: {{documents}}.",
+    folderSkipped: "Fuera de un árbol SDD y omitidos: {{count}}.",
     problems: "Problemas encontrados",
     createdWithProblems:
       "El proyecto {{address}} se creó, pero la importación encontró problemas y no se importó nada. Corrige la carpeta y vuelve a elegirla, o cierra esta ventana para quedarte con el proyecto vacío.",
