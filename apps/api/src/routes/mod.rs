@@ -1,5 +1,6 @@
 pub mod audit;
 pub mod clients;
+pub mod dashboard;
 pub mod documents;
 pub mod history;
 pub mod invitations;

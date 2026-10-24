@@ -11,8 +11,8 @@ use crate::health::{live, ready};
 use crate::hosts::check_host;
 use crate::origin::attach_origin;
 use crate::routes::{
-  audit, clients, documents, history, invitations, me, members, organizations, projects, specs,
-  transfer, views,
+  audit, clients, dashboard, documents, history, invitations, me, members, organizations, projects,
+  specs, transfer, views,
 };
 use crate::state::AppState;
 
@@ -54,6 +54,9 @@ fn documented() -> OpenApiRouter<AppState> {
     .routes(routes!(views::cards))
     .routes(routes!(views::traceability))
     .routes(routes!(views::readiness))
+    .routes(routes!(dashboard::overview))
+    .routes(routes!(dashboard::active))
+    .routes(routes!(dashboard::activity))
     .routes(routes!(specs::read))
     .routes(routes!(specs::tasks))
     .routes(routes!(specs::markers))
@@ -86,6 +89,7 @@ pub fn openapi() -> OpenApi {
 pub fn router(state: AppState) -> Router {
   let (api, _) = documented().split_for_parts();
   api
+    .route("/api/v1/live", get(crate::live::socket))
     .route("/healthz", get(live))
     .route("/readyz", get(ready))
     .route("/auth/login", get(bff::login))

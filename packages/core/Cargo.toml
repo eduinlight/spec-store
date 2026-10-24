@@ -12,6 +12,7 @@ aws-lc-rs = "1.18"
 chrono = { workspace = true }
 jsonwebtoken = { workspace = true }
 lettre = { workspace = true }
+redis = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

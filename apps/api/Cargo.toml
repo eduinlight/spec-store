@@ -14,6 +14,8 @@ path = "src/main.rs"
 [dependencies]
 anyhow = "1"
 axum = { workspace = true }
+futures-util = { workspace = true }
+redis = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sdd-vault-core = { workspace = true }
@@ -25,6 +27,7 @@ utoipa = "6"
 utoipa-axum = "0.3"
 
 [dev-dependencies]
+tokio-tungstenite = "0.29"
 rmcp = { version = "=3.5.1", features = ["client", "transport-streamable-http-client-reqwest", "reqwest"] }
 sdd-vault-mcp = { path = "../mcp" }
 diesel = { workspace = true }

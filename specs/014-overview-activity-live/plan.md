@@ -43,7 +43,8 @@ packages/core/src/store/mod.rs              publish after the audit transaction 
 packages/core/src/store/views/overview.rs   metrics, completed-per-day by client, attention items
 packages/core/src/store/views/activity.rs   feed rows with words, filters, conflict-then-saved grouping
 packages/core/src/store/views/active.rs     active spec, next task, agent prompt, drafts with questions
-apps/api/src/live.rs                        RedisPublisher, LiveHub (one pattern subscription per instance), WS route
+packages/core/src/redis_events.rs           RedisPublisher (shared by the API and the MCP server)
+apps/api/src/live.rs                        LiveHub (one pattern subscription per instance), WS route
 apps/mcp/src/main.rs                        RedisPublisher when REDIS_URL is set
 apps/api/src/routes/views.rs                GET .../overview?days=, .../active, .../activity?filter=&before=
 apps/app/src/lib/live.ts                    useLiveProject with backoff

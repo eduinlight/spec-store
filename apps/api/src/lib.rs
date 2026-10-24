@@ -4,6 +4,7 @@ pub mod cookies;
 pub mod error;
 pub mod health;
 pub mod hosts;
+pub mod live;
 pub mod origin;
 pub mod outbox;
 pub mod router;

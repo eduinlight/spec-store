@@ -11,6 +11,7 @@ pub mod keycloak;
 pub mod markdown;
 pub mod model;
 pub mod origin;
+pub mod redis_events;
 pub mod schema;
 pub mod secrets;
 pub mod store;

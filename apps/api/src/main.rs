@@ -55,6 +55,15 @@ async fn main() -> anyhow::Result<()> {
       "KEYCLOAK_ADMIN_CLIENT_SECRET is not set: authorized clients cannot be listed or revoked"
     ),
   }
+  state = match env.optional("REDIS_URL") {
+    Some(url) => state
+      .with_redis_events(&url)
+      .context("REDIS_URL must be a Redis connection URL")?,
+    None => {
+      tracing::warn!("REDIS_URL is not set: live updates reach only the sockets of this instance");
+      state.with_in_process_events()
+    }
+  };
   let _sender = sdd_vault_api::outbox::Sender::new(state.store.clone(), smtp)
     .spawn(sdd_vault_api::outbox::INTERVAL);
   let listener = tokio::net::TcpListener::bind(&bind)

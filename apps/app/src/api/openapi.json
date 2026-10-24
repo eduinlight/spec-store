@@ -1627,6 +1627,151 @@
         }
       }
     },
+    "/api/v1/projects/{org}/{project}/active": {
+      "get": {
+        "tags": [
+          "dashboard"
+        ],
+        "operationId": "project_active_specs",
+        "parameters": [
+          {
+            "name": "org",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActiveSpecsOutput"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{org}/{project}/activity": {
+      "get": {
+        "tags": [
+          "dashboard"
+        ],
+        "operationId": "project_activity",
+        "parameters": [
+          {
+            "name": "org",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "filter",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivityOutput"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/projects/{org}/{project}/archive": {
       "post": {
         "tags": [
@@ -2300,6 +2445,79 @@
             }
           },
           "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{org}/{project}/overview": {
+      "get": {
+        "tags": [
+          "dashboard"
+        ],
+        "operationId": "project_overview",
+        "parameters": [
+          {
+            "name": "org",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OverviewOutput"
+                }
+              }
+            }
+          },
+          "401": {
             "content": {
               "application/json": {
                 "schema": {
@@ -3407,14 +3625,46 @@
         "required": [
           "number",
           "slug",
+          "title",
           "status",
+          "branch",
           "tasks_done",
-          "tasks_total"
+          "tasks_total",
+          "open_markers"
         ],
         "properties": {
+          "agent_prompt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "branch": {
+            "type": "string"
+          },
+          "current_phase": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "next_task": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NextTaskOutput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "number": {
             "type": "integer",
             "format": "int64"
+          },
+          "open_markers": {
+            "type": "integer",
+            "minimum": 0
           },
           "slug": {
             "type": "string"
@@ -3429,6 +3679,138 @@
           "tasks_total": {
             "type": "integer",
             "minimum": 0
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
+      "ActiveSpecsOutput": {
+        "type": "object",
+        "required": [
+          "drafts"
+        ],
+        "properties": {
+          "active": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ActiveSpecOutput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "drafts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DraftSpecOutput"
+            }
+          }
+        }
+      },
+      "ActivityOutput": {
+        "type": "object",
+        "required": [
+          "rows",
+          "has_more"
+        ],
+        "properties": {
+          "has_more": {
+            "type": "boolean"
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ActivityRowOutput"
+            }
+          }
+        }
+      },
+      "ActivityRowOutput": {
+        "type": "object",
+        "required": [
+          "audit_id",
+          "actor",
+          "action",
+          "target",
+          "result",
+          "at",
+          "summary_key"
+        ],
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "at": {
+            "type": "string"
+          },
+          "audit_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "client": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "detail": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "resolved_by_audit_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "result": {
+            "type": "string"
+          },
+          "summary_key": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          }
+        }
+      },
+      "AttentionOutput": {
+        "type": "object",
+        "required": [
+          "kind",
+          "spec_number",
+          "spec_slug",
+          "count",
+          "detail"
+        ],
+        "properties": {
+          "count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "detail": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "kind": {
+            "type": "string"
+          },
+          "spec_number": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "spec_slug": {
+            "type": "string"
           }
         }
       },
@@ -3502,6 +3884,22 @@
           }
         }
       },
+      "ClientCountOutput": {
+        "type": "object",
+        "required": [
+          "client",
+          "count"
+        ],
+        "properties": {
+          "client": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
       "ConstitutionOutput": {
         "type": "object",
         "required": [
@@ -3542,6 +3940,28 @@
           }
         }
       },
+      "CoverageOutput": {
+        "type": "object",
+        "required": [
+          "spec_number",
+          "covered",
+          "total"
+        ],
+        "properties": {
+          "covered": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "spec_number": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
       "CreatedInvitationOutput": {
         "type": "object",
         "required": [
@@ -3559,6 +3979,24 @@
           "id": {
             "type": "integer",
             "format": "int64"
+          }
+        }
+      },
+      "DayCompletedOutput": {
+        "type": "object",
+        "required": [
+          "day",
+          "by_client"
+        ],
+        "properties": {
+          "by_client": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ClientCountOutput"
+            }
+          },
+          "day": {
+            "type": "string"
           }
         }
       },
@@ -3629,6 +4067,65 @@
           },
           "revision": {
             "$ref": "#/components/schemas/RevisionOutput"
+          }
+        }
+      },
+      "DraftMarkerOutput": {
+        "type": "object",
+        "required": [
+          "kind",
+          "document_kind",
+          "heading",
+          "text",
+          "line"
+        ],
+        "properties": {
+          "document_kind": {
+            "type": "string"
+          },
+          "heading": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "line": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      },
+      "DraftSpecOutput": {
+        "type": "object",
+        "required": [
+          "number",
+          "slug",
+          "title",
+          "summary",
+          "markers"
+        ],
+        "properties": {
+          "markers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DraftMarkerOutput"
+            }
+          },
+          "number": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
           }
         }
       },
@@ -3993,6 +4490,36 @@
           }
         }
       },
+      "NextTaskOutput": {
+        "type": "object",
+        "required": [
+          "id",
+          "parallel",
+          "frs",
+          "description",
+          "done_when"
+        ],
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "done_when": {
+            "type": "string"
+          },
+          "frs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "id": {
+            "type": "string"
+          },
+          "parallel": {
+            "type": "boolean"
+          }
+        }
+      },
       "OrganizationOutput": {
         "type": "object",
         "required": [
@@ -4050,6 +4577,67 @@
             "items": {
               "$ref": "#/components/schemas/OrganizationSummaryOutput"
             }
+          }
+        }
+      },
+      "OverviewOutput": {
+        "type": "object",
+        "required": [
+          "days",
+          "active_specs",
+          "tasks_completed",
+          "tasks_completed_previous",
+          "open_markers",
+          "agents_active",
+          "completed_per_day",
+          "attention"
+        ],
+        "properties": {
+          "active_specs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "agents_active": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "attention": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AttentionOutput"
+            }
+          },
+          "completed_per_day": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DayCompletedOutput"
+            }
+          },
+          "coverage": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CoverageOutput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "days": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "open_markers": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tasks_completed": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "tasks_completed_previous": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       },

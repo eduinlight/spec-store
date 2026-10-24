@@ -40,6 +40,10 @@ impl InProcessPublisher {
     }
   }
 
+  pub fn sender(&self) -> broadcast::Sender<ProjectEvent> {
+    self.sender.clone()
+  }
+
   pub fn subscribe(&self) -> broadcast::Receiver<ProjectEvent> {
     self.sender.subscribe()
   }
