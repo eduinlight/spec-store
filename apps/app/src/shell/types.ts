@@ -2,6 +2,7 @@ export interface ShellOrganization {
   slug: string;
   name: string;
   role?: string | null;
+  guest?: boolean;
 }
 
 export interface ShellProject {

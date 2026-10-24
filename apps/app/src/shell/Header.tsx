@@ -53,7 +53,11 @@ export function Header({
   const organizationItems: ComboboxItem[] = organizations.map((item) => ({
     value: item.slug,
     label: item.name,
-    meta: item.role ? t(`organization.roles.${item.role as "owner"}`) : t("app.operator"),
+    meta: item.guest
+      ? t("shell.guest")
+      : item.role
+        ? t(`organization.roles.${item.role as "owner"}`)
+        : t("app.operator"),
   }));
   const projectItems: ComboboxItem[] = projects.map((item) => ({
     value: item.slug,

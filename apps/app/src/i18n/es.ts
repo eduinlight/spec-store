@@ -43,6 +43,7 @@ export const es: Translation = {
     notificationsEmpty: "No tienes nada pendiente.",
     mainNavigation: "Navegación principal",
     operator: "Operador",
+    guest: "Invitado",
     shortcutsDialog: {
       general: "General",
       goTo: "Ir a",
@@ -99,10 +100,6 @@ export const es: Translation = {
   },
   placeholder: {
     comingSoon: "Próximamente",
-    members: {
-      title: "Miembros del proyecto",
-      body: "Pronto podrás invitar personas y gestionar sus roles por proyecto. Por ahora, gestiónalos en los ajustes del proyecto.",
-    },
     tokens: {
       title: "Mis tokens",
       body: "Pronto podrás crear y revocar los tokens que usan tus agentes para conectarse.",
@@ -121,6 +118,8 @@ export const es: Translation = {
     },
   },
   confirm: {
+    removeProjectMemberTitle: "¿Quitar a {{name}}?",
+    removeProjectMemberBody: "{{name}} perderá el acceso a {{project}}.",
     removeMemberTitle: "¿Quitar a {{handle}}?",
     removeMemberBody: "{{handle}} perderá el acceso a todos los proyectos de esta organización.",
     leaveTitle: "¿Salir de {{organization}}?",
@@ -132,6 +131,8 @@ export const es: Translation = {
       "El agente deja de actuar por ti de inmediato y habrá que autorizarlo de nuevo.",
   },
   toast: {
+    invitedAdded: "Se añadió a @{{handle}} como {{role}}",
+    invitedEmail: "Invitación enviada a {{email}}",
     projectCreated: "Proyecto creado.",
     projectImported: "Proyecto creado y árbol SDD importado.",
     projectCopied: "Proyecto copiado.",
@@ -169,6 +170,9 @@ export const es: Translation = {
     expires: "Esta invitación vence {{when}}.",
     accept: "Aceptar invitación",
     decline: "Rechazar",
+    projectTitle: "Invitación a {{project}}",
+    projectBody: "Te invitaron a unirte a {{project}} como {{role}}.",
+    projectGuestNote: "Te unirás a {{organization}} como invitado y solo verás este proyecto.",
     accepted: "Te uniste a {{organization}}.",
     declined: "Rechazaste la invitación.",
     states: {
@@ -188,6 +192,38 @@ export const es: Translation = {
     newProject: "Nuevo proyecto",
     role: "Rol",
     roles: { owner: "Propietario", member: "Miembro" },
+  },
+  projectMembers: {
+    title: "Miembros",
+    invite: "Invitar",
+    list: "Miembros del proyecto",
+    member: "Miembro",
+    role: "Rol",
+    joined: "Se unió",
+    lastActive: "Última actividad",
+    never: "—",
+    guest: "Invitado",
+    roleOf: "Rol de {{name}}",
+    remove: "Quitar a {{name}}",
+    removeAction: "Quitar",
+    pending: "Invitaciones pendientes",
+    email: "Correo",
+    expires: "Vence",
+    resend: "Reenviar",
+    revoke: "Revocar",
+    dialog: {
+      title: "Invitar a {{project}}",
+      email: "Correo",
+      emailPlaceholder: "nombre@empresa.com",
+      emailInvalid: "Escribe una dirección de correo válida.",
+      guestNote:
+        "Las personas que no son miembros de {{organization}} se unen como invitadas y ven solo este proyecto.",
+      role: "Rol",
+      roleNote: "Los lectores son gratis en los planes de pago.",
+      send: "Enviar invitación",
+      cancel: "Cancelar",
+      sending: "Enviando…",
+    },
   },
   members: {
     title: "Miembros de {{organization}}",
@@ -219,7 +255,8 @@ export const es: Translation = {
     repository: "URL del repositorio",
     clearRepository: "Quitar",
     members: "Miembros del proyecto",
-    grant: "Asignar rol",
+    membersLink: "Gestiona miembros y roles en la página Miembros.",
+    openMembers: "Abrir Miembros",
     roles: { owner: "Propietario", editor: "Editor", reader: "Lector" },
   },
   overview: {

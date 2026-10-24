@@ -14,6 +14,7 @@ import * as organization from "~/routes/organization";
 import * as overview from "~/routes/overview";
 import * as placeholders from "~/routes/placeholder";
 import * as profile from "~/routes/profile";
+import * as projectMembers from "~/routes/project-members";
 import * as projectSettings from "~/routes/project-settings";
 import * as revision from "~/routes/revision";
 import * as root from "~/routes/root";
@@ -85,7 +86,12 @@ export const routes: RouteObject[] = [
             loader: activity.loader,
             Component: activity.Activity,
           },
-          { path: "p/:org/:project/members", Component: placeholders.MembersPlaceholder },
+          {
+            path: "p/:org/:project/members",
+            loader: projectMembers.loader,
+            action: projectMembers.action,
+            Component: projectMembers.ProjectMembers,
+          },
           { path: "account/tokens", Component: placeholders.TokensPlaceholder },
           { path: "account/preferences", Component: placeholders.PreferencesPlaceholder },
           { path: "o/:org/security", Component: placeholders.SecurityPlaceholder },
