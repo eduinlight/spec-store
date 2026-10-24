@@ -291,6 +291,7 @@ async fn issued_tokens_device_codes_and_client_secrets_never_leak() {
       resource: MCP_RESOURCE.into(),
       authorization_server: app.keycloak.issuer(),
       scopes: vec!["openid".into()],
+      trusted_proxy_hops: 0,
     },
   );
   let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();

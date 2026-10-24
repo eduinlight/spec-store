@@ -573,6 +573,10 @@ impl FakeKeycloak {
       }));
   }
 
+  pub fn clear_consents(&self) {
+    self.state.consents.lock().expect("consents").clear();
+  }
+
   pub fn consent_client_ids(&self, subject: &str) -> Vec<String> {
     self
       .state

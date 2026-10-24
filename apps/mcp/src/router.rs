@@ -21,8 +21,9 @@ pub fn router(state: AppState) -> Router {
     config = config.with_allowed_hosts(state.config.allowed_hosts.clone());
   }
   let store = state.store.clone();
+  let client_names = state.client_names.clone();
   let service = StreamableHttpService::new(
-    move || Ok(SddVaultMcp::new(store.clone())),
+    move || Ok(SddVaultMcp::new(store.clone(), client_names.clone())),
     LocalSessionManager::default().into(),
     config,
   );

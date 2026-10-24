@@ -1,8 +1,10 @@
+use std::net::SocketAddr;
 use std::sync::Arc;
 
 use anyhow::Context;
-use sdd_vault_core::config::{DatabaseSettings, Env, identity_from_env};
+use sdd_vault_core::config::{DatabaseSettings, Env, admin_from_env, identity_from_env};
 use sdd_vault_core::identity::Verifier;
+use sdd_vault_core::keycloak::KeycloakAdmin;
 use sdd_vault_core::store::Store;
 use sdd_vault_mcp::{AppState, McpConfig, router};
 use tracing_subscriber::EnvFilter;
@@ -26,6 +28,7 @@ async fn main() -> anyhow::Result<()> {
       .split_whitespace()
       .map(str::to_string)
       .collect(),
+    trusted_proxy_hops: env.parsed("TRUSTED_PROXY_HOPS", 0)?,
   };
   let bind = env
     .optional("MCP_BIND")
@@ -34,15 +37,24 @@ async fn main() -> anyhow::Result<()> {
     tokio::task::spawn_blocking(move || Store::open_with_size(&database.url, database.pool_size))
       .await?
       .context("opening the database and applying migrations")?;
-  let state = AppState::new(store, Arc::new(Verifier::new(identity)), config);
+  let mut state = AppState::new(store, Arc::new(Verifier::new(identity)), config);
+  match admin_from_env(&env)? {
+    Some(admin) => state = state.with_keycloak_admin(Arc::new(KeycloakAdmin::new(admin))),
+    None => tracing::warn!(
+      "KEYCLOAK_ADMIN_CLIENT_SECRET is not set: clients that send no name are recorded as MCP client"
+    ),
+  }
   let listener = tokio::net::TcpListener::bind(&bind)
     .await
     .with_context(|| format!("binding {bind}"))?;
   tracing::info!(%bind, "SDD Vault MCP server listening");
-  axum::serve(listener, router(state))
-    .with_graceful_shutdown(shutdown_signal())
-    .await
-    .context("serving HTTP")
+  axum::serve(
+    listener,
+    router(state).into_make_service_with_connect_info::<SocketAddr>(),
+  )
+  .with_graceful_shutdown(shutdown_signal())
+  .await
+  .context("serving HTTP")
 }
 
 async fn shutdown_signal() {

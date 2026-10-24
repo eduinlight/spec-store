@@ -39,6 +39,7 @@ async fn the_same_failing_operation_reports_the_same_error_through_the_api_and_m
       resource: MCP_RESOURCE.into(),
       authorization_server: app.keycloak.issuer(),
       scopes: vec!["openid".into()],
+      trusted_proxy_hops: 0,
     },
   );
   let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
