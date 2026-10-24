@@ -10,7 +10,7 @@ use crate::model::{AuditResult, Caller, OrgRole, StoreError, StoreResult};
 use crate::schema::{audit_log, iso_utc, organizations, projects, users};
 use crate::store::organizations::readable_organization;
 use crate::store::projects::access_in;
-use crate::store::{AuditEntry, AuditRow, Store, audit_entry};
+use crate::store::{AuditEntry, AuditRow, Store, audit_entry, audit_in};
 
 pub const PAGE_SIZES: [u32; 4] = [10, 25, 50, 100];
 
@@ -141,6 +141,12 @@ pub struct AuditTable {
   pub page: u32,
   pub page_size: u32,
   pub facets: AuditFacets,
+}
+
+#[derive(Debug, Clone)]
+pub enum AuditExportSelection {
+  Ids(Vec<i64>),
+  Query(AuditQuery),
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -389,6 +395,50 @@ fn entries_in_order(conn: &mut PgConnection, ids: &[i64]) -> StoreResult<Vec<Aud
   Ok(entries)
 }
 
+const CSV_HEADER: &str = "time,actor,client,action,target,result,detail,origin";
+
+fn csv_field(value: &str, out: &mut String) {
+  if value.contains([',', '"', '\r', '\n']) {
+    out.push('"');
+    out.push_str(&value.replace('"', "\"\""));
+    out.push('"');
+  } else {
+    out.push_str(value);
+  }
+}
+
+fn csv_document(entries: &[AuditEntry]) -> String {
+  let mut out = String::from(CSV_HEADER);
+  out.push_str("\r\n");
+  for entry in entries {
+    let fields = [
+      entry.created_at.as_str(),
+      entry.actor.as_str(),
+      entry.client.as_deref().unwrap_or(""),
+      entry.action.as_str(),
+      entry.target.as_str(),
+      entry.result.as_str(),
+      entry.detail.as_deref().unwrap_or(""),
+      entry.origin.as_deref().unwrap_or(""),
+    ];
+    for (index, field) in fields.iter().enumerate() {
+      if index > 0 {
+        out.push(',');
+      }
+      csv_field(field, &mut out);
+    }
+    out.push_str("\r\n");
+  }
+  out
+}
+
+fn export_target(count: usize) -> String {
+  match count {
+    1 => "1 entry".to_string(),
+    n => format!("{n} entries"),
+  }
+}
+
 impl Store {
   /// One page of the audit trail of a project or organization with the total and the facet counts.
   pub fn audit_table(
@@ -420,6 +470,42 @@ impl Store {
         page_size: query.page_size,
         facets,
       })
+    })
+  }
+
+  /// CSV of the selected entries, or of every entry matching a query, recorded as `audit.export`.
+  pub fn audit_export(
+    &self,
+    caller: &Caller,
+    scope: AuditScope<'_>,
+    selection: AuditExportSelection,
+  ) -> StoreResult<String> {
+    self.with_tx(|conn| {
+      let ids_scope = authorize(conn, caller, scope)?;
+      let ids = match &selection {
+        AuditExportSelection::Ids(ids) => {
+          if ids.is_empty() {
+            Vec::new()
+          } else {
+            let filter: Predicate =
+              Box::new(scope_predicate(ids_scope).and(audit_log::id.eq_any(ids.clone())));
+            ordered_ids(conn, filter, SortOrder::Newest, None)?
+          }
+        }
+        AuditExportSelection::Query(query) => {
+          ordered_ids(conn, predicate(ids_scope, query, None), query.sort, None)?
+        }
+      };
+      let entries = entries_in_order(conn, &ids)?;
+      audit_in(
+        conn,
+        caller,
+        Some(ids_scope.organization_id),
+        ids_scope.project_id,
+        "audit.export",
+        &export_target(entries.len()),
+      )?;
+      Ok(csv_document(&entries))
     })
   }
 }

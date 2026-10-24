@@ -3,7 +3,7 @@ mod common;
 use sdd_vault_core::model::{AuditResult, Caller, StoreError};
 use sdd_vault_core::store::Store;
 use sdd_vault_core::store::views::audit_table::{
-  AuditQuery, AuditScope, FacetCount, Period, SortOrder,
+  AuditExportSelection, AuditQuery, AuditScope, FacetCount, Period, SortOrder,
 };
 
 struct Fixture {
@@ -609,4 +609,212 @@ fn access_follows_the_existing_audit_rules() {
     Err(StoreError::NotFound(_))
   ));
   let _ = f.other;
+}
+
+fn export(
+  f: &Fixture,
+  caller: &Caller,
+  scope: AuditScope<'_>,
+  selection: AuditExportSelection,
+) -> String {
+  f.store.audit_export(caller, scope, selection).unwrap()
+}
+
+fn rows(csv: &str) -> Vec<&str> {
+  csv.split("\r\n").filter(|l| !l.is_empty()).collect()
+}
+
+#[test]
+fn export_by_query_writes_a_header_and_the_filtered_rows() {
+  let f = fixture();
+  let csv = export(
+    &f,
+    &f.alice,
+    AuditScope::Project("acme/demo"),
+    AuditExportSelection::Query(AuditQuery {
+      actors: vec!["bob".into()],
+      sort: SortOrder::Oldest,
+      ..query()
+    }),
+  );
+  let lines = rows(&csv);
+  assert_eq!(
+    lines[0],
+    "time,actor,client,action,target,result,detail,origin"
+  );
+  assert_eq!(lines.len(), 3);
+  assert!(
+    lines[1].contains(",bob,,member.set,bob,ok,,"),
+    "{}",
+    lines[1]
+  );
+  assert!(lines[2].contains(",bob,cursor,document.write,spec/2/spec,denied,,192.168.1.9"));
+  assert!(csv.ends_with("\r\n"));
+}
+
+#[test]
+fn export_ignores_the_page_of_the_query() {
+  let f = fixture();
+  let csv = export(
+    &f,
+    &f.alice,
+    AuditScope::Project("acme/demo"),
+    AuditExportSelection::Query(AuditQuery {
+      page: 3,
+      page_size: 10,
+      ..query()
+    }),
+  );
+  assert_eq!(rows(&csv).len(), 6);
+}
+
+#[test]
+fn export_by_ids_is_restricted_to_the_scope() {
+  let f = fixture();
+  let all = f
+    .store
+    .audit_table(&f.alice, AuditScope::Organization("acme"), &query())
+    .unwrap();
+  let ids: Vec<i64> = all.entries.iter().map(|e| e.id).collect();
+  let csv = export(
+    &f,
+    &f.alice,
+    AuditScope::Project("acme/demo"),
+    AuditExportSelection::Ids(ids.clone()),
+  );
+  assert_eq!(rows(&csv).len(), 6);
+  let org_csv = export(
+    &f,
+    &f.alice,
+    AuditScope::Organization("acme"),
+    AuditExportSelection::Ids(ids),
+  );
+  assert_eq!(rows(&org_csv).len(), 8);
+  let none = export(
+    &f,
+    &f.alice,
+    AuditScope::Project("acme/demo"),
+    AuditExportSelection::Ids(vec![]),
+  );
+  assert_eq!(
+    rows(&none),
+    vec!["time,actor,client,action,target,result,detail,origin"]
+  );
+}
+
+#[test]
+fn export_quotes_fields_per_rfc_4180() {
+  let f = fixture();
+  let org = common::int(&f.store, "SELECT id FROM organizations WHERE slug = 'acme'");
+  common::exec(
+    &f.store,
+    &format!(
+      "INSERT INTO audit_log (actor_id, organization_id, project_id, action, target, detail, result) VALUES ({}, {org}, {}, 'x.y', 'a,b \"q\"\nline', 'expected r1, current r2', 'conflict')",
+      f.alice.user_id, f.demo
+    ),
+  );
+  let csv = export(
+    &f,
+    &f.alice,
+    AuditScope::Project("acme/demo"),
+    AuditExportSelection::Query(AuditQuery {
+      actions: vec!["x.y".into()],
+      ..query()
+    }),
+  );
+  assert!(
+    csv.contains(",x.y,\"a,b \"\"q\"\"\nline\",conflict,\"expected r1, current r2\","),
+    "{csv}"
+  );
+}
+
+#[test]
+fn export_is_recorded_in_the_audit_trail() {
+  let f = fixture();
+  let before = f
+    .store
+    .audit_table(&f.alice, AuditScope::Project("acme/demo"), &query())
+    .unwrap()
+    .total;
+  let csv = export(
+    &f,
+    &f.alice,
+    AuditScope::Project("acme/demo"),
+    AuditExportSelection::Query(query()),
+  );
+  assert_eq!(rows(&csv).len() as i64, before + 1);
+  let after = f
+    .store
+    .audit_table(
+      &f.alice,
+      AuditScope::Project("acme/demo"),
+      &AuditQuery {
+        actions: vec!["audit.export".into()],
+        ..query()
+      },
+    )
+    .unwrap();
+  assert_eq!(after.total, 1);
+  assert_eq!(after.entries[0].actor, "alice");
+  assert_eq!(after.entries[0].target, "5 entries");
+  assert_eq!(after.entries[0].result, AuditResult::Ok);
+  assert_eq!(after.entries[0].project.as_deref(), Some("acme/demo"));
+
+  export(
+    &f,
+    &f.alice,
+    AuditScope::Organization("acme"),
+    AuditExportSelection::Ids(vec![after.entries[0].id]),
+  );
+  let org = f
+    .store
+    .audit_table(
+      &f.alice,
+      AuditScope::Organization("acme"),
+      &AuditQuery {
+        actions: vec!["audit.export".into()],
+        ..query()
+      },
+    )
+    .unwrap();
+  assert_eq!(org.total, 2);
+  assert_eq!(org.entries[0].target, "1 entry");
+  assert_eq!(org.entries[0].project, None);
+}
+
+#[test]
+fn export_requires_audit_access() {
+  let f = fixture();
+  assert!(matches!(
+    f.store.audit_export(
+      &f.bob,
+      AuditScope::Organization("acme"),
+      AuditExportSelection::Query(query())
+    ),
+    Err(StoreError::Forbidden)
+  ));
+  assert!(matches!(
+    f.store.audit_export(
+      &f.bob,
+      AuditScope::Project("acme/demo"),
+      AuditExportSelection::Ids(vec![1])
+    ),
+    Err(StoreError::NotFound(_))
+  ));
+  assert_eq!(
+    common::int(
+      &f.store,
+      "SELECT count(*) FROM audit_log WHERE action = 'audit.export'"
+    ),
+    0
+  );
+  assert!(
+    f.store
+      .audit_export(
+        &f.ops,
+        AuditScope::Organization("acme"),
+        AuditExportSelection::Query(query())
+      )
+      .is_ok()
+  );
 }
