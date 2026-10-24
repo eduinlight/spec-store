@@ -1,13 +1,14 @@
 import { Drawer, Icon } from "@workspace/ui/taptap";
 import { type ReactNode, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useLocation } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import type { Language } from "~/lib/language";
 import { CommandPalette } from "./CommandPalette";
 import type { ShellData } from "./data";
 import { Header } from "./Header";
-import { accountMode, parsePlace } from "./navigation";
+import { accountMode, goTarget, parsePlace } from "./navigation";
 import { specLabel } from "./platform";
+import { ShortcutsDialog } from "./ShortcutsDialog";
 import { Sidebar } from "./Sidebar";
 import { changeLanguage, signOut } from "./session-actions";
 import type { ShellOrganization, ShellProject } from "./types";
@@ -30,17 +31,17 @@ const UNREAD_NOTIFICATIONS = 0;
 export function Shell({ data, children }: ShellProps) {
   const { t, i18n } = useTranslation();
   const { pathname, search } = useLocation();
+  const navigate = useNavigate();
   const place = parsePlace(pathname);
   const inAccount = accountMode(place);
   const [memory, setMemory] = useState<Memory>({});
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const placeProject = data.projects.find((item) => item.slug === place.project);
   const placeProjectName = placeProject?.name;
   const placeProjectRole = placeProject?.role;
-
-  useShortcuts({ onPalette: () => setPaletteOpen(true) });
 
   useEffect(() => {
     if (inAccount || !place.org || (place.area !== "project" && place.area !== "organization")) {
@@ -97,6 +98,24 @@ export function Shell({ data, children }: ShellProps) {
       }
     : { path: "/", label: t("app.name") };
 
+  useShortcuts({
+    onPalette: () => setPaletteOpen(true),
+    onShortcuts: () => setShortcutsOpen(true),
+    onNotifications: () => setNotificationsOpen(true),
+    onEscape: () => {
+      setPaletteOpen(false);
+      setShortcutsOpen(false);
+      setNotificationsOpen(false);
+      setMenuOpen(false);
+    },
+    onGo: (chord) => {
+      const target = goTarget(chord, { org: orgSlug, project: place.project });
+      if (target) {
+        navigate(target);
+      }
+    },
+  });
+
   const sidebar = (onNavigate?: () => void) => (
     <>
       <Sidebar place={place} organization={organization} back={back} onNavigate={onNavigate} />
@@ -121,7 +140,7 @@ export function Shell({ data, children }: ShellProps) {
         activeSpec={activeSpec}
         unread={UNREAD_NOTIFICATIONS}
         onOpenPalette={() => setPaletteOpen(true)}
-        onOpenShortcuts={() => undefined}
+        onOpenShortcuts={() => setShortcutsOpen(true)}
         onOpenNotifications={() => setNotificationsOpen(true)}
         onOpenMenu={() => setMenuOpen(true)}
         onOrganizationChange={(slug) => setMemory({ org: slug })}
@@ -142,8 +161,9 @@ export function Shell({ data, children }: ShellProps) {
         specs={place.project ? data.specs : []}
         active={place.project ? data.active : undefined}
         onOpenNotifications={() => setNotificationsOpen(true)}
-        onOpenShortcuts={() => undefined}
+        onOpenShortcuts={() => setShortcutsOpen(true)}
       />
+      <ShortcutsDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
       <Drawer
         open={notificationsOpen}
         title={t("shell.notifications")}

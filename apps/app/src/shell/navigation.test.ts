@@ -1,5 +1,6 @@
 import {
   accountMode,
+  goTarget,
   isSelected,
   parsePlace,
   projectPath,
@@ -69,4 +70,22 @@ test("a sidebar item is selected for its screen and the screens below it", () =>
   expect(isSelected(parsePlace("/p/acme/demo/settings"), "")).toBe(false);
   expect(projectPath("acme", "demo")).toBe("/p/acme/demo");
   expect(projectPath("acme", "demo", "audit")).toBe("/p/acme/demo/audit");
+});
+
+test("a g-chord resolves to a screen of the current context", () => {
+  expect(goTarget("o", { org: "acme", project: "demo" })).toBe("/p/acme/demo");
+  expect(goTarget("e", { org: "acme", project: "demo" })).toBe("/p/acme/demo/active");
+  expect(goTarget("l", { org: "acme", project: "demo" })).toBe("/p/acme/demo/specs");
+  expect(goTarget("c", { org: "acme", project: "demo" })).toBe("/p/acme/demo/constitution");
+  expect(goTarget("a", { org: "acme", project: "demo" })).toBe("/p/acme/demo/activity");
+  expect(goTarget("m", { org: "acme", project: "demo" })).toBe("/p/acme/demo/members");
+  expect(goTarget("u", { org: "acme", project: "demo" })).toBe("/p/acme/demo/audit");
+  expect(goTarget("p", { org: "acme", project: "demo" })).toBe("/profile");
+  expect(goTarget("o", { org: "acme" })).toBe("/o/acme");
+  expect(goTarget("u", { org: "acme" })).toBe("/o/acme/audit");
+  expect(goTarget("m", { org: "acme" })).toBe("/o/acme/members");
+  expect(goTarget("e", { org: "acme" })).toBeUndefined();
+  expect(goTarget("p", {})).toBe("/profile");
+  expect(goTarget("o", {})).toBeUndefined();
+  expect(goTarget("x", { org: "acme", project: "demo" })).toBeUndefined();
 });

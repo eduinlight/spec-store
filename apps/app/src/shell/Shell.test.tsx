@@ -181,3 +181,42 @@ test("Ctrl+K and the header trigger open the palette and a result navigates", as
   await userEvent.keyboard("{Escape}");
   expect(screen.queryByRole("dialog", { name: "Command palette" })).not.toBeInTheDocument();
 });
+
+test("? lists the shortcuts, n opens the notifications and Escape closes them", async () => {
+  shellApi();
+  renderAt("/p/acme/demo/activity");
+  await screen.findByRole("heading", { name: "Activity" });
+  await userEvent.keyboard("?");
+  expect(screen.getByRole("dialog", { name: "Keyboard shortcuts" })).toBeInTheDocument();
+  await userEvent.keyboard("{Escape}");
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  await userEvent.keyboard("n");
+  expect(screen.getByRole("dialog", { name: "Notifications" })).toBeInTheDocument();
+  await userEvent.keyboard("{Escape}");
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Keyboard shortcuts" }));
+  expect(screen.getByRole("dialog", { name: "Keyboard shortcuts" })).toBeInTheDocument();
+});
+
+test("g chords jump to the screens of the project", async () => {
+  shellApi();
+  const { router } = renderAt("/p/acme/demo/activity");
+  await screen.findByRole("heading", { name: "Activity" });
+  await userEvent.keyboard("ge");
+  await waitFor(() => expect(router.state.location.pathname).toBe("/p/acme/demo/active"));
+  await userEvent.keyboard("gl");
+  await waitFor(() => expect(router.state.location.pathname).toBe("/p/acme/demo/specs"));
+  await userEvent.keyboard("gm");
+  await waitFor(() => expect(router.state.location.pathname).toBe("/p/acme/demo/members"));
+});
+
+test("shortcuts are ignored while typing in the palette search", async () => {
+  shellApi();
+  renderAt("/p/acme/demo/activity");
+  await screen.findByRole("heading", { name: "Activity" });
+  await userEvent.keyboard("{Control>}k{/Control}");
+  await userEvent.keyboard("n?");
+  expect(screen.getByRole("combobox")).toHaveValue("n?");
+  expect(screen.queryByRole("dialog", { name: "Notifications" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("dialog", { name: "Keyboard shortcuts" })).not.toBeInTheDocument();
+});

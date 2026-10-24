@@ -147,3 +147,24 @@ export const switchOrganizationPath = (pathname: string, org: string): string =>
   }
   return organizationPath(org);
 };
+
+export const goTarget = (
+  chord: string,
+  context: { org?: string; project?: string },
+): string | undefined => {
+  const { org, project } = context;
+  if (chord === "p") {
+    return PROFILE_PATH;
+  }
+  if (org && project) {
+    const entry = [...PROJECT_MAIN, ...PROJECT_SDD, ...PROJECT_SECTION].find(
+      (item) => item.chord === chord,
+    );
+    return entry ? projectPath(org, project, entry.section) : undefined;
+  }
+  if (org) {
+    const sections: Record<string, string> = { o: "", u: "audit", m: "members" };
+    return chord in sections ? organizationPath(org, sections[chord]) : undefined;
+  }
+  return undefined;
+};
