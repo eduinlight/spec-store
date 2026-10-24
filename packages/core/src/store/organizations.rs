@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 
@@ -20,6 +22,7 @@ pub struct OrganizationSummary {
   pub slug: String,
   pub name: String,
   pub role: Option<OrgRole>,
+  pub guest: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -69,6 +72,30 @@ pub fn readable_organization(
     return Err(not_found(organization));
   }
   Ok((organization_id, role))
+}
+
+pub fn visible_organization(
+  conn: &mut PgConnection,
+  caller: &Caller,
+  organization: &str,
+) -> StoreResult<(i64, Option<OrgRole>)> {
+  let organization_id =
+    organization_id_by_slug(conn, organization)?.ok_or_else(|| not_found(organization))?;
+  let role = org_role(conn, organization_id, caller.user_id)?;
+  if role.is_none() && !caller.is_operator && !is_guest_of(conn, organization_id, caller.user_id)? {
+    return Err(not_found(organization));
+  }
+  Ok((organization_id, role))
+}
+
+fn is_guest_of(conn: &mut PgConnection, organization_id: i64, user_id: i64) -> StoreResult<bool> {
+  let memberships_here: i64 = memberships::table
+    .inner_join(projects::table)
+    .filter(projects::organization_id.eq(organization_id))
+    .filter(memberships::user_id.eq(user_id))
+    .count()
+    .get_result(conn)?;
+  Ok(memberships_here > 0)
 }
 
 pub fn owned_organization(
@@ -161,6 +188,14 @@ impl Store {
 
   pub fn list_organizations(&self, caller: &Caller) -> StoreResult<Vec<OrganizationSummary>> {
     self.with_conn(|conn| {
+      let guest_of: HashSet<String> = memberships::table
+        .inner_join(projects::table.inner_join(organizations::table))
+        .filter(memberships::user_id.eq(caller.user_id))
+        .select(organizations::slug)
+        .distinct()
+        .load(conn)?
+        .into_iter()
+        .collect();
       let rows: Vec<(String, String, Option<String>)> = organizations::table
         .left_join(
           organization_members::table.on(
@@ -178,12 +213,14 @@ impl Store {
         .load(conn)?;
       rows
         .into_iter()
-        .filter(|(_, _, role)| role.is_some() || caller.is_operator)
+        .filter(|(slug, _, role)| role.is_some() || caller.is_operator || guest_of.contains(slug))
         .map(|(slug, name, role)| {
+          let role: Option<OrgRole> = role.map(|r| r.parse()).transpose()?;
           Ok(OrganizationSummary {
+            guest: role.is_none() && guest_of.contains(&slug),
             slug,
             name,
-            role: role.map(|r| r.parse()).transpose()?,
+            role,
           })
         })
         .collect()
@@ -192,7 +229,7 @@ impl Store {
 
   pub fn organization(&self, caller: &Caller, organization: &str) -> StoreResult<Organization> {
     self.with_conn(|conn| {
-      let (organization_id, _) = readable_organization(conn, caller, organization)?;
+      let (organization_id, _) = visible_organization(conn, caller, organization)?;
       let (id, slug, name, created_at) = organizations::table
         .filter(organizations::id.eq(organization_id))
         .select((

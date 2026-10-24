@@ -18,6 +18,7 @@ pub struct OrganizationOutput {
   pub slug: String,
   pub name: String,
   pub role: Option<String>,
+  pub guest: bool,
   pub created_at: String,
 }
 
@@ -26,6 +27,7 @@ pub struct OrganizationSummaryOutput {
   pub slug: String,
   pub name: String,
   pub role: Option<String>,
+  pub guest: bool,
 }
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
@@ -56,6 +58,7 @@ pub async fn create(
       slug: created.slug,
       name: created.name,
       role: Some("owner".into()),
+      guest: false,
       created_at: created.created_at,
     }),
   ))
@@ -83,6 +86,7 @@ pub async fn list(
         slug: o.slug,
         name: o.name,
         role: o.role.map(|r| r.as_str().to_string()),
+        guest: o.guest,
       })
       .collect(),
   }))
@@ -102,21 +106,23 @@ pub async fn read(
   Path(org): Path<String>,
 ) -> Result<Json<OrganizationOutput>, ApiError> {
   let caller = principal.caller;
-  let (organization, role) = state
+  let (organization, role, guest) = state
     .blocking(move |store| {
       let organization = store.organization(&caller, &org)?;
-      let role = store
+      let summary = store
         .list_organizations(&caller)?
         .into_iter()
-        .find(|o| o.slug == organization.slug)
-        .and_then(|o| o.role);
-      Ok((organization, role))
+        .find(|o| o.slug == organization.slug);
+      let role = summary.as_ref().and_then(|o| o.role);
+      let guest = summary.is_some_and(|o| o.guest);
+      Ok((organization, role, guest))
     })
     .await?;
   Ok(Json(OrganizationOutput {
     slug: organization.slug,
     name: organization.name,
     role: role.map(|r| r.as_str().to_string()),
+    guest,
     created_at: organization.created_at,
   }))
 }

@@ -4525,11 +4525,15 @@
         "required": [
           "slug",
           "name",
+          "guest",
           "created_at"
         ],
         "properties": {
           "created_at": {
             "type": "string"
+          },
+          "guest": {
+            "type": "boolean"
           },
           "name": {
             "type": "string"
@@ -4549,9 +4553,13 @@
         "type": "object",
         "required": [
           "slug",
-          "name"
+          "name",
+          "guest"
         ],
         "properties": {
+          "guest": {
+            "type": "boolean"
+          },
           "name": {
             "type": "string"
           },

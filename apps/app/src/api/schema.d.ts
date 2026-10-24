@@ -993,11 +993,13 @@ export interface components {
         };
         OrganizationOutput: {
             created_at: string;
+            guest: boolean;
             name: string;
             role?: string | null;
             slug: string;
         };
         OrganizationSummaryOutput: {
+            guest: boolean;
             name: string;
             role?: string | null;
             slug: string;

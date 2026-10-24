@@ -260,12 +260,12 @@ async fn run_org(client: &mut ApiClient, command: &OrgCommand) -> anyhow::Result
     OrgCommand::List => {
       let listed = client.get("/api/v1/orgs").await?;
       for org in items(&listed, "organizations") {
-        println!(
-          "{}\t{}\t{}",
-          text(&org["slug"]),
-          org["role"].as_str().unwrap_or("operator"),
-          text(&org["name"])
-        );
+        let role = match org["role"].as_str() {
+          Some(role) => role,
+          None if org["guest"].as_bool() == Some(true) => "guest",
+          None => "operator",
+        };
+        println!("{}\t{}\t{}", text(&org["slug"]), role, text(&org["name"]));
       }
     }
     OrgCommand::Members { org } => {

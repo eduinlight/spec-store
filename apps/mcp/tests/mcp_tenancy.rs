@@ -57,3 +57,42 @@ async fn an_agent_of_one_organization_sees_and_reaches_nothing_of_another() {
   assert_eq!(store.list_specs(&alice, "acme/web").unwrap().len(), 1);
   client.cancel().await.unwrap();
 }
+
+#[tokio::test]
+async fn a_guest_agent_lists_only_the_projects_it_was_invited_to() {
+  let mcp = common::start().await;
+  let store = &mcp.store;
+  let alice = common::person(store, "alice");
+  let gwen = common::person(store, "gwen");
+  store.create_organization(&alice, "acme", "Acme").unwrap();
+  store.create_project(&alice, "acme/web", "Web").unwrap();
+  store.create_project(&alice, "acme/api", "Api").unwrap();
+  let invited = store
+    .invite_to_project(
+      &alice,
+      "acme/web",
+      "gwen@example.com",
+      sdd_vault_core::model::Role::Editor,
+      "en",
+      "https://app.example.test/invitations",
+    )
+    .unwrap();
+  let sdd_vault_core::store::invitations::ProjectInvitation::Invited(invited) = invited else {
+    panic!("expected an invitation");
+  };
+  store
+    .accept_invitation(&gwen, &invited.token, true)
+    .unwrap();
+
+  let client = mcp.connect("gwen").await;
+  let projects = call(&client, "list_projects", json!({})).await.unwrap();
+  assert_eq!(
+    projects["projects"],
+    json!([{"slug": "acme/web", "name": "Web", "role": "editor"}])
+  );
+  let error = call(&client, "list_specs", json!({"project": "acme/api"}))
+    .await
+    .unwrap_err();
+  assert_eq!(kind(error), "not_found");
+  client.cancel().await.unwrap();
+}
