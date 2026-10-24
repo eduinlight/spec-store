@@ -31,7 +31,7 @@ uninstall:
 reinstall: uninstall install
 
 test-services: env
-	$(COMPOSE) up -d --wait postgres mailpit
+	$(COMPOSE) up -d --wait postgres mailpit redis
 
 test-sweep:
 	$(COMPOSE) exec -T postgres psql -U postgres -d postgres -tAc "SELECT datname FROM pg_database WHERE datname LIKE 'sdd\_vault\_test\_%' OR datname LIKE 'sdd\_vault\_tpl\_%'" | while read -r db; do \
