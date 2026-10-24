@@ -110,6 +110,7 @@ pub struct RevisionOutput {
   pub message: String,
   #[serde(skip_serializing_if = "Option::is_none")]
   pub version: Option<String>,
+  pub client: Option<String>,
 }
 
 impl From<RevisionMeta> for RevisionOutput {
@@ -120,6 +121,7 @@ impl From<RevisionMeta> for RevisionOutput {
       created_at: r.created_at,
       message: r.message,
       version: r.version,
+      client: r.client,
     }
   }
 }

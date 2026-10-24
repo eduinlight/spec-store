@@ -147,6 +147,7 @@ export const es: Translation = {
     author: "Autor",
     when: "Cuándo",
     message: "Mensaje",
+    client: "Cliente",
     current: "Actual",
     notCurrent: "Esta no es la revisión actual.",
     showCurrent: "Ver la revisión actual",
@@ -162,6 +163,14 @@ export const es: Translation = {
     when: "Cuándo",
     older: "Anteriores",
     newer: "Más recientes",
+    via: "Mediante",
+    origin: "Origen",
+    result: "Resultado",
+    results: {
+      ok: "Correcto",
+      denied: "Denegado",
+      conflict: "Conflicto",
+    },
   },
   profileView: {
     title: "Tu perfil",

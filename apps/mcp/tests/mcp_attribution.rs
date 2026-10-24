@@ -219,3 +219,45 @@ async fn a_denied_write_and_a_conflict_are_recorded_and_the_errors_stay_the_same
     Some(format!("expected r{first}, current r{}", first + 1))
   );
 }
+
+#[tokio::test]
+async fn revision_tools_return_the_client() {
+  let mcp = seeded(0).await;
+  let client = mcp.connect("editor").await;
+  let written = call_as(&client, "put_document", put("# S\n"), Some("Cursor"))
+    .await
+    .unwrap();
+  let id = written.structured_content.unwrap()["revision_id"]
+    .as_i64()
+    .unwrap();
+  let list = call(
+    &client,
+    "list_revisions",
+    json!({"project": "acme/demo", "number": 1, "kind": "spec"}),
+  )
+  .await
+  .unwrap()
+  .structured_content
+  .unwrap();
+  assert_eq!(list["revisions"][0]["client"], "Cursor");
+  let document = call(
+    &client,
+    "get_document",
+    json!({"project": "acme/demo", "number": 1, "kind": "spec"}),
+  )
+  .await
+  .unwrap()
+  .structured_content
+  .unwrap();
+  assert_eq!(document["revision"]["client"], "Cursor");
+  let revision = call(
+    &client,
+    "get_revision",
+    json!({"project": "acme/demo", "revision_id": id}),
+  )
+  .await
+  .unwrap()
+  .structured_content
+  .unwrap();
+  assert_eq!(revision["revision"]["client"], "Cursor");
+}

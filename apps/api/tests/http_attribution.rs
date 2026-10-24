@@ -9,7 +9,7 @@ use sdd_vault_api::ApiConfig;
 use sdd_vault_core::model::AuditResult;
 use sdd_vault_core::store::AuditEntry;
 use sdd_vault_testkit::TokenSpec;
-use serde_json::json;
+use serde_json::{Value, json};
 
 fn creating_organization(token: &str, slug: &str, forwarded_for: Option<&str>) -> Request<Body> {
   let mut request = Request::builder()
@@ -151,4 +151,97 @@ async fn browser_sessions_are_the_web_app() {
     .await;
   assert_eq!(response.status(), axum::http::StatusCode::CREATED);
   assert_eq!(first_entry(&app).client.as_deref(), Some("Web app"));
+}
+
+#[tokio::test]
+async fn audit_entries_carry_client_origin_result_and_detail_in_json() {
+  let app = common::app().await;
+  let response = app
+    .send(from_peer(
+      creating_organization(&token_for(&app, "sdd-vault-cli"), "acme", None),
+      "192.0.2.10:51234",
+    ))
+    .await;
+  assert_eq!(response.status(), axum::http::StatusCode::CREATED);
+  let page = common::body_json(
+    app
+      .authorized("GET", "/api/v1/orgs/acme/audit", "alice")
+      .await,
+  )
+  .await;
+  let entry = &page["entries"][0];
+  assert_eq!(entry["client"], "sddvault CLI");
+  assert_eq!(entry["origin"], "192.0.2.10");
+  assert_eq!(entry["result"], "ok");
+  assert_eq!(entry["detail"], Value::Null);
+}
+
+#[tokio::test]
+async fn refused_writes_appear_in_the_audit_json_as_denied() {
+  let app = common::app().await;
+  app.organization("alice", "acme").await;
+  app.admit("acme", "bob");
+  let denied = app
+    .json(
+      "POST",
+      "/api/v1/orgs/acme/projects",
+      "bob",
+      json!({"slug": "demo", "name": "Demo"}),
+    )
+    .await;
+  assert_eq!(denied.status(), axum::http::StatusCode::FORBIDDEN);
+  let page = common::body_json(
+    app
+      .authorized("GET", "/api/v1/orgs/acme/audit", "alice")
+      .await,
+  )
+  .await;
+  let entry = &page["entries"][0];
+  assert_eq!(entry["action"], "project.create");
+  assert_eq!(entry["result"], "denied");
+  assert_eq!(entry["actor"], "bob");
+  assert_eq!(entry["client"], "API client");
+}
+
+#[tokio::test]
+async fn revisions_carry_the_client_in_json() {
+  let app = common::app().await;
+  app.organization("alice", "acme").await;
+  app
+    .json(
+      "POST",
+      "/api/v1/orgs/acme/projects",
+      "alice",
+      json!({"slug": "demo", "name": "Demo"}),
+    )
+    .await;
+  let alice = app
+    .state
+    .store
+    .caller_by_handle("alice", false)
+    .unwrap()
+    .with_via(sdd_vault_core::model::Via::new("Cursor", None));
+  app
+    .state
+    .store
+    .put_constitution(&alice, "acme/demo", "# C\n", "1.0", "ratify", None)
+    .unwrap();
+  let history = common::body_json(
+    app
+      .authorized(
+        "GET",
+        "/api/v1/projects/acme/demo/revisions?kind=constitution",
+        "alice",
+      )
+      .await,
+  )
+  .await;
+  assert_eq!(history["revisions"][0]["client"], "Cursor");
+  let constitution = common::body_json(
+    app
+      .authorized("GET", "/api/v1/projects/acme/demo/constitution", "alice")
+      .await,
+  )
+  .await;
+  assert_eq!(constitution["revision"]["client"], "Cursor");
 }

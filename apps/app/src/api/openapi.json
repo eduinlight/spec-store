@@ -3166,7 +3166,8 @@
           "actor",
           "action",
           "target",
-          "created_at"
+          "created_at",
+          "result"
         ],
         "properties": {
           "action": {
@@ -3175,8 +3176,20 @@
           "actor": {
             "type": "string"
           },
+          "client": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "created_at": {
             "type": "string"
+          },
+          "detail": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "id": {
             "type": "integer",
@@ -3188,11 +3201,20 @@
               "null"
             ]
           },
+          "origin": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "project": {
             "type": [
               "string",
               "null"
             ]
+          },
+          "result": {
+            "type": "string"
           },
           "target": {
             "type": "string"
@@ -3756,6 +3778,12 @@
         "properties": {
           "author": {
             "type": "string"
+          },
+          "client": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "created_at": {
             "type": "string"
