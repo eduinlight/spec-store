@@ -4,11 +4,14 @@ pub mod invitations;
 pub mod organizations;
 pub mod outbox;
 pub mod projects;
+pub mod refusals;
 pub mod sessions;
 pub mod specs;
 pub mod tasks;
 pub mod transfer;
 pub mod users;
+
+use std::sync::Arc;
 
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
@@ -18,12 +21,14 @@ use crate::db::{self, DbPool};
 use crate::model::{AuditResult, Caller, StoreError, StoreResult, Via};
 use crate::schema::{self, iso_utc};
 use crate::store::projects::access_in;
+use crate::store::refusals::{PgRefusalRecorder, RefusalRecorder};
 
 pub const PING_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(2);
 
 #[derive(Clone)]
 pub struct Store {
   pool: DbPool,
+  recorder: Arc<dyn RefusalRecorder>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -49,7 +54,8 @@ pub struct AuditEntry {
 
 impl Store {
   pub fn new(pool: DbPool) -> Self {
-    Store { pool }
+    let recorder = PgRefusalRecorder::shared(pool.clone());
+    Store { pool, recorder }
   }
 
   pub fn open(url: &str) -> StoreResult<Self> {

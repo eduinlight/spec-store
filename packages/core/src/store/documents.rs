@@ -5,6 +5,7 @@ use diesel::prelude::*;
 use crate::model::{Caller, DocumentKind, SpecStatus, StoreError, StoreResult, validate_body};
 use crate::schema::{documents, iso_utc, revisions, specs, users};
 use crate::store::projects::access_in;
+use crate::store::refusals::Attempt;
 use crate::store::specs::spec_by_number;
 use crate::store::{Store, audit};
 
@@ -215,7 +216,9 @@ impl Store {
   ) -> StoreResult<i64> {
     reject_constitution_kind(kind)?;
     validate_body(body)?;
-    self.with_tx(|tx| {
+    let attempt = Attempt::project("document.put", project, format!("{number:03}/{kind}"))
+      .expecting(expected_revision);
+    self.audited(caller, attempt, |tx| {
       let access = access_in(tx, caller, project)?;
       if !access.can_write() {
         return Err(StoreError::Forbidden);
@@ -253,7 +256,9 @@ impl Store {
     expected_revision: Option<i64>,
   ) -> StoreResult<i64> {
     validate_body(body)?;
-    self.with_tx(|tx| {
+    let attempt = Attempt::project("constitution.put", project, format!("v{version}"))
+      .expecting(expected_revision);
+    self.audited(caller, attempt, |tx| {
       let access = access_in(tx, caller, project)?;
       if !access.is_owner() {
         return Err(StoreError::Forbidden);

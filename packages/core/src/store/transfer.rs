@@ -5,6 +5,7 @@ use crate::model::{Caller, DocumentKind, SpecStatus, StoreError, StoreResult};
 use crate::schema::specs;
 use crate::store::documents::{append_revision, current_revision, document_id, ensure_document};
 use crate::store::projects::access_in;
+use crate::store::refusals::Attempt;
 use crate::store::specs::{branch_name, spec_by_number, spec_rows_in};
 use crate::store::{Store, audit};
 use crate::tree::{
@@ -93,7 +94,8 @@ impl Store {
     tree: &ProjectTree,
     options: &ImportOptions,
   ) -> StoreResult<ImportReport> {
-    self.with_tx(|tx| {
+    let attempt = Attempt::project("project.import", project, project);
+    self.audited(caller, attempt, |tx| {
       let access = access_in(tx, caller, project)?;
       if !access.is_owner() {
         return Err(StoreError::Forbidden);

@@ -3,6 +3,7 @@ use diesel::prelude::*;
 
 use crate::model::{AuditResult, Caller, OrgRole, StoreError, StoreResult, Via, validate_slug};
 use crate::schema::{iso_utc, memberships, organization_members, organizations, projects, users};
+use crate::store::refusals::Attempt;
 use crate::store::users::user_id_by_handle;
 use crate::store::{NewAudit, Store, audit_in, insert_audit};
 
@@ -257,7 +258,12 @@ impl Store {
     handle: &str,
     role: OrgRole,
   ) -> StoreResult<()> {
-    self.with_tx(|tx| {
+    let attempt = Attempt::organization(
+      "organization.member.set",
+      organization,
+      format!("{handle}:{role}"),
+    );
+    self.audited(actor, attempt, |tx| {
       let organization_id = owned_organization(tx, actor, organization)?;
       lock_organization(tx, organization_id)?;
       let (user_id, current) = member_role(tx, organization_id, organization, handle)?;
@@ -291,7 +297,8 @@ impl Store {
     organization: &str,
     handle: &str,
   ) -> StoreResult<()> {
-    self.with_tx(|tx| {
+    let attempt = Attempt::organization("organization.member.remove", organization, handle);
+    self.audited(actor, attempt, |tx| {
       let (organization_id, actor_role) = readable_organization(tx, actor, organization)?;
       let leaving = actor.handle == handle && actor_role.is_some();
       if actor_role != Some(OrgRole::Owner) && !leaving {

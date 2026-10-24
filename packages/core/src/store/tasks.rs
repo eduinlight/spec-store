@@ -10,6 +10,7 @@ use crate::schema::specs;
 use crate::store::documents::{append_revision, current_revision, document_id};
 use crate::store::projects::access_in;
 use crate::store::projects::visible_projects;
+use crate::store::refusals::Attempt;
 use crate::store::specs::{SpecRow, SpecSummary, active_spec_in, list_specs_in, spec_by_number};
 use crate::store::{Store, audit};
 
@@ -209,7 +210,8 @@ impl Store {
     commit: &str,
   ) -> StoreResult<MarkedTask> {
     validate_commit(commit)?;
-    self.with_tx(|tx| {
+    let attempt = Attempt::project("task.done", project, format!("{number:03}/{task_id}"));
+    self.audited(caller, attempt, |tx| {
       let access = access_in(tx, caller, project)?;
       if !access.can_write() {
         return Err(StoreError::Forbidden);
