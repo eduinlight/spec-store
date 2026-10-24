@@ -1,7 +1,9 @@
-import { Card } from "@workspace/ui/components/card";
+import { Button, Tabs, type TabsKey } from "@workspace/ui/taptap";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, type LoaderFunctionArgs, useLoaderData } from "react-router";
+import { type LoaderFunctionArgs, useLoaderData, useNavigate } from "react-router";
 import { api, unwrap } from "~/api/client";
+import { ProjectCard, type ProjectSummary } from "~/components/project-card";
 import { guard } from "~/lib/session";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
@@ -15,58 +17,62 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   });
 }
 
+export type ProjectFilter = "mine" | "all" | "archived";
+
+const FILTERS: ProjectFilter[] = ["mine", "all", "archived"];
+
+const FILTER_RULES: Record<ProjectFilter, (project: ProjectSummary) => boolean> = {
+  mine: (project) => !project.archived && Boolean(project.role),
+  all: (project) => !project.archived,
+  archived: (project) => project.archived,
+};
+
 export function Organization() {
   const { organization, projects } = useLoaderData() as Awaited<ReturnType<typeof loader>>;
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const [filter, setFilter] = useState<ProjectFilter>("mine");
   const owner = organization.role === "owner";
+  const visible = projects.filter(FILTER_RULES[filter]);
+  const base = `/o/${organization.slug}/projects/new`;
   return (
-    <div className="grid gap-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">{organization.name}</h1>
-          <p className="text-sm text-muted-foreground">{organization.slug}</p>
-        </div>
-        <nav className="flex gap-4 text-sm">
-          <Link to={`/o/${organization.slug}/members`} className="hover:underline">
-            {t("organization.members")}
-          </Link>
-          {owner && (
-            <>
-              <Link to={`/o/${organization.slug}/invitations`} className="hover:underline">
-                {t("organization.invitations")}
-              </Link>
-              <Link to={`/o/${organization.slug}/audit`} className="hover:underline">
-                {t("organization.audit")}
-              </Link>
-              <Link to={`/o/${organization.slug}/projects/new`} className="hover:underline">
-                {t("organization.newProject")}
-              </Link>
-            </>
-          )}
-        </nav>
-      </div>
-      <Card>
-        <h2 className="text-lg font-semibold">{t("organization.projects")}</h2>
-        {projects.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t("organization.noProjects")}</p>
-        ) : (
-          <ul className="divide-y">
-            {projects.map((project) => (
-              <li key={project.address} className="flex items-center justify-between py-3">
-                <Link
-                  to={`/p/${project.address}`}
-                  className="font-medium text-primary hover:underline"
-                >
-                  {project.name}
-                </Link>
-                <span className="text-sm text-muted-foreground">
-                  {project.role ?? t("app.operator")}
-                </span>
-              </li>
-            ))}
-          </ul>
+    <div className="mx-auto flex max-w-[1280px] flex-col gap-4">
+      <div className="flex flex-wrap items-center gap-3 pt-2">
+        <h1 className="m-0 flex-1 text-2xl font-medium leading-8">{t("home.title")}</h1>
+        <Tabs
+          type="card"
+          items={FILTERS.map((value) => ({ value, label: t(`home.filters.${value}`) }))}
+          value={filter}
+          onChange={(value: TabsKey) => setFilter(value as ProjectFilter)}
+        />
+        {owner && (
+          <>
+            <Button variant="outline" onClick={() => navigate(`${base}?start=import`)}>
+              {t("home.importTree")}
+            </Button>
+            <Button onClick={() => navigate(base)}>{t("home.createProject")}</Button>
+          </>
         )}
-      </Card>
+      </div>
+      {visible.length > 0 ? (
+        <ul
+          aria-label={t("home.list")}
+          className="m-0 grid list-none gap-4 p-0 [grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr))]"
+        >
+          {visible.map((project) => (
+            <li key={project.address}>
+              <ProjectCard project={project} />
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="flex flex-col items-center gap-2 rounded bg-white px-6 py-16 text-center">
+          <span className="text-base font-medium leading-6">{t(`home.empty.${filter}.title`)}</span>
+          <span className="text-[13px] text-[var(--neutral-500)]">
+            {t(`home.empty.${filter}.body`)}
+          </span>
+        </div>
+      )}
     </div>
   );
 }

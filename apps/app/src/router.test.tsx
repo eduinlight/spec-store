@@ -2,7 +2,7 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach } from "vitest";
 import { json, mockApi } from "~/test/api";
-import { acme, demoProject, me } from "~/test/fixtures";
+import { acme, me, summary } from "~/test/fixtures";
 import { renderAt } from "~/test/render";
 import { requireSession } from "./lib/session";
 
@@ -52,7 +52,7 @@ test("a person without organizations sees the onboarding form and their invitati
     "GET /api/v1/orgs/{org}": () => ({ ...acme, created_at: "2026-10-22T10:00:00.000Z" }),
     "GET /api/v1/orgs/{org}/projects": () => ({ projects: [] }),
   });
-  renderAt("/");
+  const { router } = renderAt("/");
   expect(await screen.findByRole("heading", { name: "Welcome to SDD Vault" })).toBeInTheDocument();
   expect(screen.getByText("Beta Inc")).toBeInTheDocument();
   expect(screen.getByText("Invited by bob")).toBeInTheDocument();
@@ -66,7 +66,8 @@ test("a person without organizations sees the onboarding form and their invitati
     slug: "acme",
     name: "Acme Labs",
   });
-  expect(await screen.findByRole("heading", { name: "Acme Labs" })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Projects" })).toBeInTheDocument();
+  expect(router.state.location.pathname).toBe("/o/acme");
 });
 
 test("a member lands on an organization, sees its projects and can switch organizations", async () => {
@@ -86,15 +87,18 @@ test("a member lands on an organization, sees its projects and can switch organi
           },
     "GET /api/v1/orgs/{org}/projects": (_r, p) =>
       p.org === "acme"
-        ? { projects: [demoProject] }
-        : { projects: [{ address: "beta/site", slug: "site", name: "Site", role: "reader" }] },
+        ? { projects: [summary()] }
+        : {
+            projects: [
+              summary({ address: "beta/site", slug: "site", name: "Site", role: "reader" }),
+            ],
+          },
   });
   const { router } = renderAt("/");
-  expect(await screen.findByRole("heading", { name: "Acme Labs" })).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Demo" })).toHaveAttribute("href", "/p/acme/demo");
+  expect(await screen.findByRole("heading", { name: "Projects" })).toBeInTheDocument();
+  expect(await screen.findByRole("link", { name: /Demo/ })).toHaveAttribute("href", "/p/acme/demo");
   await userEvent.click(screen.getByRole("button", { name: "Organization" }));
   await userEvent.click(screen.getByRole("option", { name: /Beta Inc/ }));
-  expect(await screen.findByRole("heading", { name: "Beta Inc" })).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Site" })).toBeInTheDocument();
+  expect(await screen.findByRole("link", { name: /Site/ })).toHaveAttribute("href", "/p/beta/site");
   expect(router.state.location.pathname).toBe("/o/beta");
 });
