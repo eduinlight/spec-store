@@ -13,5 +13,5 @@ Plan: `specs/007-design-system/plan.md` · Date: 2026-10-24
 - [x] T06 [P] (FR-3, FR-7) Table, Alert, Message, Dialog, Drawer, BarChart, ChartLegend with tests — Done when: tests green
 
 ## Phase 3 — Patterns
-- [ ] T07 (FR-6, FR-7) Combobox, FacetedFilter, DataTable, SpecCard, SidebarItem, Kbd with tests — Done when: tests green
+- [x] T07 (FR-6, FR-7) Combobox, FacetedFilter, DataTable, SpecCard, SidebarItem, Kbd with tests — Done when: tests green
 - [ ] T08 (FR-1 to FR-7) Exports, gate (`make fmt-check lint test e2e`), browser check of app, landing and Keycloak, `validation.md` — Done when: gate green
