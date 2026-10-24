@@ -20,6 +20,7 @@ use diesel::prelude::*;
 
 use crate::address::ProjectRef;
 use crate::db::{self, DbPool};
+use crate::events::{self, EventPublisher, NoopPublisher, ProjectEvent};
 use crate::model::{AuditResult, Caller, StoreError, StoreResult, Via};
 use crate::schema::{self, iso_utc};
 use crate::store::projects::access_in;
@@ -31,6 +32,7 @@ pub const PING_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(2);
 pub struct Store {
   pool: DbPool,
   recorder: Arc<dyn RefusalRecorder>,
+  publisher: Arc<dyn EventPublisher>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -57,7 +59,27 @@ pub struct AuditEntry {
 impl Store {
   pub fn new(pool: DbPool) -> Self {
     let recorder = PgRefusalRecorder::shared(pool.clone());
-    Store { pool, recorder }
+    Store {
+      pool,
+      recorder,
+      publisher: Arc::new(NoopPublisher),
+    }
+  }
+
+  /// Replaces the publisher that announces committed audit entries; the default drops them.
+  pub fn with_publisher(mut self, publisher: Arc<dyn EventPublisher>) -> Store {
+    self.publisher = publisher;
+    self
+  }
+
+  pub fn publisher(&self) -> Arc<dyn EventPublisher> {
+    self.publisher.clone()
+  }
+
+  pub(crate) fn publish_pending(&self) {
+    for event in events::take_pending() {
+      self.publisher.publish(&event);
+    }
   }
 
   pub fn open(url: &str) -> StoreResult<Self> {
@@ -77,9 +99,17 @@ impl Store {
   }
 
   pub fn with_tx<T>(&self, f: impl FnOnce(&mut PgConnection) -> StoreResult<T>) -> StoreResult<T> {
-    let mut pooled = self.pool.get()?;
-    let conn: &mut PgConnection = &mut pooled;
-    conn.transaction(f)
+    events::discard_pending();
+    let outcome = {
+      let mut pooled = self.pool.get()?;
+      let conn: &mut PgConnection = &mut pooled;
+      conn.transaction(f)
+    };
+    match &outcome {
+      Ok(_) => self.publish_pending(),
+      Err(_) => events::discard_pending(),
+    }
+    outcome
   }
 
   pub fn ping(&self) -> StoreResult<()> {
@@ -281,7 +311,7 @@ pub(crate) struct NewAudit<'a> {
 }
 
 pub(crate) fn insert_audit(conn: &mut PgConnection, entry: NewAudit<'_>) -> StoreResult<()> {
-  diesel::insert_into(schema::audit_log::table)
+  let audit_id: i64 = diesel::insert_into(schema::audit_log::table)
     .values((
       schema::audit_log::actor_id.eq(entry.actor_id),
       schema::audit_log::organization_id.eq(entry.organization_id),
@@ -293,7 +323,27 @@ pub(crate) fn insert_audit(conn: &mut PgConnection, entry: NewAudit<'_>) -> Stor
       schema::audit_log::result.eq(entry.result.as_str()),
       schema::audit_log::detail.eq(entry.detail),
     ))
-    .execute(conn)?;
+    .returning(schema::audit_log::id)
+    .get_result(conn)?;
+  if let Some(project_id) = entry.project_id {
+    let (organization_id, organization, project): (i64, String, String) = schema::projects::table
+      .inner_join(schema::organizations::table)
+      .filter(schema::projects::id.eq(project_id))
+      .select((
+        schema::organizations::id,
+        schema::organizations::slug,
+        schema::projects::slug,
+      ))
+      .first(conn)?;
+    events::defer(ProjectEvent {
+      project_id,
+      organization_id,
+      project_address: format!("{organization}/{project}"),
+      audit_id,
+      action: entry.action.to_string(),
+      result: entry.result,
+    });
+  }
   Ok(())
 }
 

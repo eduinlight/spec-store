@@ -151,6 +151,7 @@ impl Store {
         "could not record a refused write"
       );
     }
+    self.publish_pending();
     outcome
   }
 }

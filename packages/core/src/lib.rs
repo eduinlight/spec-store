@@ -5,6 +5,7 @@ pub mod crypto;
 pub mod db;
 pub mod diff;
 pub mod email;
+pub mod events;
 pub mod identity;
 pub mod keycloak;
 pub mod markdown;
