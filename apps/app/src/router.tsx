@@ -9,9 +9,9 @@ import * as invitations from "~/routes/invitations";
 import * as members from "~/routes/members";
 import * as onboarding from "~/routes/onboarding";
 import * as organization from "~/routes/organization";
+import * as overview from "~/routes/overview";
 import * as placeholders from "~/routes/placeholder";
 import * as profile from "~/routes/profile";
-import * as project from "~/routes/project";
 import * as projectSettings from "~/routes/project-settings";
 import * as revision from "~/routes/revision";
 import * as root from "~/routes/root";
@@ -86,7 +86,7 @@ export const routes: RouteObject[] = [
             action: projectSettings.action,
             Component: projectSettings.ProjectSettings,
           },
-          { path: "p/:org/:project", loader: project.loader, Component: project.Project },
+          { path: "p/:org/:project", loader: overview.loader, Component: overview.Overview },
           {
             path: "p/:org/:project/constitution",
             loader: constitution.loader,

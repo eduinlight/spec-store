@@ -2,7 +2,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach } from "vitest";
 import { json, mockApi } from "~/test/api";
-import { acme, me } from "~/test/fixtures";
+import { acme, me, viewRoutes } from "~/test/fixtures";
 import { renderAt } from "~/test/render";
 
 afterEach(() => {
@@ -225,6 +225,7 @@ test("no screen offers to write specs, documents, statuses or the constitution",
       active: null,
     }),
     "GET /api/v1/projects/{org}/{project}/members": () => ({ members: [] }),
+    ...viewRoutes(),
   });
   renderAt("/p/acme/demo");
   expect(await screen.findByRole("heading", { name: "Demo" })).toBeInTheDocument();
