@@ -176,65 +176,66 @@ export function Audit() {
           {ids.length > 0 ? t("audit.exportSelected", { count: ids.length }) : t("audit.export")}
         </Button>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <Input
-          aria-label={t("audit.filterLabel")}
-          placeholder={t("audit.filterPlaceholder")}
-          value={text}
-          allowClear
-          prefix={<Icon name="Search" size={16} />}
-          onChange={type}
-          style={{ width: 280 }}
-        />
-        <FacetedFilter
-          label={t("audit.actor")}
-          searchPlaceholder={t("audit.searchFacet", { facet: t("audit.actor") })}
-          options={facetOptions(facets.actors, view.actors)}
-          value={view.actors}
-          onChange={(actors) => update({ actors })}
-          {...shared}
-        />
-        <FacetedFilter
-          label={t("audit.via")}
-          searchPlaceholder={t("audit.searchFacet", { facet: t("audit.via") })}
-          options={facetOptions(facets.clients, view.clients)}
-          value={view.clients}
-          onChange={(clients) => update({ clients })}
-          {...shared}
-        />
-        <FacetedFilter
-          label={t("audit.action")}
-          searchPlaceholder={t("audit.searchFacet", { facet: t("audit.action") })}
-          options={facetOptions(facets.actions, view.actions, undefined, true)}
-          value={view.actions}
-          onChange={(actions) => update({ actions })}
-          {...shared}
-        />
-        <FacetedFilter
-          label={t("audit.result")}
-          searchPlaceholder={t("audit.searchFacet", { facet: t("audit.result") })}
-          options={facetOptions(facets.results, view.results, resultLabel)}
-          value={view.results}
-          onChange={(results) => update({ results })}
-          {...shared}
-        />
-        <FacetedFilter
-          label={t("audit.period")}
-          searchPlaceholder={t("audit.searchFacet", { facet: t("audit.period") })}
-          options={PERIODS.map((value) => ({ value, label: periodLabel(value) }))}
-          value={view.period === "all" ? [] : [view.period]}
-          onChange={(next) =>
-            update({ period: (next.find((value) => value !== view.period) as Period) ?? "all" })
-          }
-          {...shared}
-        />
-        {isFiltered(view) ? (
-          <Button variant="ghost" onClick={reset} rightIcon={<Icon name="Close" size={16} />}>
-            {t("audit.reset")}
-          </Button>
-        ) : null}
-        <span className="flex-1" />
-        <div ref={menuRef}>
+      <div className="flex items-start gap-2">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+          <Input
+            aria-label={t("audit.filterLabel")}
+            placeholder={t("audit.filterPlaceholder")}
+            value={text}
+            allowClear
+            prefix={<Icon name="Search" size={16} />}
+            onChange={type}
+            style={{ width: 280 }}
+          />
+          <FacetedFilter
+            label={t("audit.actor")}
+            searchPlaceholder={t("audit.searchFacet", { facet: t("audit.actor") })}
+            options={facetOptions(facets.actors, view.actors)}
+            value={view.actors}
+            onChange={(actors) => update({ actors })}
+            {...shared}
+          />
+          <FacetedFilter
+            label={t("audit.via")}
+            searchPlaceholder={t("audit.searchFacet", { facet: t("audit.via") })}
+            options={facetOptions(facets.clients, view.clients)}
+            value={view.clients}
+            onChange={(clients) => update({ clients })}
+            {...shared}
+          />
+          <FacetedFilter
+            label={t("audit.action")}
+            searchPlaceholder={t("audit.searchFacet", { facet: t("audit.action") })}
+            options={facetOptions(facets.actions, view.actions, undefined, true)}
+            value={view.actions}
+            onChange={(actions) => update({ actions })}
+            {...shared}
+          />
+          <FacetedFilter
+            label={t("audit.result")}
+            searchPlaceholder={t("audit.searchFacet", { facet: t("audit.result") })}
+            options={facetOptions(facets.results, view.results, resultLabel)}
+            value={view.results}
+            onChange={(results) => update({ results })}
+            {...shared}
+          />
+          <FacetedFilter
+            label={t("audit.period")}
+            searchPlaceholder={t("audit.searchFacet", { facet: t("audit.period") })}
+            options={PERIODS.map((value) => ({ value, label: periodLabel(value) }))}
+            value={view.period === "all" ? [] : [view.period]}
+            onChange={(next) =>
+              update({ period: (next.find((value) => value !== view.period) as Period) ?? "all" })
+            }
+            {...shared}
+          />
+          {isFiltered(view) ? (
+            <Button variant="ghost" onClick={reset} rightIcon={<Icon name="Close" size={16} />}>
+              {t("audit.reset")}
+            </Button>
+          ) : null}
+        </div>
+        <div ref={menuRef} className="flex-none">
           <ColumnMenu
             hidden={hidden}
             onChange={setHidden}
