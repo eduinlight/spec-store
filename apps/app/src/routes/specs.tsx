@@ -93,7 +93,7 @@ export function Specs() {
             setLimit(PAGE_SIZE);
           }}
           allowClear
-          style={{ width: 280 }}
+          style={{ width: 260 }}
         />
         <div className="flex flex-wrap gap-1.5">
           {STATUS_FILTERS.map((filter) => (
@@ -112,7 +112,7 @@ export function Specs() {
         <div className="flex-1" />
         <Select
           aria-label={t("specs.sortLabel")}
-          width={200}
+          width={180}
           value={sort}
           options={SORTS.map((value) => ({ value, label: t(`specs.sorts.${value}`) }))}
           onChange={(value: SelectValue) => {

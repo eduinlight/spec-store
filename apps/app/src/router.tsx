@@ -1,7 +1,7 @@
 import type { RouteObject } from "react-router";
 import * as audit from "~/routes/audit";
+import * as constitution from "~/routes/constitution";
 import * as diff from "~/routes/diff";
-import * as document from "~/routes/document";
 import * as history from "~/routes/history";
 import * as home from "~/routes/home";
 import * as invitationAccept from "~/routes/invitation-accept";
@@ -89,8 +89,8 @@ export const routes: RouteObject[] = [
           { path: "p/:org/:project", loader: project.loader, Component: project.Project },
           {
             path: "p/:org/:project/constitution",
-            loader: document.loader,
-            Component: document.Document,
+            loader: constitution.loader,
+            Component: constitution.Constitution,
           },
           {
             id: "spec",

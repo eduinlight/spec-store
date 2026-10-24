@@ -61,7 +61,7 @@ export function SpecTraceability() {
     {
       key: "text",
       title: t("spec.trace.columns.text"),
-      maxWidth: 360,
+      maxWidth: 320,
       render: (_, row) => (
         <Tooltip title={row.requirement.text} placement="right">
           <span className="cursor-help">{row.requirement.text}</span>
@@ -71,8 +71,9 @@ export function SpecTraceability() {
     {
       key: "tasks",
       title: t("spec.trace.columns.tasks"),
+      width: 150,
       render: (_, row) => (
-        <span className="flex flex-wrap gap-1">
+        <span className="flex flex-wrap gap-1 whitespace-normal">
           {row.requirement.tasks.map((task) => (
             <Tooltip
               key={task.id}

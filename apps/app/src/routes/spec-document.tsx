@@ -140,6 +140,10 @@ function Readiness({ readiness }: { readiness: DocumentData["readiness"] }) {
 
 export function SpecDocument() {
   const data = useLoaderData() as DocumentData;
+  return <DocumentPanel key={data.kind} data={data} />;
+}
+
+function DocumentPanel({ data }: { data: DocumentData }) {
   const { document, kind, readiness, revisions, requirements } = data;
   const { t } = useTranslation();
   const date = useDate();

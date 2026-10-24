@@ -384,6 +384,22 @@ export const es: Translation = {
     more: "Cargar {{count}} más",
     questionsTip: "Respóndelas antes de que la spec pueda aclararse",
   },
+  constitution: {
+    kicker: "{{project}} · Constitución",
+    version: "v{{version}}",
+    ratified: "Ratificada {{date}}",
+    amended: "Enmendada {{date}} por {{author}}",
+    lockOwner: "Eres propietario. Las enmiendas crean una versión nueva.",
+    lockLocked: "Bloqueada. Solo los propietarios del proyecto pueden enmendar la constitución.",
+    noneTitle: "Todavía no hay constitución",
+    noneBody: "Cuando un propietario o un agente la escriba, sus principios aparecerán aquí.",
+    principles: "Principios",
+    history: "Historial de versiones",
+    fullHistory: "Historial completo",
+    revision: "r{{n}}",
+    by: "{{author}}",
+    via: "vía {{client}}",
+  },
   spec: {
     status: "Estado",
     statuses: {
@@ -478,8 +494,8 @@ export const es: Translation = {
       help: "Cada requisito debe corresponder al menos a una tarea antes de la aprobación",
       none: "Esta spec todavía no tiene requisitos.",
       columns: {
-        fr: "Requisito",
-        text: "Descripción",
+        fr: "FR",
+        text: "Requisito",
         tasks: "Tareas",
         done: "Hechas",
         commits: "Commits",

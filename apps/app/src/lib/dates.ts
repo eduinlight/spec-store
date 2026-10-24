@@ -21,3 +21,7 @@ export function formatDate(iso: string, language: Language, now: Date = new Date
 export function formatMonth(iso: string, language: Language): string {
   return dayjs(iso).locale(language).format("MMM YYYY");
 }
+
+export function formatDay(iso: string, language: Language): string {
+  return dayjs(iso).locale(language).format("LL");
+}

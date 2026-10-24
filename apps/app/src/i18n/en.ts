@@ -377,6 +377,22 @@ export const en = {
     more: "Load {{count}} more",
     questionsTip: "Answer these before the spec can be clarified",
   },
+  constitution: {
+    kicker: "{{project}} · Constitution",
+    version: "v{{version}}",
+    ratified: "Ratified {{date}}",
+    amended: "Amended {{date}} by {{author}}",
+    lockOwner: "You are an owner. Amendments create a new version.",
+    lockLocked: "Locked. Only project owners can amend the constitution.",
+    noneTitle: "No constitution yet",
+    noneBody: "Once an owner or an agent writes it, its principles show here.",
+    principles: "Principles",
+    history: "Version history",
+    fullHistory: "Full history",
+    revision: "r{{n}}",
+    by: "{{author}}",
+    via: "via {{client}}",
+  },
   spec: {
     status: "Status",
     statuses: {
@@ -471,8 +487,8 @@ export const en = {
       help: "Every requirement must map to at least one task before approval",
       none: "This spec has no requirements yet.",
       columns: {
-        fr: "Requirement",
-        text: "Description",
+        fr: "FR",
+        text: "Requirement",
         tasks: "Tasks",
         done: "Done",
         commits: "Commits",

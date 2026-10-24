@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { formatDate, formatMonth } from "./dates";
+import { formatDate, formatDay, formatMonth } from "./dates";
 import type { Language } from "./language";
 
 export function useDate() {
@@ -12,6 +12,12 @@ export function useMonth() {
   const { i18n } = useTranslation();
   const language = (i18n.language === "es" ? "es" : "en") as Language;
   return (iso: string) => formatMonth(iso, language);
+}
+
+export function useDay() {
+  const { i18n } = useTranslation();
+  const language = (i18n.language === "es" ? "es" : "en") as Language;
+  return (iso: string) => formatDay(iso, language);
 }
 
 export const specNumber = (number: number): string => String(number).padStart(3, "0");
