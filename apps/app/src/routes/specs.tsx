@@ -6,6 +6,8 @@ import { type LoaderFunctionArgs, useLoaderData, useNavigate, useParams } from "
 import { api, unwrap } from "~/api/client";
 import { SPEC_KINDS, specNumber, useDate, useMonth } from "~/lib/format";
 import { guard } from "~/lib/session";
+import { specCardLabelsEN } from "~/lib/spec-card-labels.en";
+import { specCardLabelsES } from "~/lib/spec-card-labels.es";
 import {
   activeNumber,
   countByStatus,
@@ -46,7 +48,7 @@ export function isPlainClick(event: MouseEvent<HTMLElement>): boolean {
 
 export function Specs() {
   const { project, specs } = useLoaderData() as Awaited<ReturnType<typeof loader>>;
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const date = useDate();
   const month = useMonth();
   const navigate = useNavigate();
@@ -157,6 +159,7 @@ export function Specs() {
                   tasksTotal={card.tasks_total}
                   openQuestions={card.open_markers}
                   openQuestionsTip={t("specs.questionsTip")}
+                  labels={i18n.language.startsWith("es") ? specCardLabelsES : specCardLabelsEN}
                   archived={card.status === "archived"}
                   accent={
                     card.status === "draft"
