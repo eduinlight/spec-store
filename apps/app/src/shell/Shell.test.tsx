@@ -220,3 +220,53 @@ test("shortcuts are ignored while typing in the palette search", async () => {
   expect(screen.queryByRole("dialog", { name: "Notifications" })).not.toBeInTheDocument();
   expect(screen.queryByRole("dialog", { name: "Keyboard shortcuts" })).not.toBeInTheDocument();
 });
+
+test("the header menu opens the sidebar in a drawer that closes after navigating", async () => {
+  shellApi();
+  const { router } = renderAt("/p/acme/demo/activity");
+  await screen.findByRole("heading", { name: "Activity" });
+  await userEvent.click(screen.getByRole("button", { name: "Open menu" }));
+  const drawer = screen.getByRole("dialog");
+  const nav = within(drawer).getByRole("navigation", { name: "Main navigation" });
+  expect(within(nav).getByRole("link", { name: "Activity" })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+  expect(within(drawer).getByRole("button", { name: "User menu" })).toBeInTheDocument();
+  await userEvent.click(within(nav).getByRole("link", { name: "Settings" }));
+  expect(router.state.location.pathname).toBe("/p/acme/demo/settings");
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+});
+
+test("the drawer lists the organizations so they can be switched on a phone", async () => {
+  shellApi({
+    "GET /api/v1/orgs/{org}": () => ({ ...acme, created_at: "2026-10-01T10:00:00.000Z" }),
+    "GET /api/v1/orgs/{org}/projects": () => ({ projects: [] }),
+  });
+  const { router } = renderAt("/p/acme/demo/activity");
+  await screen.findByRole("heading", { name: "Activity" });
+  await userEvent.click(screen.getByRole("button", { name: "Open menu" }));
+  const drawer = screen.getByRole("dialog");
+  const organizations = within(drawer).getByRole("group", { name: "Organizations" });
+  expect(within(organizations).getByRole("link", { name: "Acme Labs" })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+  await userEvent.click(within(organizations).getByRole("link", { name: "Beta Inc" }));
+  await waitFor(() => expect(router.state.location.pathname).toBe("/o/beta"));
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+});
+
+test("the shell renders in Spanish", async () => {
+  shellApi();
+  renderAt("/p/acme/demo/activity", "es");
+  expect(await screen.findByRole("heading", { level: 1, name: "Actividad" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Organización" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Proyecto" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Buscar o ir a…" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Atajos de teclado" })).toBeInTheDocument();
+  const nav = screen.getByRole("navigation", { name: "Navegación principal" });
+  expect(within(nav).getByRole("link", { name: "Specs activas" })).toBeInTheDocument();
+  await userEvent.keyboard("n");
+  expect(screen.getByText("No tienes nada pendiente.")).toBeInTheDocument();
+});

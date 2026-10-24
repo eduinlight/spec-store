@@ -1,4 +1,4 @@
-import { Drawer, Icon } from "@workspace/ui/taptap";
+import { Drawer, Icon, MessageHost, message } from "@workspace/ui/taptap";
 import { type ReactNode, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router";
@@ -6,7 +6,8 @@ import type { Language } from "~/lib/language";
 import { CommandPalette } from "./CommandPalette";
 import type { ShellData } from "./data";
 import { Header } from "./Header";
-import { accountMode, goTarget, parsePlace } from "./navigation";
+import { accountMode, goTarget, parsePlace, switchOrganizationPath } from "./navigation";
+import { OrganizationList } from "./OrganizationList";
 import { specLabel } from "./platform";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import { Sidebar } from "./Sidebar";
@@ -123,7 +124,11 @@ export function Shell({ data, children }: ShellProps) {
         person={data.person}
         organization={organization}
         language={i18n.language}
-        onLanguage={(language: Language) => void changeLanguage(i18n, language)}
+        onLanguage={(language: Language) =>
+          void changeLanguage(i18n, language).then(() =>
+            message.success(i18n.t("toast.languageChanged")),
+          )
+        }
         onSignOut={() => void signOut()}
         onNavigate={onNavigate}
       />
@@ -184,9 +189,19 @@ export function Shell({ data, children }: ShellProps) {
         onClose={() => setMenuOpen(false)}
       >
         <div className="-m-6 flex h-[calc(100%+3rem)] min-h-0 flex-col">
+          <OrganizationList
+            organizations={organizations}
+            current={orgSlug}
+            pathOf={(slug) => switchOrganizationPath(pathname, slug)}
+            onPick={(slug) => {
+              setMemory({ org: slug });
+              setMenuOpen(false);
+            }}
+          />
           {sidebar(() => setMenuOpen(false))}
         </div>
       </Drawer>
+      <MessageHost />
     </div>
   );
 }

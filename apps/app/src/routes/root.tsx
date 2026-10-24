@@ -9,6 +9,7 @@ import {
 } from "react-router";
 import { ApiFailure, api, unwrap } from "~/api/client";
 import { guard, requireSession } from "~/lib/session";
+import { ConfirmProvider } from "~/shell/confirm";
 import { type RawShellData, toShellData } from "~/shell/data";
 import { Shell } from "~/shell/Shell";
 
@@ -56,9 +57,11 @@ export type RootData = Awaited<ReturnType<typeof loader>>;
 export function Root() {
   const data = useLoaderData() as RootData;
   return (
-    <Shell data={toShellData(data)}>
-      <Outlet />
-    </Shell>
+    <ConfirmProvider>
+      <Shell data={toShellData(data)}>
+        <Outlet />
+      </Shell>
+    </ConfirmProvider>
   );
 }
 

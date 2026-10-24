@@ -11,6 +11,8 @@ import { api, succeeded, unwrap } from "~/api/client";
 import { attempt, errorOf } from "~/lib/actions";
 import { useDate } from "~/lib/format";
 import { guard } from "~/lib/session";
+import { useConfirm } from "~/shell/confirm";
+import { useOutcomeToast } from "~/shell/outcome";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   return guard(request, async () => {
@@ -30,7 +32,7 @@ export async function action({ request }: ActionFunctionArgs) {
       succeeded(
         await api.DELETE("/api/v1/me/clients/{client_id}", { params: { path: { client_id } } }),
       );
-      return { revoked: true };
+      return { done: "revoke" };
     }),
   );
 }
@@ -41,6 +43,18 @@ export function Profile() {
   const { t } = useTranslation();
   const date = useDate();
   const error = errorOf(fetcher.data);
+  const confirm = useConfirm();
+  useOutcomeToast(fetcher, () => t("toast.accessRevoked"));
+  const revoke = async (clientId: string, name: string) => {
+    const confirmed = await confirm({
+      title: t("confirm.revokeAccessTitle", { agent: name }),
+      body: t("confirm.revokeAccessBody"),
+      confirmText: t("profileView.revoke"),
+    });
+    if (confirmed) {
+      fetcher.submit({ client_id: clientId }, { method: "post" });
+    }
+  };
   return (
     <div className="mx-auto grid max-w-2xl gap-6">
       <Card>
@@ -75,12 +89,14 @@ export function Profile() {
                     {t("profileView.granted", { when: date(client.granted_at) })}
                   </p>
                 </div>
-                <fetcher.Form method="post">
-                  <input type="hidden" name="client_id" value={client.client_id} />
-                  <Button type="submit" size="sm" variant="destructive">
-                    {t("profileView.revoke")}
-                  </Button>
-                </fetcher.Form>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => void revoke(client.client_id, client.name)}
+                >
+                  {t("profileView.revoke")}
+                </Button>
               </li>
             ))}
           </ul>

@@ -129,7 +129,9 @@ export function UserMenu({
                 className={`${DIVIDER} flex items-center gap-1.5 px-3 pb-1 pt-2.5 text-xs text-[var(--neutral-500)]`}
               >
                 <span className="uppercase">{t("shell.organization")}</span>
-                <span className="font-medium text-[var(--neutral-700)]">{organization.name}</span>
+                <span className="min-w-0 truncate font-medium text-[var(--neutral-700)]">
+                  {organization.name}
+                </span>
               </div>
               {ORGANIZATION_ACCOUNT_ENTRIES.map((entry) =>
                 entryItem(

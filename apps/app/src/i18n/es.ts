@@ -132,6 +132,25 @@ export const es: Translation = {
       body: "Pronto verás el uso por proyecto y agente, y las facturas.",
     },
   },
+  confirm: {
+    removeMemberTitle: "¿Quitar a {{handle}}?",
+    removeMemberBody: "{{handle}} perderá el acceso a todos los proyectos de esta organización.",
+    leaveTitle: "¿Salir de {{organization}}?",
+    leaveBody: "Perderás el acceso a sus proyectos hasta que un propietario te invite de nuevo.",
+    revokeInvitationTitle: "¿Revocar la invitación?",
+    revokeInvitationBody: "{{email}} ya no podrá unirse con esta invitación.",
+    revokeAccessTitle: "¿Revocar el acceso de {{agent}}?",
+    revokeAccessBody:
+      "El agente deja de actuar por ti de inmediato y habrá que autorizarlo de nuevo.",
+  },
+  toast: {
+    roleChanged: "Rol actualizado.",
+    memberRemoved: "Miembro quitado.",
+    invitationResent: "Invitación enviada de nuevo.",
+    invitationRevoked: "Invitación revocada.",
+    accessRevoked: "Acceso revocado.",
+    languageChanged: "Idioma cambiado.",
+  },
   errors: {
     notFound: "Esta página no existe o no puedes abrirla.",
     forbidden: "No tienes permiso para hacer esto.",
