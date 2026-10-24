@@ -164,3 +164,20 @@ test("the notifications button opens an empty drawer", async () => {
   await userEvent.click(within(drawer).getByRole("button", { name: "Close" }));
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 });
+
+test("Ctrl+K and the header trigger open the palette and a result navigates", async () => {
+  shellApi();
+  const { router } = renderAt("/p/acme/demo/activity");
+  await screen.findByRole("heading", { name: "Activity" });
+  await userEvent.keyboard("{Control>}k{/Control}");
+  const dialog = screen.getByRole("dialog", { name: "Command palette" });
+  expect(within(dialog).getAllByRole("option", { name: /005/ }).length).toBeGreaterThan(0);
+  await userEvent.type(within(dialog).getByRole("combobox"), "constitution");
+  await userEvent.keyboard("{Enter}");
+  await waitFor(() => expect(router.state.location.pathname).toBe("/p/acme/demo/constitution"));
+  expect(screen.queryByRole("dialog", { name: "Command palette" })).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Search or jump to…" }));
+  expect(screen.getByRole("dialog", { name: "Command palette" })).toBeInTheDocument();
+  await userEvent.keyboard("{Escape}");
+  expect(screen.queryByRole("dialog", { name: "Command palette" })).not.toBeInTheDocument();
+});

@@ -17,6 +17,7 @@ export interface NavEntry {
   section: string;
   icon: NavIcon;
   label: ParseKeys;
+  chord?: string;
 }
 
 export const PROFILE_PATH = "/profile";
@@ -37,24 +38,25 @@ const SWITCHABLE_PROJECT_SECTIONS = [
 const SWITCHABLE_ORGANIZATION_SECTIONS = ["members", "invitations", "audit", "security", "billing"];
 
 export const PROJECT_MAIN: NavEntry[] = [
-  { id: "overview", section: "", icon: "BarChart", label: "shell.nav.overview" },
+  { id: "overview", section: "", icon: "BarChart", label: "shell.nav.overview", chord: "o" },
 ];
 
 export const PROJECT_SDD: NavEntry[] = [
-  { id: "active", section: "active", icon: "Focus", label: "shell.nav.active" },
-  { id: "specs", section: "specs", icon: "File", label: "shell.nav.specs" },
+  { id: "active", section: "active", icon: "Focus", label: "shell.nav.active", chord: "e" },
+  { id: "specs", section: "specs", icon: "File", label: "shell.nav.specs", chord: "l" },
   {
     id: "constitution",
     section: "constitution",
     icon: "LockDocument",
     label: "shell.nav.constitution",
+    chord: "c",
   },
 ];
 
 export const PROJECT_SECTION: NavEntry[] = [
-  { id: "activity", section: "activity", icon: "Time", label: "shell.nav.activity" },
-  { id: "members", section: "members", icon: "User", label: "shell.nav.members" },
-  { id: "audit", section: "audit", icon: "Show", label: "shell.nav.audit" },
+  { id: "activity", section: "activity", icon: "Time", label: "shell.nav.activity", chord: "a" },
+  { id: "members", section: "members", icon: "User", label: "shell.nav.members", chord: "m" },
+  { id: "audit", section: "audit", icon: "Show", label: "shell.nav.audit", chord: "u" },
   { id: "settings", section: "settings", icon: "Setting", label: "shell.nav.settings" },
 ];
 
@@ -64,6 +66,7 @@ export const ACCOUNT_ENTRIES: (NavEntry & { path: string })[] = [
     section: "profile",
     icon: "User",
     label: "shell.nav.profile",
+    chord: "p",
     path: PROFILE_PATH,
   },
   {

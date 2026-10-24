@@ -60,6 +60,23 @@ export const en = {
       invitations: "Invitations",
     },
   },
+  palette: {
+    label: "Command palette",
+    placeholder: "Search specs or jump to a screen…",
+    results: "Results",
+    empty: "No results for “{{query}}”.",
+    suggested: "Suggested",
+    specs: "Specs",
+    navigation: "Navigation",
+    nextTask: "Next task · {{description}}",
+    activeSpec: "Active spec",
+    openNotifications: "Open notifications",
+    organizationMembers: "Organization members",
+    organizationProjects: "Projects of the organization",
+    hintNavigate: "Navigate",
+    hintOpen: "Open",
+    hintClose: "Close",
+  },
   placeholder: {
     comingSoon: "Coming soon",
     active: {

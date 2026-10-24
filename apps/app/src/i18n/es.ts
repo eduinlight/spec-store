@@ -62,6 +62,23 @@ export const es: Translation = {
       invitations: "Invitaciones",
     },
   },
+  palette: {
+    label: "Paleta de comandos",
+    placeholder: "Busca specs o salta a una pantalla…",
+    results: "Resultados",
+    empty: "Sin resultados para “{{query}}”.",
+    suggested: "Sugerido",
+    specs: "Specs",
+    navigation: "Navegación",
+    nextTask: "Siguiente tarea · {{description}}",
+    activeSpec: "Spec activa",
+    openNotifications: "Abrir notificaciones",
+    organizationMembers: "Miembros de la organización",
+    organizationProjects: "Proyectos de la organización",
+    hintNavigate: "Moverse",
+    hintOpen: "Abrir",
+    hintClose: "Cerrar",
+  },
   placeholder: {
     comingSoon: "Próximamente",
     active: {

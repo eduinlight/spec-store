@@ -3,6 +3,7 @@ import { type ReactNode, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation } from "react-router";
 import type { Language } from "~/lib/language";
+import { CommandPalette } from "./CommandPalette";
 import type { ShellData } from "./data";
 import { Header } from "./Header";
 import { accountMode, parsePlace } from "./navigation";
@@ -11,6 +12,7 @@ import { Sidebar } from "./Sidebar";
 import { changeLanguage, signOut } from "./session-actions";
 import type { ShellOrganization, ShellProject } from "./types";
 import { UserMenu } from "./UserMenu";
+import { useShortcuts } from "./useShortcuts";
 
 interface Memory {
   org?: string;
@@ -31,11 +33,14 @@ export function Shell({ data, children }: ShellProps) {
   const place = parsePlace(pathname);
   const inAccount = accountMode(place);
   const [memory, setMemory] = useState<Memory>({});
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const placeProject = data.projects.find((item) => item.slug === place.project);
   const placeProjectName = placeProject?.name;
   const placeProjectRole = placeProject?.role;
+
+  useShortcuts({ onPalette: () => setPaletteOpen(true) });
 
   useEffect(() => {
     if (inAccount || !place.org || (place.area !== "project" && place.area !== "organization")) {
@@ -115,7 +120,7 @@ export function Shell({ data, children }: ShellProps) {
         project={projectSlug}
         activeSpec={activeSpec}
         unread={UNREAD_NOTIFICATIONS}
-        onOpenPalette={() => undefined}
+        onOpenPalette={() => setPaletteOpen(true)}
         onOpenShortcuts={() => undefined}
         onOpenNotifications={() => setNotificationsOpen(true)}
         onOpenMenu={() => setMenuOpen(true)}
@@ -129,6 +134,16 @@ export function Shell({ data, children }: ShellProps) {
           <div className="mx-auto max-w-[1280px]">{children}</div>
         </main>
       </div>
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        org={orgSlug}
+        project={place.project}
+        specs={place.project ? data.specs : []}
+        active={place.project ? data.active : undefined}
+        onOpenNotifications={() => setNotificationsOpen(true)}
+        onOpenShortcuts={() => undefined}
+      />
       <Drawer
         open={notificationsOpen}
         title={t("shell.notifications")}
