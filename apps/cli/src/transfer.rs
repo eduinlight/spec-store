@@ -1,11 +1,11 @@
 use std::path::Path;
 
 use anyhow::{Context, anyhow, bail};
+use sdd_vault_core::address::ProjectRef;
+use sdd_vault_core::keycloak::encode_segment;
+use sdd_vault_core::store::transfer::{ImportReport, ProjectExport};
+use sdd_vault_core::tree::{self, TargetState};
 use serde_json::json;
-use spec_store_core::address::ProjectRef;
-use spec_store_core::keycloak::encode_segment;
-use spec_store_core::store::transfer::{ImportReport, ProjectExport};
-use spec_store_core::tree::{self, TargetState};
 
 use crate::client::{ApiClient, ClientError};
 

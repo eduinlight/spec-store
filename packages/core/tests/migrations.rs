@@ -3,11 +3,11 @@ mod common;
 use std::sync::{Arc, Barrier};
 use std::thread;
 
-use spec_store_core::db;
+use sdd_vault_core::db;
 
 #[test]
 fn concurrent_start_applies_once() {
-  let test_db = spec_store_testkit::TestDb::empty();
+  let test_db = sdd_vault_testkit::TestDb::empty();
   let url = Arc::new(test_db.url.clone());
   let barrier = Arc::new(Barrier::new(4));
   let handles: Vec<_> = (0..4)

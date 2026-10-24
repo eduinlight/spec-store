@@ -2,8 +2,8 @@ mod common;
 
 use std::time::{Duration, Instant};
 
-use spec_store_core::model::{DocumentKind, Role};
-use spec_store_core::store::Store;
+use sdd_vault_core::model::{DocumentKind, Role};
+use sdd_vault_core::store::Store;
 
 const THREADS: usize = 10;
 const READS_PER_THREAD: usize = 20;
@@ -31,7 +31,7 @@ fn percentile(mut samples: Vec<Duration>, p: f64) -> Duration {
 #[test]
 #[ignore = "performance check, run with --release and --ignored"]
 fn p95_read_under_100ms() {
-  let test_store = common::test_store_with_pool(spec_store_core::db::POOL_SIZE);
+  let test_store = common::test_store_with_pool(sdd_vault_core::db::POOL_SIZE);
   let store: Store = test_store.store.clone();
   let root = common::person(&store, "root");
   common::organization(&store, &root, common::ORG);

@@ -22,7 +22,7 @@ async fn liveness_and_readiness_answer() {
 #[tokio::test]
 async fn readiness_fails_when_the_database_is_unreachable() {
   let mut mcp = common::start().await;
-  let db = std::mem::replace(&mut mcp.db, spec_store_testkit::TestDb::empty());
+  let db = std::mem::replace(&mut mcp.db, sdd_vault_testkit::TestDb::empty());
   drop(db);
   let ready = reqwest::get(format!("{}/readyz", mcp.base)).await.unwrap();
   assert_eq!(ready.status(), 503);

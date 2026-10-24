@@ -12,11 +12,11 @@ use rmcp::ServiceExt;
 use rmcp::model::CallToolRequestParams;
 use rmcp::transport::StreamableHttpClientTransport;
 use rmcp::transport::streamable_http_client::StreamableHttpClientTransportConfig;
+use sdd_vault_core::identity::{IdentityConfig, Verifier};
+use sdd_vault_mcp::{AppState as McpState, McpConfig};
+use sdd_vault_testkit::TokenSpec;
+use sdd_vault_testkit::keycloak::{ADMIN_CLIENT_SECRET, APP_CLIENT_SECRET, CLI_CLIENT_ID, REALM};
 use serde_json::{Value, json};
-use spec_store_core::identity::{IdentityConfig, Verifier};
-use spec_store_mcp::{AppState as McpState, McpConfig};
-use spec_store_testkit::TokenSpec;
-use spec_store_testkit::keycloak::{ADMIN_CLIENT_SECRET, APP_CLIENT_SECRET, CLI_CLIENT_ID, REALM};
 
 const MCP_RESOURCE: &str = "https://mcp.example.test/mcp";
 
@@ -296,7 +296,7 @@ async fn issued_tokens_device_codes_and_client_secrets_never_leak() {
   let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
   let address = listener.local_addr().unwrap();
   tokio::spawn(async move {
-    axum::serve(listener, spec_store_mcp::router(mcp_state))
+    axum::serve(listener, sdd_vault_mcp::router(mcp_state))
       .await
       .unwrap();
   });

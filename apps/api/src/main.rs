@@ -1,19 +1,19 @@
 use std::sync::Arc;
 
 use anyhow::Context;
-use spec_store_api::{ApiConfig, AppState, router};
-use spec_store_core::config::{
+use sdd_vault_api::{ApiConfig, AppState, router};
+use sdd_vault_core::config::{
   DatabaseSettings, Env, SmtpSettings, admin_from_env, identity_from_env,
 };
-use spec_store_core::identity::Verifier;
-use spec_store_core::keycloak::KeycloakAdmin;
-use spec_store_core::store::Store;
+use sdd_vault_core::identity::Verifier;
+use sdd_vault_core::keycloak::KeycloakAdmin;
+use sdd_vault_core::store::Store;
 use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
   if std::env::args().nth(1).as_deref() == Some("openapi") {
-    println!("{}", spec_store_api::router::openapi().to_pretty_json()?);
+    println!("{}", sdd_vault_api::router::openapi().to_pretty_json()?);
     return Ok(());
   }
   tracing_subscriber::fmt()
@@ -27,12 +27,12 @@ async fn main() -> anyhow::Result<()> {
     allowed_hosts: env.list("ALLOWED_HOSTS"),
     audience: env
       .optional("API_AUDIENCE")
-      .unwrap_or_else(|| "spec-store-api".into()),
+      .unwrap_or_else(|| "sdd-vault-api".into()),
     app_url: env.required("APP_URL")?,
     landing_url: env.required("LANDING_URL")?,
     app_client_id: env
       .optional("KEYCLOAK_APP_CLIENT_ID")
-      .unwrap_or_else(|| "spec-store-app".into()),
+      .unwrap_or_else(|| "sdd-vault-app".into()),
     app_client_secret: env.required("KEYCLOAK_APP_CLIENT_SECRET")?,
     session_key: env.required("SESSION_SEALING_KEY")?,
   };
@@ -52,12 +52,12 @@ async fn main() -> anyhow::Result<()> {
       "KEYCLOAK_ADMIN_CLIENT_SECRET is not set: authorized clients cannot be listed or revoked"
     ),
   }
-  let _sender = spec_store_api::outbox::Sender::new(state.store.clone(), smtp)
-    .spawn(spec_store_api::outbox::INTERVAL);
+  let _sender = sdd_vault_api::outbox::Sender::new(state.store.clone(), smtp)
+    .spawn(sdd_vault_api::outbox::INTERVAL);
   let listener = tokio::net::TcpListener::bind(&bind)
     .await
     .with_context(|| format!("binding {bind}"))?;
-  tracing::info!(%bind, "spec-store API listening");
+  tracing::info!(%bind, "SDD Vault API listening");
   axum::serve(listener, router(state))
     .with_graceful_shutdown(shutdown_signal())
     .await

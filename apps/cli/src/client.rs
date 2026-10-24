@@ -8,13 +8,13 @@ pub const EXPIRY_MARGIN_SECONDS: i64 = 30;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ClientError {
-  #[error("not signed in; run spec-store login")]
+  #[error("not signed in; run sddvault login")]
   NotSignedIn,
   #[error("{0}")]
   Login(#[from] LoginError),
   #[error("{0}")]
   Credentials(#[from] crate::credentials::CredentialsError),
-  #[error("cannot reach the spec-store API: {0}")]
+  #[error("cannot reach the SDD Vault API: {0}")]
   Unreachable(String),
   #[error("{message}")]
   Api {

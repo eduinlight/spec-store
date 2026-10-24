@@ -1,6 +1,6 @@
 [package]
-name = "spec-store-api"
-description = "spec-store HTTP API: JSON endpoints, browser sign-in and outbound email"
+name = "sdd-vault-api"
+description = "sdd-vault HTTP API: JSON endpoints, browser sign-in and outbound email"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -8,7 +8,7 @@ license.workspace = true
 repository.workspace = true
 
 [[bin]]
-name = "spec-store-api"
+name = "sdd-vault-api"
 path = "src/main.rs"
 
 [dependencies]
@@ -16,7 +16,7 @@ anyhow = "1"
 axum = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-spec-store-core = { workspace = true }
+sdd-vault-core = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
@@ -26,9 +26,9 @@ utoipa-axum = "0.3"
 
 [dev-dependencies]
 rmcp = { version = "=3.5.1", features = ["client", "transport-streamable-http-client-reqwest", "reqwest"] }
-spec-store-mcp = { path = "../mcp" }
+sdd-vault-mcp = { path = "../mcp" }
 diesel = { workspace = true }
 http-body-util = "0.1"
 reqwest = { workspace = true }
-spec-store-testkit = { workspace = true }
+sdd-vault-testkit = { workspace = true }
 tower = { version = "0.5", features = ["util"] }

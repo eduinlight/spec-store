@@ -51,7 +51,7 @@ async fn logout_ends_the_session_and_removes_the_credentials() {
   assert!(stored.contains(&revoked[0]));
   let whoami = env.run(&["whoami"]).await;
   assert_eq!(whoami.status.code(), Some(1));
-  assert!(common::text(&whoami.stderr).contains("spec-store login"));
+  assert!(common::text(&whoami.stderr).contains("sddvault login"));
 }
 
 #[tokio::test]
@@ -60,5 +60,5 @@ async fn commands_without_credentials_ask_to_sign_in() {
   let output = env.run(&["org", "list"]).await;
   assert_eq!(output.status.code(), Some(1));
   assert!(output.stdout.is_empty());
-  assert!(common::text(&output.stderr).contains("spec-store login"));
+  assert!(common::text(&output.stderr).contains("sddvault login"));
 }

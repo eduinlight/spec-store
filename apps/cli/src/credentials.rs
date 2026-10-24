@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-pub const KEYRING_SERVICE: &str = "spec-store";
+pub const KEYRING_SERVICE: &str = "sdd-vault";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Credentials {
@@ -34,14 +34,14 @@ pub struct CredentialStore {
 }
 
 fn config_dir() -> PathBuf {
-  if let Ok(dir) = std::env::var("SPEC_STORE_CONFIG_DIR") {
+  if let Ok(dir) = std::env::var("SDD_VAULT_CONFIG_DIR") {
     return PathBuf::from(dir);
   }
   if let Ok(dir) = std::env::var("XDG_CONFIG_HOME") {
-    return PathBuf::from(dir).join("spec-store");
+    return PathBuf::from(dir).join("sdd-vault");
   }
   let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
-  PathBuf::from(home).join(".config").join("spec-store")
+  PathBuf::from(home).join(".config").join("sdd-vault")
 }
 
 fn keyring_works() -> bool {
@@ -50,7 +50,7 @@ fn keyring_works() -> bool {
 
 impl CredentialStore {
   pub fn from_env() -> CredentialStore {
-    let backend = match std::env::var("SPEC_STORE_CREDENTIALS").as_deref() {
+    let backend = match std::env::var("SDD_VAULT_CREDENTIALS").as_deref() {
       Ok("file") => Backend::File,
       Ok("keyring") => Backend::Keyring,
       _ if keyring_works() => Backend::Keyring,

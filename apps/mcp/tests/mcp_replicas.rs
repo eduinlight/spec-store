@@ -2,9 +2,9 @@ mod common;
 
 use rmcp::model::{CallToolRequestParams, CallToolResult};
 use rmcp::service::ServiceError;
+use sdd_vault_core::model::{DocumentKind, Role};
+use sdd_vault_core::store::Store;
 use serde_json::{Value, json};
-use spec_store_core::model::{DocumentKind, Role};
-use spec_store_core::store::Store;
 
 async fn put(client: &common::Client, body: &str, expected: i64) -> Result<Value, ServiceError> {
   let mut params = CallToolRequestParams::new("put_document");

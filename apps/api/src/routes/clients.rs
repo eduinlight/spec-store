@@ -1,8 +1,8 @@
 use axum::Json;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
+use sdd_vault_core::model::StoreError;
 use serde::Serialize;
-use spec_store_core::model::StoreError;
 
 use crate::auth::Principal;
 use crate::error::{ApiError, ErrorBody};

@@ -7,10 +7,10 @@ use rmcp::model::CallToolRequestParams;
 use rmcp::service::ServiceError;
 use rmcp::transport::StreamableHttpClientTransport;
 use rmcp::transport::streamable_http_client::StreamableHttpClientTransportConfig;
+use sdd_vault_core::identity::{IdentityConfig, Verifier};
+use sdd_vault_mcp::{AppState as McpState, McpConfig};
+use sdd_vault_testkit::TokenSpec;
 use serde_json::json;
-use spec_store_core::identity::{IdentityConfig, Verifier};
-use spec_store_mcp::{AppState as McpState, McpConfig};
-use spec_store_testkit::TokenSpec;
 
 const MCP_RESOURCE: &str = "https://mcp.example.test/mcp";
 
@@ -44,7 +44,7 @@ async fn the_same_failing_operation_reports_the_same_error_through_the_api_and_m
   let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
   let address = listener.local_addr().unwrap();
   let server = tokio::spawn(async move {
-    axum::serve(listener, spec_store_mcp::router(mcp_state))
+    axum::serve(listener, sdd_vault_mcp::router(mcp_state))
       .await
       .unwrap();
   });

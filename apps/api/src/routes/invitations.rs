@@ -1,8 +1,8 @@
 use axum::Json;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
+use sdd_vault_core::store::invitations::{InvitationInfo, InvitationPreview};
 use serde::{Deserialize, Serialize};
-use spec_store_core::store::invitations::{InvitationInfo, InvitationPreview};
 
 use crate::auth::Principal;
 use crate::error::{ApiError, ErrorBody};

@@ -5,17 +5,17 @@ use std::process::Output;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use spec_store_api::{ApiConfig, AppState, router};
-use spec_store_core::identity::{IdentityConfig, Verifier};
-use spec_store_core::store::Store;
-use spec_store_testkit::{FakeKeycloak, TestDb};
+use sdd_vault_api::{ApiConfig, AppState, router};
+use sdd_vault_core::identity::{IdentityConfig, Verifier};
+use sdd_vault_core::store::Store;
+use sdd_vault_testkit::{FakeKeycloak, TestDb};
 use tokio::process::Command;
 use tokio::task::JoinHandle;
 
 static COUNTER: AtomicUsize = AtomicUsize::new(0);
 
 pub fn migrate(url: &str) {
-  spec_store_core::db::open_with_size(url, 1).expect("migrate template");
+  sdd_vault_core::db::open_with_size(url, 1).expect("migrate template");
 }
 
 pub struct TestEnv {
@@ -37,7 +37,7 @@ impl Drop for TestEnv {
 pub fn temp_dir(label: &str) -> PathBuf {
   let n = COUNTER.fetch_add(1, Ordering::SeqCst);
   let dir = std::env::temp_dir()
-    .join("spec-store-cli-tests")
+    .join("sdd-vault-cli-tests")
     .join(format!("{label}-{}-{n}", std::process::id()));
   if dir.exists() {
     std::fs::remove_dir_all(&dir).unwrap();
@@ -59,12 +59,12 @@ pub async fn start(label: &str) -> TestEnv {
     Arc::new(verifier),
     ApiConfig {
       allowed_hosts: Vec::new(),
-      audience: "spec-store-api".into(),
+      audience: "sdd-vault-api".into(),
       app_url: "https://app.example.test".into(),
       landing_url: "https://example.test".into(),
-      app_client_id: "spec-store-app".into(),
+      app_client_id: "sdd-vault-app".into(),
       app_client_secret: "app-secret".into(),
-      session_key: spec_store_core::crypto::Sealer::generate_key(),
+      session_key: sdd_vault_core::crypto::Sealer::generate_key(),
     },
   );
   let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -84,13 +84,13 @@ pub async fn start(label: &str) -> TestEnv {
 
 impl TestEnv {
   pub fn command(&self) -> Command {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_spec-store"));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_sddvault"));
     command
-      .env("SPEC_STORE_API", &self.api)
-      .env("SPEC_STORE_ISSUER", self.keycloak.issuer())
-      .env("SPEC_STORE_CLIENT_ID", "spec-store-cli")
-      .env("SPEC_STORE_CONFIG_DIR", &self.config_dir)
-      .env("SPEC_STORE_CREDENTIALS", "file")
+      .env("SDD_VAULT_API", &self.api)
+      .env("SDD_VAULT_ISSUER", self.keycloak.issuer())
+      .env("SDD_VAULT_CLIENT_ID", "sdd-vault-cli")
+      .env("SDD_VAULT_CONFIG_DIR", &self.config_dir)
+      .env("SDD_VAULT_CREDENTIALS", "file")
       .kill_on_drop(true);
     command
   }
@@ -108,9 +108,9 @@ impl TestEnv {
   }
 
   pub fn use_identity(&self, username: &str) {
-    let access = self.keycloak.mint(&spec_store_testkit::TokenSpec::new(
+    let access = self.keycloak.mint(&sdd_vault_testkit::TokenSpec::new(
       username,
-      "spec-store-api",
+      "sdd-vault-api",
     ));
     let refresh = self.keycloak.issue_refresh_token(username);
     let now = std::time::SystemTime::now()
@@ -129,11 +129,11 @@ impl TestEnv {
     std::fs::write(self.credentials_file(), credentials.to_string()).unwrap();
   }
 
-  pub fn person(&self, handle: &str) -> spec_store_core::model::Caller {
+  pub fn person(&self, handle: &str) -> sdd_vault_core::model::Caller {
     self
       .store
       .caller_for(
-        &spec_store_core::store::users::Identity {
+        &sdd_vault_core::store::users::Identity {
           subject: format!("subject-{handle}"),
           handle: handle.to_string(),
           email: format!("{handle}@example.com"),

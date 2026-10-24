@@ -1,6 +1,6 @@
 [package]
-name = "spec-store-mcp"
-description = "spec-store MCP server over Streamable HTTP with MCP authorization"
+name = "sdd-vault-mcp"
+description = "sdd-vault MCP server over Streamable HTTP with MCP authorization"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -8,7 +8,7 @@ license.workspace = true
 repository.workspace = true
 
 [[bin]]
-name = "spec-store-mcp"
+name = "sdd-vault-mcp"
 path = "src/main.rs"
 
 [dependencies]
@@ -18,7 +18,7 @@ rmcp = { version = "=3.5.1", features = ["server", "macros", "schemars", "transp
 schemars = "1"
 serde = { workspace = true }
 serde_json = { workspace = true }
-spec-store-core = { workspace = true }
+sdd-vault-core = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
@@ -27,4 +27,4 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 diesel = { workspace = true }
 reqwest = { workspace = true }
 rmcp = { version = "=3.5.1", features = ["client", "transport-streamable-http-client-reqwest", "reqwest"] }
-spec-store-testkit = { workspace = true }
+sdd-vault-testkit = { workspace = true }

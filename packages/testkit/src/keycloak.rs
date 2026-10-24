@@ -16,7 +16,7 @@ use tokio::task::JoinHandle;
 
 use crate::keys::{GeneratedKey, key_a, key_b};
 
-pub const REALM: &str = "spec-store";
+pub const REALM: &str = "sdd-vault";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TestKey {
@@ -83,7 +83,7 @@ impl TokenSpec {
       key: TestKey::A,
       issuer: None,
       session_id: Some(format!("session-{username}")),
-      client_id: "spec-store-test".to_string(),
+      client_id: "sdd-vault-test".to_string(),
     }
   }
 
@@ -115,12 +115,12 @@ pub fn now_seconds() -> i64 {
     .as_secs() as i64
 }
 
-pub const ADMIN_CLIENT_ID: &str = "spec-store-api-admin";
+pub const ADMIN_CLIENT_ID: &str = "sdd-vault-api-admin";
 pub const ADMIN_CLIENT_SECRET: &str = "admin-secret";
 const ADMIN_TOKEN: &str = "fake-admin-token";
 
-pub const CLI_CLIENT_ID: &str = "spec-store-cli";
-pub const CLI_AUDIENCE: &str = "spec-store-api";
+pub const CLI_CLIENT_ID: &str = "sdd-vault-cli";
+pub const CLI_AUDIENCE: &str = "sdd-vault-api";
 
 #[derive(Debug, Clone)]
 pub struct DeviceGrant {
@@ -178,7 +178,7 @@ fn mint_with(spec: &TokenSpec) -> String {
   jsonwebtoken::encode(&header, &claims, &key).expect("sign token")
 }
 
-pub const APP_CLIENT_ID: &str = "spec-store-app";
+pub const APP_CLIENT_ID: &str = "sdd-vault-app";
 pub const APP_CLIENT_SECRET: &str = "app-secret";
 
 fn session_id(username: &str) -> String {
@@ -567,7 +567,7 @@ impl FakeKeycloak {
       .push(json!({
         "clientId": client_id,
         "clientName": name,
-        "grantedClientScopes": ["openid", "spec-store-mcp", "offline_access"],
+        "grantedClientScopes": ["openid", "sdd-vault-mcp", "offline_access"],
         "createdDate": 1_760_000_000_000_i64,
         "lastUpdatedDate": 1_760_000_500_000_i64,
       }));

@@ -1,7 +1,7 @@
 mod common;
 
-use spec_store_core::model::StoreError;
-use spec_store_core::store::sessions::NewSession;
+use sdd_vault_core::model::StoreError;
+use sdd_vault_core::store::sessions::NewSession;
 
 fn new_session(user_id: i64, sid: &str) -> NewSession {
   NewSession {

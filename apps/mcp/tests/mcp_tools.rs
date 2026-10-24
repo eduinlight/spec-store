@@ -2,8 +2,8 @@ mod common;
 
 use rmcp::model::{CallToolRequestParams, CallToolResult};
 use rmcp::service::ServiceError;
+use sdd_vault_core::model::{DocumentKind, Role};
 use serde_json::{Value, json};
-use spec_store_core::model::{DocumentKind, Role};
 
 use common::{Client, TestMcp};
 

@@ -25,7 +25,7 @@ jobs:
   image:
     runs-on: ubuntu-24.04
     env:
-      IMAGE: ghcr.io/eduinlight/spec-store-${{ inputs.deliverable }}
+      IMAGE: ghcr.io/eduinlight/sdd-vault-${{ inputs.deliverable }}
       RUST: ${{ contains(fromJSON('["api","mcp"]'), inputs.deliverable) }}
       NODE: ${{ contains(fromJSON('["app","landing"]'), inputs.deliverable) }}
     steps:
@@ -50,7 +50,7 @@ jobs:
 
       - name: Build the binary
         if: env.RUST == 'true'
-        run: cargo build --locked --release -p spec-store-${{ inputs.deliverable }}
+        run: cargo build --locked --release -p sdd-vault-${{ inputs.deliverable }}
 
       - name: Install pnpm
         if: env.NODE == 'true'
@@ -91,7 +91,7 @@ jobs:
           case "$VITE_APP_URL" in
             https://staging-*) ;;
             *)
-              if grep -rqF "https://staging-app-spec-store.eduindev.com" apps/landing/build/client; then
+              if grep -rqF "https://staging-app-sddvault.eduindev.com" apps/landing/build/client; then
                 echo "::error::the landing build links to the staging app"
                 exit 1
               fi

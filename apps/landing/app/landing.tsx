@@ -5,7 +5,7 @@ import { es } from "./content/es";
 
 export type LandingLanguage = "en" | "es";
 
-export const APP_URL = import.meta.env.VITE_APP_URL ?? "https://app-spec-store.eduindev.com";
+export const APP_URL = import.meta.env.VITE_APP_URL ?? "https://app-sddvault.eduindev.com";
 
 export function copy(language: LandingLanguage) {
   return language === "es" ? es : en;
@@ -31,8 +31,13 @@ export function Landing({ language }: { language: LandingLanguage }) {
     <div className="min-h-screen bg-background text-foreground">
       <header className="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
         <a href={language === "es" ? "/es" : "/"} className="flex items-center gap-2 font-semibold">
-          <img src="/logo.svg" alt="" width={28} height={28} />
-          spec-store
+          <img
+            src="/logo-horizontal.png"
+            alt="SDD Vault"
+            width={133}
+            height={32}
+            className="h-8 w-auto"
+          />
         </a>
         <nav className="flex items-center gap-4 text-sm">
           <a href={text.nav.languageHref} hrefLang={other} onClick={() => rememberLanguage(other)}>

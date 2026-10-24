@@ -1,9 +1,9 @@
 use axum::http::HeaderMap;
 use axum::http::header::COOKIE;
 
-pub const SESSION_COOKIE: &str = "__Host-spec_store_session";
-pub const LANGUAGE_COOKIE: &str = "spec_store_lang";
-pub const REQUEST_HEADER: &str = "x-spec-store-request";
+pub const SESSION_COOKIE: &str = "__Host-sdd_vault_session";
+pub const LANGUAGE_COOKIE: &str = "sdd_vault_lang";
+pub const REQUEST_HEADER: &str = "x-sdd-vault-request";
 
 pub fn cookie(headers: &HeaderMap, name: &str) -> Option<String> {
   headers
@@ -63,21 +63,21 @@ mod tests {
   #[test]
   fn language_cookies_cover_the_parent_domain() {
     assert_eq!(
-      parent_domain("https://app-spec-store.eduindev.com").as_deref(),
+      parent_domain("https://app-sddvault.eduindev.com").as_deref(),
       Some("eduindev.com")
     );
     assert_eq!(parent_domain("http://localhost:5173"), None);
-    let cookie = language_cookie("es", "https://app-spec-store.eduindev.com");
+    let cookie = language_cookie("es", "https://app-sddvault.eduindev.com");
     assert!(cookie.contains("Domain=eduindev.com") && cookie.contains("Secure"));
   }
 
   #[test]
   fn reads_named_cookies_and_the_language() {
     let mut headers = HeaderMap::new();
-    headers.append(COOKIE, HeaderValue::from_static("a=1; spec_store_lang=es"));
+    headers.append(COOKIE, HeaderValue::from_static("a=1; sdd_vault_lang=es"));
     headers.append(
       COOKIE,
-      HeaderValue::from_static("__Host-spec_store_session=abc"),
+      HeaderValue::from_static("__Host-sdd_vault_session=abc"),
     );
     assert_eq!(cookie(&headers, SESSION_COOKIE).as_deref(), Some("abc"));
     assert_eq!(language(&headers), "es");

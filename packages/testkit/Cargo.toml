@@ -1,6 +1,6 @@
 [package]
-name = "spec-store-testkit"
-description = "Test support for spec-store: per-test PostgreSQL databases and a fake Keycloak"
+name = "sdd-vault-testkit"
+description = "Test support for sdd-vault: per-test PostgreSQL databases and a fake Keycloak"
 publish = false
 version.workspace = true
 edition.workspace = true

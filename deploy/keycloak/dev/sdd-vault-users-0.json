@@ -1,0 +1,36 @@
+{
+  "realm": "sdd-vault",
+  "users": [
+    {
+      "username": "dev",
+      "email": "dev@sddvault.local",
+      "firstName": "Dev",
+      "lastName": "Person",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${SDD_VAULT_DEV_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "ops",
+      "email": "ops@sddvault.local",
+      "firstName": "Ops",
+      "lastName": "Operator",
+      "enabled": true,
+      "emailVerified": true,
+      "realmRoles": ["platform-operator", "default-roles-sdd-vault"],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${SDD_VAULT_OPS_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    }
+  ]
+}

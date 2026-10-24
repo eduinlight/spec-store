@@ -1,4 +1,4 @@
-name: spec-store
+name: sdd-vault
 
 services:
   postgres:
@@ -33,7 +33,7 @@ services:
       retries: 30
 
   keycloak:
-    image: spec-store-keycloak:dev
+    image: sdd-vault-keycloak:dev
     build:
       context: .
       dockerfile: deploy/keycloak/Dockerfile
@@ -59,19 +59,19 @@ services:
       API_INTERNAL_URL: ${API_INTERNAL_URL:-http://host.docker.internal:54000}
       SMTP_HOST: mailpit
       SMTP_PORT: "1025"
-      SMTP_FROM: no-reply@spec-store.local
-      SPEC_STORE_APP_CLIENT_SECRET: ${KEYCLOAK_APP_CLIENT_SECRET}
-      SPEC_STORE_ADMIN_CLIENT_SECRET: ${KEYCLOAK_ADMIN_CLIENT_SECRET}
-      SPEC_STORE_DEV_PASSWORD: ${SPEC_STORE_DEV_PASSWORD}
-      SPEC_STORE_OPS_PASSWORD: ${SPEC_STORE_OPS_PASSWORD}
-      KEYCLOAK_THEME: spec-store
-      KEYCLOAK_EMAIL_THEME: spec-store
+      SMTP_FROM: no-reply@sddvault.local
+      SDD_VAULT_APP_CLIENT_SECRET: ${KEYCLOAK_APP_CLIENT_SECRET}
+      SDD_VAULT_ADMIN_CLIENT_SECRET: ${KEYCLOAK_ADMIN_CLIENT_SECRET}
+      SDD_VAULT_DEV_PASSWORD: ${SDD_VAULT_DEV_PASSWORD}
+      SDD_VAULT_OPS_PASSWORD: ${SDD_VAULT_OPS_PASSWORD}
+      KEYCLOAK_THEME: sdd-vault
+      KEYCLOAK_EMAIL_THEME: sdd-vault
       KC_SPI_THEME__CACHE_THEMES: "false"
       KC_SPI_THEME__CACHE_TEMPLATES: "false"
       KC_SPI_THEME__STATIC_MAX_AGE: "-1"
     volumes:
-      - ./deploy/keycloak/realm/spec-store.json:/opt/keycloak/data/import/spec-store-realm.json:ro
-      - ./deploy/keycloak/dev/spec-store-users-0.json:/opt/keycloak/data/import/spec-store-users-0.json:ro
+      - ./deploy/keycloak/realm/sdd-vault.json:/opt/keycloak/data/import/sdd-vault-realm.json:ro
+      - ./deploy/keycloak/dev/sdd-vault-users-0.json:/opt/keycloak/data/import/sdd-vault-users-0.json:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
     healthcheck:

@@ -23,7 +23,7 @@ async fn lists_only_the_callers_authorized_clients() {
       .as_array()
       .unwrap()
       .iter()
-      .any(|s| s == "spec-store-mcp")
+      .any(|s| s == "sdd-vault-mcp")
   );
   assert!(clients[0]["granted_at"].as_str().unwrap().ends_with('Z'));
 }

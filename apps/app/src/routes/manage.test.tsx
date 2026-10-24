@@ -185,7 +185,7 @@ test("the profile lists authorized agents and revokes them", async () => {
         {
           client_id: "claude-code-1",
           name: "Claude Code",
-          scopes: ["spec-store-mcp"],
+          scopes: ["sdd-vault-mcp"],
           granted_at: "2026-10-20T10:00:00.000Z",
           updated_at: "2026-10-21T10:00:00.000Z",
         },

@@ -4,7 +4,7 @@ set -euo pipefail
 : "${PGHOST:?PGHOST must be set}"
 : "${PGUSER:?PGUSER must be set}"
 : "${PGPASSWORD:?PGPASSWORD must be set}"
-: "${BACKUP_REMOTE:?BACKUP_REMOTE must be set, for example garage:spec-store-prod-backups}"
+: "${BACKUP_REMOTE:?BACKUP_REMOTE must be set, for example garage:sdd-vault-prod-backups}"
 PLATFORM_DATABASE="${PLATFORM_DATABASE:-platform}"
 OTHER_DATABASES="${OTHER_DATABASES:-keycloak}"
 RETENTION_DAYS="${RETENTION_DAYS:-30}"

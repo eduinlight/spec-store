@@ -1,7 +1,7 @@
 use axum::Json;
 use axum::extract::{Path, Query, State};
+use sdd_vault_core::store::{AuditEntry, AuditPage};
 use serde::{Deserialize, Serialize};
-use spec_store_core::store::{AuditEntry, AuditPage};
 
 use crate::auth::Principal;
 use crate::error::{ApiError, ErrorBody};

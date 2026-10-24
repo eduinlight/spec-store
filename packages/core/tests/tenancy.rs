@@ -1,6 +1,6 @@
 mod common;
 
-use spec_store_core::model::{DocumentKind, Role, StoreError};
+use sdd_vault_core::model::{DocumentKind, Role, StoreError};
 
 #[test]
 fn the_same_project_slug_lives_in_two_organizations_without_crossing() {

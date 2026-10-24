@@ -2,7 +2,7 @@
 set -euo pipefail
 
 KEYCLOAK_URL="${KEYCLOAK_URL:-http://localhost:${KEYCLOAK_PORT:-58080}}"
-REALM="${REALM:-spec-store}"
+REALM="${REALM:-sdd-vault}"
 MCP_RESOURCE="${MCP_RESOURCE:-http://localhost:54100/mcp}"
 ADMIN_USER="${KEYCLOAK_ADMIN_USER:-admin}"
 ADMIN_PASSWORD="${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD must be set; it is in .env}"

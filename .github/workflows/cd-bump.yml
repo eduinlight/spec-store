@@ -25,7 +25,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  CD_REPOSITORY: eduinlight-org/spec-store-cd
+  CD_REPOSITORY: eduinlight-org/sdd-vault-cd
   KUSTOMIZE_VERSION: v5.7.1
 
 jobs:

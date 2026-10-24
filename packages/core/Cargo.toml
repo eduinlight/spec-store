@@ -1,6 +1,6 @@
 [package]
-name = "spec-store-core"
-description = "Business rules and persistence of spec-store"
+name = "sdd-vault-core"
+description = "Business rules and persistence of sdd-vault"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -26,5 +26,5 @@ tracing = "0.1"
 similar = { version = "3", default-features = false, features = ["text"] }
 
 [dev-dependencies]
-spec-store-testkit = { workspace = true }
+sdd-vault-testkit = { workspace = true }
 tokio = { workspace = true }

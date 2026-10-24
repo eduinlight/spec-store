@@ -1,7 +1,7 @@
 use diesel::connection::SimpleConnection;
 use diesel::prelude::*;
-use spec_store_testkit::db::database_exists;
-use spec_store_testkit::{TestDb, with_database};
+use sdd_vault_testkit::db::database_exists;
+use sdd_vault_testkit::{TestDb, with_database};
 
 fn create_notes(url: &str) {
   let mut conn = PgConnection::establish(url).unwrap();

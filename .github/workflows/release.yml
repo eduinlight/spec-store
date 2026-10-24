@@ -52,7 +52,7 @@ jobs:
     with:
       deliverable: ${{ matrix.deliverable }}
       tags: ${{ needs.version.outputs.version }}
-      app_url: https://app-spec-store.eduindev.com
+      app_url: https://app-sddvault.eduindev.com
 
   bump-cd:
     needs: [version, image]
@@ -62,7 +62,7 @@ jobs:
         deliverable: [api, mcp, app, landing, keycloak, backup]
     uses: ./.github/workflows/cd-bump.yml
     with:
-      image: ghcr.io/eduinlight/spec-store-${{ matrix.deliverable }}
+      image: ghcr.io/eduinlight/sdd-vault-${{ matrix.deliverable }}
       tag: ${{ needs.version.outputs.version }}
       overlay: prod
     secrets: inherit

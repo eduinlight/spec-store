@@ -8,7 +8,7 @@ use crate::auth::require_bearer;
 use crate::health::{live, ready};
 use crate::metadata::protected_resource;
 use crate::state::AppState;
-use crate::tools::SpecStoreMcp;
+use crate::tools::SddVaultMcp;
 
 pub const MAX_REQUEST_BODY_BYTES: usize = 2 * 1024 * 1024;
 
@@ -22,7 +22,7 @@ pub fn router(state: AppState) -> Router {
   }
   let store = state.store.clone();
   let service = StreamableHttpService::new(
-    move || Ok(SpecStoreMcp::new(store.clone())),
+    move || Ok(SddVaultMcp::new(store.clone())),
     LocalSessionManager::default().into(),
     config,
   );

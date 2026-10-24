@@ -1,6 +1,6 @@
 export const en = {
   app: {
-    name: "spec-store",
+    name: "SDD Vault",
     loading: "Loading…",
     signOut: "Sign out",
     profile: "Profile",
@@ -22,7 +22,7 @@ export const en = {
     unexpected: "Something went wrong.",
   },
   onboarding: {
-    title: "Welcome to spec-store",
+    title: "Welcome to SDD Vault",
     intro: "Create your first organization to start storing your specs.",
     slug: "Organization address",
     slugHint: "Lowercase words and digits joined by hyphens, for example acme-labs.",

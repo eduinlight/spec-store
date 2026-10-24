@@ -5,8 +5,8 @@ use diesel::connection::SimpleConnection;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 
-pub const TEST_PREFIX: &str = "spec_store_test_";
-pub const TEMPLATE_PREFIX: &str = "spec_store_tpl_";
+pub const TEST_PREFIX: &str = "sdd_vault_test_";
+pub const TEMPLATE_PREFIX: &str = "sdd_vault_tpl_";
 
 static COUNTER: AtomicUsize = AtomicUsize::new(0);
 static TEMPLATE: OnceLock<String> = OnceLock::new();

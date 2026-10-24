@@ -1,10 +1,10 @@
 use axum::Json;
 use axum::extract::{Path, State};
+use sdd_vault_core::markdown::tasks::{Malformed, Task};
+use sdd_vault_core::model::StoreError;
+use sdd_vault_core::store::specs::SpecSummary;
+use sdd_vault_core::store::tasks::{ActiveStatus, SpecMarker};
 use serde::Serialize;
-use spec_store_core::markdown::tasks::{Malformed, Task};
-use spec_store_core::model::StoreError;
-use spec_store_core::store::specs::SpecSummary;
-use spec_store_core::store::tasks::{ActiveStatus, SpecMarker};
 
 use crate::auth::Principal;
 use crate::error::{ApiError, ErrorBody};

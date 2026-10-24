@@ -1,6 +1,6 @@
 mod common;
 
-use spec_store_core::model::{Caller, OrgRole, Role, StoreError};
+use sdd_vault_core::model::{Caller, OrgRole, Role, StoreError};
 
 struct Fixture {
   store: common::TestStore,

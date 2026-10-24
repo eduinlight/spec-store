@@ -2,7 +2,7 @@ mod common;
 
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
-use spec_store_api::ApiConfig;
+use sdd_vault_api::ApiConfig;
 
 async fn status_for(app: &common::TestApp, host: &str, path: &str) -> StatusCode {
   app

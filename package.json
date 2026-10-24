@@ -1,5 +1,5 @@
 {
-  "name": "spec-store",
+  "name": "sdd-vault",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.33.0",

@@ -2,7 +2,7 @@ import type { Translation } from "./types";
 
 export const es: Translation = {
   app: {
-    name: "spec-store",
+    name: "SDD Vault",
     loading: "Cargando…",
     signOut: "Cerrar sesión",
     profile: "Perfil",
@@ -24,7 +24,7 @@ export const es: Translation = {
     unexpected: "Algo salió mal.",
   },
   onboarding: {
-    title: "Te damos la bienvenida a spec-store",
+    title: "Te damos la bienvenida a SDD Vault",
     intro: "Crea tu primera organización para empezar a guardar tus specs.",
     slug: "Dirección de la organización",
     slugHint: "Palabras en minúsculas y dígitos unidos por guiones, por ejemplo acme-labs.",

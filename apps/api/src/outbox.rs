@@ -1,9 +1,9 @@
 use std::time::Duration;
 
-use spec_store_core::config::SmtpSettings;
-use spec_store_core::email::{Mailer, mask_address, render};
-use spec_store_core::store::Store;
-use spec_store_core::store::outbox::OutboxMessage;
+use sdd_vault_core::config::SmtpSettings;
+use sdd_vault_core::email::{Mailer, mask_address, render};
+use sdd_vault_core::store::Store;
+use sdd_vault_core::store::outbox::OutboxMessage;
 use tokio::task::JoinHandle;
 
 pub const BATCH: i64 = 20;
@@ -16,7 +16,7 @@ pub struct Sender {
 
 async fn blocking<T: Send + 'static>(
   store: &Store,
-  work: impl FnOnce(&Store) -> spec_store_core::model::StoreResult<T> + Send + 'static,
+  work: impl FnOnce(&Store) -> sdd_vault_core::model::StoreResult<T> + Send + 'static,
 ) -> Option<T> {
   let store = store.clone();
   match tokio::task::spawn_blocking(move || work(&store)).await {

@@ -3,7 +3,7 @@ mod common;
 use std::fs;
 use std::path::Path;
 
-use spec_store_core::model::{OrgRole, Role, SpecStatus};
+use sdd_vault_core::model::{OrgRole, Role, SpecStatus};
 
 struct Run {
   code: i32,

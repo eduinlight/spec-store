@@ -1,7 +1,7 @@
 export type Language = "en" | "es";
 
 export const LANGUAGES: Language[] = ["en", "es"];
-export const LANGUAGE_COOKIE = "spec_store_lang";
+export const LANGUAGE_COOKIE = "sdd_vault_lang";
 export const ONE_YEAR_SECONDS = 31_536_000;
 
 function supported(value: string | undefined): Language | undefined {

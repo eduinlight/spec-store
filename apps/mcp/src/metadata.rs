@@ -10,6 +10,6 @@ pub async fn protected_resource(State(state): State<AppState>) -> Json<Value> {
     "authorization_servers": [state.config.authorization_server],
     "scopes_supported": state.config.scopes,
     "bearer_methods_supported": ["header"],
-    "resource_name": "spec-store",
+    "resource_name": "sdd-vault",
   }))
 }

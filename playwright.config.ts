@@ -13,7 +13,7 @@ const app = process.env.APP_URL ?? "http://localhost:5173";
 
 const apiEnv = {
   DATABASE_URL: required("DATABASE_URL"),
-  KEYCLOAK_ISSUER: process.env.KEYCLOAK_ISSUER ?? "http://localhost:58080/realms/spec-store",
+  KEYCLOAK_ISSUER: process.env.KEYCLOAK_ISSUER ?? "http://localhost:58080/realms/sdd-vault",
   KEYCLOAK_APP_CLIENT_SECRET: required("KEYCLOAK_APP_CLIENT_SECRET"),
   KEYCLOAK_ADMIN_CLIENT_SECRET: required("KEYCLOAK_ADMIN_CLIENT_SECRET"),
   SESSION_SEALING_KEY: required("SESSION_SEALING_KEY"),
@@ -22,7 +22,7 @@ const apiEnv = {
   API_BIND: process.env.API_BIND ?? "127.0.0.1:54000",
   SMTP_HOST: process.env.SMTP_HOST ?? "localhost",
   SMTP_PORT: process.env.SMTP_PORT ?? "51025",
-  SMTP_FROM: process.env.SMTP_FROM ?? "no-reply@spec-store.local",
+  SMTP_FROM: process.env.SMTP_FROM ?? "no-reply@sddvault.local",
 };
 
 export default defineConfig({
@@ -35,7 +35,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: "cargo run -q --locked -p spec-store-api",
+      command: "cargo run -q --locked -p sdd-vault-api",
       url: `${api}/healthz`,
       env: apiEnv,
       reuseExistingServer: true,
@@ -45,6 +45,13 @@ export default defineConfig({
       command: "pnpm --filter app dev --strictPort",
       url: app,
       env: { API_URL: api },
+      reuseExistingServer: true,
+      timeout: 120_000,
+    },
+    {
+      command: "pnpm --filter landing dev --strictPort",
+      url: process.env.LANDING_URL ?? "http://localhost:5174",
+      env: { VITE_APP_URL: app },
       reuseExistingServer: true,
       timeout: 120_000,
     },

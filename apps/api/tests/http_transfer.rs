@@ -1,8 +1,8 @@
 mod common;
 
 use axum::http::StatusCode;
+use sdd_vault_core::model::Role;
 use serde_json::{Value, json};
-use spec_store_core::model::Role;
 
 async fn setup() -> common::TestApp {
   let app = common::app().await;

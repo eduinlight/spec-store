@@ -1,8 +1,8 @@
 use axum::Json;
 use axum::extract::{Path, Query, State};
+use sdd_vault_core::diff::{DiffTag, diff_lines};
+use sdd_vault_core::model::DocumentKind;
 use serde::{Deserialize, Serialize};
-use spec_store_core::diff::{DiffTag, diff_lines};
-use spec_store_core::model::DocumentKind;
 
 use crate::auth::Principal;
 use crate::error::{ApiError, ErrorBody};

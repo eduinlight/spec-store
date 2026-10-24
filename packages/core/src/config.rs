@@ -113,7 +113,7 @@ pub fn admin_from_env(env: &Env) -> ConfigResult<Option<AdminConfig>> {
     realm,
     client_id: env
       .optional("KEYCLOAK_ADMIN_CLIENT_ID")
-      .unwrap_or_else(|| "spec-store-api-admin".into()),
+      .unwrap_or_else(|| "sdd-vault-api-admin".into()),
     client_secret,
   }))
 }
@@ -137,7 +137,7 @@ impl SmtpSettings {
       from: env.required("SMTP_FROM")?,
       from_name: env
         .optional("SMTP_FROM_NAME")
-        .unwrap_or_else(|| "spec-store".into()),
+        .unwrap_or_else(|| "sdd-vault".into()),
       username: env.optional("SMTP_USERNAME"),
       password: env.optional("SMTP_PASSWORD"),
       starttls: env.parsed("SMTP_STARTTLS", false)?,
@@ -164,7 +164,7 @@ mod tests {
       ("DATABASE_URL", "postgres://x/y"),
       ("DATABASE_POOL_SIZE", "7"),
       ("ALLOWED_HOSTS", "a.example, b.example ,"),
-      ("KEYCLOAK_ISSUER", "https://auth.example/realms/spec-store/"),
+      ("KEYCLOAK_ISSUER", "https://auth.example/realms/sdd-vault/"),
     ]);
     let env = Env::from_fn(|k| values.get(k).cloned());
     assert_eq!(
@@ -176,25 +176,25 @@ mod tests {
     );
     assert_eq!(env.list("ALLOWED_HOSTS"), vec!["a.example", "b.example"]);
     let identity = identity_from_env(&env).unwrap();
-    assert_eq!(identity.issuer, "https://auth.example/realms/spec-store");
+    assert_eq!(identity.issuer, "https://auth.example/realms/sdd-vault");
     assert_eq!(
       identity.jwks_url,
-      "https://auth.example/realms/spec-store/protocol/openid-connect/certs"
+      "https://auth.example/realms/sdd-vault/protocol/openid-connect/certs"
     );
   }
 
   #[test]
   fn admin_settings_derive_from_the_issuer() {
     let values = env(&[
-      ("KEYCLOAK_ISSUER", "https://auth.example/realms/spec-store"),
+      ("KEYCLOAK_ISSUER", "https://auth.example/realms/sdd-vault"),
       ("KEYCLOAK_ADMIN_CLIENT_SECRET", "s"),
     ]);
     let env = Env::from_fn(|k| values.get(k).cloned());
     let admin = admin_from_env(&env).unwrap().unwrap();
     assert_eq!(admin.base_url, "https://auth.example");
-    assert_eq!(admin.realm, "spec-store");
-    assert_eq!(admin.client_id, "spec-store-api-admin");
-    assert!(split_issuer("https://auth.example/spec-store").is_err());
+    assert_eq!(admin.realm, "sdd-vault");
+    assert_eq!(admin.client_id, "sdd-vault-api-admin");
+    assert!(split_issuer("https://auth.example/sdd-vault").is_err());
   }
 
   #[test]
