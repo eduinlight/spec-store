@@ -20,8 +20,12 @@ Spec: `specs/014-overview-activity-live/spec.md` · Date: 2026-10-24 · Ticket: 
 
 | Check | Result |
 |---|---|
-| `make fmt-check`, `make lint`, `make test` | pass (Rust 390+, UI 337, landing 24, app 258) except `perf_read` (106 ms) under machine load |
-| Playwright | see the ticket |
+| `make fmt-check`, `make lint`, `make test` | pass (Rust 390+, UI 337, landing 24, app 258); `perf_read` 50 ms and 71 ms once the machine load dropped (106 ms under load) |
+| Playwright | 16/16 |
+
+## Defects found and fixed
+
+- The phone drawer listed every organization above the navigation without a height limit; with many organizations the navigation could not be reached. The list is now capped at 40% of the screen and scrolls (found by `e2e/shell.spec.ts` once the test account had 24 organizations).
 
 ## Decisions
 
