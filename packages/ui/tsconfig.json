@@ -3,7 +3,8 @@
   "compilerOptions": {
     "paths": {
       "@workspace/ui/*": ["./src/*"]
-    }
+    },
+    "types": ["node", "vitest/globals", "@testing-library/jest-dom"]
   },
   "include": ["src"]
 }

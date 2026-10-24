@@ -34,6 +34,33 @@
   --color-ring: var(--ring);
 }
 
+@layer components {
+  .tt-display {
+    font: var(--fw-semibold) var(--fs-display) / var(--lh-display) var(--font-sans);
+  }
+  .tt-h1 {
+    font: var(--fw-medium) var(--fs-h1) / var(--lh-h1) var(--font-sans);
+  }
+  .tt-h2 {
+    font: var(--fw-medium) var(--fs-h2) / var(--lh-h2) var(--font-sans);
+  }
+  .tt-h3 {
+    font: var(--fw-medium) var(--fs-h3) / var(--lh-h3) var(--font-sans);
+  }
+  .tt-title {
+    font: var(--fw-medium) var(--fs-title) / var(--lh-title) var(--font-sans);
+  }
+  .tt-subtitle {
+    font: var(--fw-regular) var(--fs-subtitle) / var(--lh-subtitle) var(--font-sans);
+  }
+  .tt-body {
+    font: var(--fw-regular) var(--fs-body) / var(--lh-body) var(--font-sans);
+  }
+  .tt-caption {
+    font: var(--fw-regular) var(--fs-caption) / var(--lh-caption) var(--font-sans);
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
