@@ -160,3 +160,48 @@ async fn project_and_audit_commands() {
   let missing = failed(&env.run(&["project", "show", "acme/missing"]).await);
   assert!(missing.contains("not found"), "{missing}");
 }
+
+#[tokio::test]
+async fn a_guest_sees_only_their_projects_and_the_organization_as_a_guest() {
+  let env = common::start("guest-commands").await;
+  env.sign_in("alice").await;
+  ok(&env.run(&["org", "create", "acme", "Acme Labs"]).await);
+  ok(&env.run(&["project", "create", "acme/demo", "Demo"]).await);
+  ok(&env.run(&["project", "create", "acme/other", "Other"]).await);
+  let alice = env.person("alice");
+  let gwen = env.person("gwen");
+  let invited = env
+    .store
+    .invite_to_project(
+      &alice,
+      "acme/demo",
+      "gwen@example.com",
+      sdd_vault_core::model::Role::Editor,
+      "en",
+      "https://app.example.test/invitations",
+    )
+    .unwrap();
+  let sdd_vault_core::store::invitations::ProjectInvitation::Invited(invited) = invited else {
+    panic!("expected an invitation");
+  };
+  env
+    .store
+    .accept_invitation(&gwen, &invited.token, true)
+    .unwrap();
+
+  env.sign_in("gwen").await;
+  assert_eq!(
+    ok(&env.run(&["org", "list"]).await).trim(),
+    "acme\tguest\tAcme Labs"
+  );
+  assert_eq!(
+    ok(&env.run(&["project", "list"]).await).trim(),
+    "acme/demo\teditor\tDemo"
+  );
+  assert_eq!(
+    ok(&env.run(&["project", "list", "acme"]).await).trim(),
+    "acme/demo\teditor\tDemo"
+  );
+  assert!(failed(&env.run(&["org", "members", "acme"]).await).contains("not found"));
+  assert!(failed(&env.run(&["project", "show", "acme/other"]).await).contains("not found"));
+}

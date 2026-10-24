@@ -57,6 +57,23 @@ test("the organization switcher searches, marks the current one and navigates", 
   expect(screen.getByTestId("location")).toHaveTextContent("/o/beta/members");
 });
 
+test("guest organizations carry a Guest tag in the switcher", async () => {
+  renderShell(
+    <Header
+      {...props({
+        organizations: [
+          { slug: "acme", name: "Acme Labs", role: "owner" },
+          { slug: "ext", name: "Outside Co", role: null, guest: true },
+        ],
+      })}
+    />,
+    "/o/acme",
+  );
+  await userEvent.click(screen.getByRole("button", { name: "Organization" }));
+  expect(screen.getByRole("option", { name: /Outside Co/ })).toHaveTextContent("Guest");
+  expect(screen.getByRole("option", { name: /Acme Labs/ })).not.toHaveTextContent("Guest");
+});
+
 test("the organization switcher offers to create an organization", async () => {
   renderShell(<Header {...props()} />, "/o/acme");
   await userEvent.click(screen.getByRole("button", { name: "Organization" }));

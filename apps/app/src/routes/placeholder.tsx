@@ -1,7 +1,7 @@
 import { Icon } from "@workspace/ui/taptap";
 import { useTranslation } from "react-i18next";
 
-export type PlaceholderKey = "members" | "tokens" | "preferences" | "security" | "billing";
+export type PlaceholderKey = "tokens" | "preferences" | "security" | "billing";
 
 interface PlaceholderProps {
   name: PlaceholderKey;
@@ -25,7 +25,6 @@ export function Placeholder({ name }: PlaceholderProps) {
   );
 }
 
-export const MembersPlaceholder = () => <Placeholder name="members" />;
 export const TokensPlaceholder = () => <Placeholder name="tokens" />;
 export const PreferencesPlaceholder = () => <Placeholder name="preferences" />;
 export const SecurityPlaceholder = () => <Placeholder name="security" />;

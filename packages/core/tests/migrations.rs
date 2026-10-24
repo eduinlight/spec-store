@@ -27,6 +27,6 @@ fn concurrent_start_applies_once() {
   let mut conn = pool.get().unwrap();
   assert_eq!(
     common::diesel_versions(&mut conn),
-    vec!["0001", "0002", "0003"]
+    vec!["0001", "0002", "0003", "0004"]
   );
 }

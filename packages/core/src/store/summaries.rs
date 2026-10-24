@@ -9,7 +9,7 @@ use crate::markdown::tasks::parse_tasks;
 use crate::model::{Caller, DocumentKind, Role, SpecStatus, StoreResult};
 use crate::schema::{audit_log, documents, iso_utc, revisions, specs, users};
 use crate::store::Store;
-use crate::store::organizations::readable_organization;
+use crate::store::organizations::visible_organization;
 use crate::store::projects::visible_projects_in;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -156,7 +156,7 @@ impl Store {
     organization: &str,
   ) -> StoreResult<Vec<ProjectSummary>> {
     self.with_conn(|conn| {
-      readable_organization(conn, caller, organization)?;
+      visible_organization(conn, caller, organization)?;
       let visible = visible_projects_in(conn, caller, Some(organization))?;
       let project_ids: Vec<i64> = visible.iter().map(|p| p.id).collect();
       let mut constitutions = constitutions(conn, &project_ids)?;

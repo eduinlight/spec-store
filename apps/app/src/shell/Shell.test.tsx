@@ -75,7 +75,6 @@ test("the project switcher shows the active spec of the current project", async 
 test("every upcoming screen shows an empty state naming what is coming", async () => {
   shellApi();
   const screens: [string, string, RegExp][] = [
-    ["/p/acme/demo/members", "Project members", /project settings/],
     ["/account/tokens", "My tokens", /tokens your agents use/],
     ["/account/preferences", "Preferences", /time zone/],
     ["/o/acme/security", "Security", /Sign-in policies/],

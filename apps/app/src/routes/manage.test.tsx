@@ -133,7 +133,38 @@ test("the invitation link lets the invited person accept or decline", async () =
   ).toBeInTheDocument();
 });
 
-test("owners manage project roles and the repository URL", async () => {
+test("a project invitation names the project and the role and lands in the project", async () => {
+  const api = mockApi({
+    ...session,
+    "GET /api/v1/invitations/{token}": () => ({
+      id: 11,
+      organization: "acme",
+      organization_name: "Acme Labs",
+      inviter: "alice",
+      email: me.email,
+      state: "pending",
+      expires_at: "2026-10-29T10:00:00.000Z",
+      project: "acme/demo",
+      project_name: "Demo",
+      project_role: "editor",
+    }),
+    "POST /api/v1/invitations/{token}/accept": () => new Response(null, { status: 204 }),
+    "GET /api/v1/orgs/{org}/projects": () => ({ projects: [] }),
+  });
+  const { router } = renderAt("/invitations/inv_project");
+  expect(await screen.findByRole("heading", { name: "Invitation to Demo" })).toBeInTheDocument();
+  expect(screen.getByText("You are invited to join Demo as Editor.")).toBeInTheDocument();
+  expect(
+    screen.getByText("You will join Acme Labs as a guest and see only this project."),
+  ).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Accept invitation" }));
+  await waitFor(() =>
+    expect(called(api, "POST", "/api/v1/invitations/inv_project/accept")).toBeDefined(),
+  );
+  await waitFor(() => expect(router.state.location.pathname).toBe("/p/acme/demo"));
+});
+
+test("owners manage the repository URL", async () => {
   const project = {
     address: "acme/demo",
     organization: "acme",
@@ -146,32 +177,16 @@ test("owners manage project roles and the repository URL", async () => {
   const api = mockApi({
     ...session,
     "GET /api/v1/projects/{org}/{project}": () => project,
-    "GET /api/v1/projects/{org}/{project}/members": () => ({
-      members: [{ handle: "alice", role: "owner" }],
-    }),
-    "GET /api/v1/orgs/{org}/members": () => ({
-      members: [
-        { handle: "alice", name: "Alice", role: "owner" },
-        { handle: "bob", name: "Bob", role: "member" },
-      ],
-    }),
-    "PUT /api/v1/projects/{org}/{project}/members/{handle}": () =>
-      new Response(null, { status: 204 }),
     "PUT /api/v1/projects/{org}/{project}/repository-url": () =>
       new Response(null, { status: 204 }),
     "DELETE /api/v1/projects/{org}/{project}/repository-url": () =>
       new Response(null, { status: 204 }),
   });
   renderAt("/p/acme/demo/settings");
-  await userEvent.selectOptions(await screen.findByLabelText("Person"), "bob");
-  await userEvent.selectOptions(screen.getByLabelText("Role"), "editor");
-  await userEvent.click(screen.getByRole("button", { name: "Grant role" }));
-  await waitFor(() =>
-    expect(called(api, "PUT", "/api/v1/projects/acme/demo/members/bob")?.body).toEqual({
-      role: "editor",
-    }),
+  await userEvent.type(
+    await screen.findByLabelText("Repository URL"),
+    "https://github.com/acme/demo",
   );
-  await userEvent.type(screen.getByLabelText("Repository URL"), "https://github.com/acme/demo");
   await userEvent.click(screen.getByRole("button", { name: "Save" }));
   await waitFor(() =>
     expect(called(api, "PUT", "/api/v1/projects/acme/demo/repository-url")?.body).toEqual({

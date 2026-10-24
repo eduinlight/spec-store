@@ -435,7 +435,7 @@ fn reads_and_audit_listing_keep_working_on_an_archived_project() {
   );
   assert!(f.store.list_tasks(&f.reader, "acme/demo", 2, false).is_ok());
   assert!(f.store.project_status(&f.reader, "acme/demo").is_ok());
-  assert!(f.store.list_members(&f.reader, "acme/demo").is_ok());
+  assert!(f.store.project_members(&f.reader, "acme/demo").is_ok());
   assert!(
     f.store
       .list_audit_page(&f.owner, Some("acme/demo"), None, 10)

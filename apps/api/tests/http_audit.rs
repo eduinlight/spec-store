@@ -126,13 +126,21 @@ async fn project_owners_read_their_project_audit() {
       json!({"role": "owner"}),
     )
     .await;
+  app
+    .json(
+      "PUT",
+      "/api/v1/projects/acme/demo/members/alice",
+      "alice",
+      json!({"role": "owner"}),
+    )
+    .await;
   let page = common::body_json(
     app
       .authorized("GET", "/api/v1/projects/acme/demo/audit", "bob")
       .await,
   )
   .await;
-  assert_eq!(page["entries"].as_array().unwrap().len(), 2);
+  assert_eq!(page["entries"].as_array().unwrap().len(), 3);
   app
     .json(
       "PUT",

@@ -20,12 +20,10 @@ import { projectParams } from "./project";
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const path = projectParams(params);
   return guard(request, async () => {
-    const [project, members, people] = await Promise.all([
-      api.GET("/api/v1/projects/{org}/{project}", { params: { path } }).then(unwrap),
-      api.GET("/api/v1/projects/{org}/{project}/members", { params: { path } }).then(unwrap),
-      api.GET("/api/v1/orgs/{org}/members", { params: { path: { org: path.org } } }).then(unwrap),
-    ]);
-    return { project, members: members.members, people: people.members };
+    const project = await api
+      .GET("/api/v1/projects/{org}/{project}", { params: { path } })
+      .then(unwrap);
+    return { project };
   });
 }
 
@@ -35,23 +33,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
   const intent = String(form.get("intent"));
   return guard(request, () =>
     attempt(async () => {
-      if (intent === "grant") {
-        const handle = String(form.get("handle"));
-        const role = String(form.get("role"));
-        succeeded(
-          await api.PUT("/api/v1/projects/{org}/{project}/members/{handle}", {
-            params: { path: { ...path, handle } },
-            body: { role },
-          }),
-        );
-      } else if (intent === "remove") {
-        const handle = String(form.get("handle"));
-        succeeded(
-          await api.DELETE("/api/v1/projects/{org}/{project}/members/{handle}", {
-            params: { path: { ...path, handle } },
-          }),
-        );
-      } else if (intent === "archive" || intent === "restore") {
+      if (intent === "archive" || intent === "restore") {
         succeeded(
           await api.POST(`/api/v1/projects/{org}/{project}/${intent}`, { params: { path } }),
         );
@@ -75,13 +57,12 @@ export async function action({ request, params }: ActionFunctionArgs) {
 }
 
 export function ProjectSettings() {
-  const { project, members, people } = useLoaderData() as Awaited<ReturnType<typeof loader>>;
-  const roles = useFetcher();
+  const { project } = useLoaderData() as Awaited<ReturnType<typeof loader>>;
   const repository = useFetcher();
   const lifecycle = useFetcher();
   const { t } = useTranslation();
   const confirm = useConfirm();
-  const error = errorOf(roles.data) ?? errorOf(repository.data) ?? errorOf(lifecycle.data);
+  const error = errorOf(repository.data) ?? errorOf(lifecycle.data);
   useOutcomeToast(lifecycle, (done) =>
     done === "archive" ? t("toast.projectArchived") : t("toast.projectRestored"),
   );
@@ -122,47 +103,15 @@ export function ProjectSettings() {
       )}
       <Card>
         <h2 className="text-lg font-semibold">{t("projects.members")}</h2>
-        <roles.Form method="post" className="flex flex-wrap items-end gap-3">
-          <input type="hidden" name="intent" value="grant" />
-          <div className="grid gap-2">
-            <Label htmlFor="handle">{t("members.handle")}</Label>
-            <select id="handle" name="handle" className="h-9 rounded-md border bg-background px-2">
-              {people.map((person) => (
-                <option key={person.handle} value={person.handle}>
-                  {person.handle}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="role">{t("members.role")}</Label>
-            <select id="role" name="role" className="h-9 rounded-md border bg-background px-2">
-              <option value="reader">{t("projects.roles.reader")}</option>
-              <option value="editor">{t("projects.roles.editor")}</option>
-              <option value="owner">{t("projects.roles.owner")}</option>
-            </select>
-          </div>
-          <Button type="submit">{t("projects.grant")}</Button>
-        </roles.Form>
-        <ul className="divide-y text-sm">
-          {members.map((member) => (
-            <li key={member.handle} className="flex items-center justify-between py-2">
-              <span>
-                {member.handle}{" "}
-                <span className="text-muted-foreground">
-                  {t(`projects.roles.${member.role as "owner"}`)}
-                </span>
-              </span>
-              <roles.Form method="post">
-                <input type="hidden" name="intent" value="remove" />
-                <input type="hidden" name="handle" value={member.handle} />
-                <Button type="submit" size="sm" variant="outline">
-                  {t("app.remove")}
-                </Button>
-              </roles.Form>
-            </li>
-          ))}
-        </ul>
+        <p className="text-sm text-muted-foreground">{t("projects.membersLink")}</p>
+        <div>
+          <Link
+            to={`/p/${project.address}/members`}
+            className="text-sm font-medium text-primary hover:underline"
+          >
+            {t("projects.openMembers")}
+          </Link>
+        </div>
       </Card>
       <Card>
         <h2 className="text-lg font-semibold">{t("projects.repository")}</h2>

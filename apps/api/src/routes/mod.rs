@@ -7,6 +7,7 @@ pub mod invitations;
 pub mod me;
 pub mod members;
 pub mod organizations;
+pub mod project_invitations;
 pub mod projects;
 pub mod specs;
 pub mod transfer;

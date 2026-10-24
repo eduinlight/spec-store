@@ -31,7 +31,8 @@ export async function action({ request, params }: ActionFunctionArgs) {
         succeeded(
           await api.POST("/api/v1/invitations/{token}/accept", { params: { path: { token } } }),
         );
-        return redirect(`/o/${String(form.get("organization"))}`);
+        const project = String(form.get("project") ?? "");
+        return redirect(project ? `/p/${project}` : `/o/${String(form.get("organization"))}`);
       }
       succeeded(
         await api.POST("/api/v1/invitations/{token}/decline", { params: { path: { token } } }),
@@ -48,18 +49,31 @@ export function InvitationAccept() {
   const date = useDate();
   const declined = Boolean(result && typeof result === "object" && "declined" in result);
   const error = errorOf(result);
+  const projectName = invitation.project ? (invitation.project_name ?? invitation.project) : null;
   return (
     <Card className="mx-auto max-w-lg">
       <h1 className="text-xl font-semibold">
-        {t("invitation.title", { organization: invitation.organization_name })}
+        {projectName
+          ? t("invitation.projectTitle", { project: projectName })
+          : t("invitation.title", { organization: invitation.organization_name })}
       </h1>
       <p>
-        {t("invitation.body", {
-          inviter: invitation.inviter,
-          email: invitation.email,
-          organization: invitation.organization_name,
-        })}
+        {projectName
+          ? t("invitation.projectBody", {
+              project: projectName,
+              role: t(`projects.roles.${(invitation.project_role ?? "reader") as "reader"}`),
+            })
+          : t("invitation.body", {
+              inviter: invitation.inviter,
+              email: invitation.email,
+              organization: invitation.organization_name,
+            })}
       </p>
+      {projectName && (
+        <p className="text-sm text-muted-foreground">
+          {t("invitation.projectGuestNote", { organization: invitation.organization_name })}
+        </p>
+      )}
       {invitation.state === "pending" ? (
         <p className="text-sm text-muted-foreground">
           {t("invitation.expires", { when: date(invitation.expires_at) })}
@@ -73,6 +87,7 @@ export function InvitationAccept() {
         invitation.state === "pending" && (
           <Form method="post" className="flex gap-2">
             <input type="hidden" name="organization" value={invitation.organization} />
+            <input type="hidden" name="project" value={invitation.project ?? ""} />
             <Button type="submit" name="intent" value="accept">
               {t("invitation.accept")}
             </Button>

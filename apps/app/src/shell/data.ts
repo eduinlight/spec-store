@@ -14,7 +14,7 @@ export interface RawShellData {
     is_operator: boolean;
     mcp_url?: string | null;
   };
-  organizations: { slug: string; name: string; role?: string | null }[];
+  organizations: { slug: string; name: string; role?: string | null; guest?: boolean }[];
   projects: { slug: string; name: string; role?: string | null }[];
   status: {
     specs: { number: number; slug: string; branch: string; status: string }[];

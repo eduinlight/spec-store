@@ -22,7 +22,7 @@ async fn people_create_list_and_read_their_organizations() {
   let listed = common::body_json(app.authorized("GET", "/api/v1/orgs", "alice").await).await;
   assert_eq!(
     listed["organizations"],
-    json!([{"slug": "acme", "name": "Acme", "role": "owner"}])
+    json!([{"slug": "acme", "name": "Acme", "role": "owner", "guest": false}])
   );
   let read = common::body_json(app.authorized("GET", "/api/v1/orgs/acme", "alice").await).await;
   assert_eq!(read["name"], "Acme");
