@@ -11,8 +11,8 @@ use crate::health::{live, ready};
 use crate::hosts::check_host;
 use crate::origin::attach_origin;
 use crate::routes::{
-  audit, clients, dashboard, documents, history, invitations, me, members, organizations, projects,
-  specs, transfer, views,
+  audit, clients, dashboard, documents, history, invitations, me, members, organizations,
+  project_invitations, projects, specs, transfer, views,
 };
 use crate::state::AppState;
 
@@ -40,6 +40,12 @@ fn documented() -> OpenApiRouter<AppState> {
     .routes(routes!(audit::global))
     .routes(routes!(projects::read))
     .routes(routes!(projects::members))
+    .routes(routes!(
+      project_invitations::list,
+      project_invitations::create
+    ))
+    .routes(routes!(project_invitations::revoke))
+    .routes(routes!(project_invitations::resend))
     .routes(routes!(projects::set_member, projects::remove_member))
     .routes(routes!(
       projects::set_repository,
