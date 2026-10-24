@@ -9,3 +9,4 @@ pub mod organizations;
 pub mod projects;
 pub mod specs;
 pub mod transfer;
+pub mod views;

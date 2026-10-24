@@ -12,6 +12,17 @@ export interface SpecCardDocument {
   written: boolean;
 }
 
+export interface SpecCardLabels {
+  liveAgents: (count: number) => string;
+  openQuestions: (count: number) => string;
+  requirements: (count: number) => string;
+  tasks: (done: number, total: number) => string;
+  noTasks: string;
+  written: string;
+  notWritten: string;
+  updated: (when: string) => string;
+}
+
 export interface SpecCardProps {
   number: string;
   title: string;
@@ -33,6 +44,7 @@ export interface SpecCardProps {
   archived?: boolean;
   href?: string;
   onClick?: (event: MouseEvent<HTMLElement>) => void;
+  labels?: Partial<SpecCardLabels>;
 }
 
 const ACCENT: Record<SpecCardAccent, { bar: string; ring: string }> = {
@@ -42,6 +54,17 @@ const ACCENT: Record<SpecCardAccent, { bar: string; ring: string }> = {
 };
 
 const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
+
+const ENGLISH: SpecCardLabels = {
+  liveAgents: (count) => `${plural(count, "agent", "agents")} live`,
+  openQuestions: (count) => plural(count, "open question", "open questions"),
+  requirements: (count) => plural(count, "requirement", "requirements"),
+  tasks: (done, total) => `${done} / ${total} tasks`,
+  noTasks: "No tasks yet",
+  written: "written",
+  notWritten: "not written yet",
+  updated: (when) => `Updated ${when}`,
+};
 
 export function SpecCard({
   number,
@@ -64,7 +87,9 @@ export function SpecCard({
   archived = false,
   href,
   onClick,
+  labels,
 }: SpecCardProps) {
+  const text: SpecCardLabels = { ...ENGLISH, ...labels };
   const [state, handlers] = useInteraction();
   const id = useId();
   const numberId = `${id}-number`;
@@ -179,7 +204,7 @@ export function SpecCard({
                   background: "var(--success-600)",
                 }}
               />
-              {plural(liveAgents, "agent", "agents")} live
+              {text.liveAgents(liveAgents)}
             </span>
           ) : null}
           {openQuestions > 0 ? (
@@ -198,7 +223,7 @@ export function SpecCard({
                   cursor: "help",
                 }}
               >
-                {plural(openQuestions, "open question", "open questions")}
+                {text.openQuestions(openQuestions)}
               </span>
             </Tooltip>
           ) : null}
@@ -230,7 +255,7 @@ export function SpecCard({
             {documents.map((document) => (
               <Tooltip
                 key={document.key}
-                title={`${document.title} · ${document.written ? "written" : "not written yet"}`}
+                title={`${document.title} · ${document.written ? text.written : text.notWritten}`}
               >
                 <span
                   role="img"
@@ -259,8 +284,8 @@ export function SpecCard({
               </Tooltip>
             ))}
           </span>
-          <span>{plural(requirementCount, "requirement", "requirements")}</span>
-          <span>Updated {updatedLabel}</span>
+          <span>{text.requirements(requirementCount)}</span>
+          <span>{text.updated(updatedLabel)}</span>
         </span>
       </span>
       <span
@@ -310,7 +335,7 @@ export function SpecCard({
               color: "var(--neutral-500)",
             }}
           >
-            {tasksTotal > 0 ? `${tasksDone} / ${tasksTotal} tasks` : "No tasks yet"}
+            {tasksTotal > 0 ? text.tasks(tasksDone, tasksTotal) : text.noTasks}
           </span>
         </span>
       </span>

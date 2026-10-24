@@ -1,7 +1,7 @@
 import type { RouteObject } from "react-router";
 import * as audit from "~/routes/audit";
+import * as constitution from "~/routes/constitution";
 import * as diff from "~/routes/diff";
-import * as document from "~/routes/document";
 import * as history from "~/routes/history";
 import * as home from "~/routes/home";
 import * as invitationAccept from "~/routes/invitation-accept";
@@ -16,6 +16,12 @@ import * as projectSettings from "~/routes/project-settings";
 import * as revision from "~/routes/revision";
 import * as root from "~/routes/root";
 import * as spec from "~/routes/spec";
+import * as specDocument from "~/routes/spec-document";
+import * as specHistory from "~/routes/spec-history";
+import * as specMarkers from "~/routes/spec-markers";
+import * as specTasks from "~/routes/spec-tasks";
+import * as specTraceability from "~/routes/spec-traceability";
+import * as specs from "~/routes/specs";
 
 export const routes: RouteObject[] = [
   {
@@ -67,7 +73,7 @@ export const routes: RouteObject[] = [
             Component: profile.Profile,
           },
           { path: "p/:org/:project/active", Component: placeholders.ActiveSpecsPlaceholder },
-          { path: "p/:org/:project/specs", Component: placeholders.SpecsPlaceholder },
+          { path: "p/:org/:project/specs", loader: specs.loader, Component: specs.Specs },
           { path: "p/:org/:project/activity", Component: placeholders.ActivityPlaceholder },
           { path: "p/:org/:project/members", Component: placeholders.MembersPlaceholder },
           { path: "account/tokens", Component: placeholders.TokensPlaceholder },
@@ -83,14 +89,27 @@ export const routes: RouteObject[] = [
           { path: "p/:org/:project", loader: project.loader, Component: project.Project },
           {
             path: "p/:org/:project/constitution",
-            loader: document.loader,
-            Component: document.Document,
+            loader: constitution.loader,
+            Component: constitution.Constitution,
           },
-          { path: "p/:org/:project/specs/:number", loader: spec.loader, Component: spec.Spec },
           {
-            path: "p/:org/:project/specs/:number/:kind",
-            loader: document.loader,
-            Component: document.Document,
+            id: "spec",
+            path: "p/:org/:project/specs/:number",
+            loader: spec.loader,
+            shouldRevalidate: spec.shouldRevalidate,
+            Component: spec.Spec,
+            children: [
+              { index: true, loader: specDocument.loader, Component: specDocument.SpecDocument },
+              { path: "tasks", loader: specTasks.loader, Component: specTasks.SpecTasks },
+              {
+                path: "traceability",
+                loader: specTraceability.loader,
+                Component: specTraceability.SpecTraceability,
+              },
+              { path: "markers", loader: specMarkers.loader, Component: specMarkers.SpecMarkers },
+              { path: "history", loader: specHistory.loader, Component: specHistory.SpecHistory },
+              { path: ":kind", loader: specDocument.loader, Component: specDocument.SpecDocument },
+            ],
           },
           { path: "p/:org/:project/history", loader: history.loader, Component: history.History },
           {

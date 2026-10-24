@@ -138,3 +138,32 @@ describe("SpecCard", () => {
     expect(screen.getByText("004").style.color).toBe("var(--neutral-400)");
   });
 });
+
+test("uses the labels it is given for every count and state", () => {
+  render(
+    <SpecCard
+      number="004"
+      title="Diesel"
+      status="approved"
+      createdLabel="oct"
+      summary="Resumen"
+      slug="004-diesel"
+      documents={[{ key: "S", title: "Spec", written: false }]}
+      requirementCount={2}
+      updatedLabel="hoy"
+      contributors={[]}
+      tasksDone={1}
+      tasksTotal={3}
+      openQuestions={2}
+      labels={{
+        openQuestions: (count) => `${count} preguntas abiertas`,
+        requirements: (count) => `${count} requisitos`,
+        tasks: (done, total) => `${done} / ${total} tareas`,
+        notWritten: "sin escribir",
+      }}
+    />,
+  );
+  expect(screen.getByText("2 preguntas abiertas")).toBeInTheDocument();
+  expect(screen.getByText("2 requisitos")).toBeInTheDocument();
+  expect(screen.getByText("1 / 3 tareas")).toBeInTheDocument();
+});

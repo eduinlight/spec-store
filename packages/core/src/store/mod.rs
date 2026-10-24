@@ -11,6 +11,7 @@ pub mod summaries;
 pub mod tasks;
 pub mod transfer;
 pub mod users;
+pub mod views;
 
 use std::sync::Arc;
 

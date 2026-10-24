@@ -4,6 +4,8 @@ use sdd_vault_core::markdown::tasks::{Malformed, Task};
 use sdd_vault_core::model::StoreError;
 use sdd_vault_core::store::specs::SpecSummary;
 use sdd_vault_core::store::tasks::{ActiveStatus, SpecMarker};
+use sdd_vault_core::store::views::markers::ResolvedMarker;
+use sdd_vault_core::store::views::task_history::{SpecTasks, TaskCompletion};
 use serde::Serialize;
 
 use crate::auth::Principal;
@@ -48,11 +50,32 @@ pub struct TaskOutput {
   pub done: bool,
   pub commit: Option<String>,
   pub line: usize,
+  pub completed_by: Option<AttributionOutput>,
+}
+
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+pub struct AttributionOutput {
+  pub author: String,
+  pub client: Option<String>,
+  pub at: String,
+  pub revision: i64,
+}
+
+impl From<TaskCompletion> for AttributionOutput {
+  fn from(c: TaskCompletion) -> Self {
+    AttributionOutput {
+      author: c.author,
+      client: c.client,
+      at: c.at,
+      revision: c.revision_id,
+    }
+  }
 }
 
 impl From<Task> for TaskOutput {
   fn from(t: Task) -> Self {
     TaskOutput {
+      completed_by: None,
       id: t.id,
       phase: t.phase,
       parallel: t.parallel,
@@ -109,8 +132,35 @@ impl From<SpecMarker> for MarkerOutput {
 }
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
+pub struct ResolvedMarkerOutput {
+  pub document_kind: String,
+  pub kind: String,
+  pub heading: String,
+  pub text: String,
+  pub resolved_by: AttributionOutput,
+}
+
+impl From<ResolvedMarker> for ResolvedMarkerOutput {
+  fn from(m: ResolvedMarker) -> Self {
+    ResolvedMarkerOutput {
+      document_kind: m.document_kind.as_str().to_string(),
+      kind: m.kind.as_str().to_string(),
+      heading: m.heading,
+      text: m.text,
+      resolved_by: AttributionOutput {
+        author: m.resolved_by,
+        client: m.client,
+        at: m.at,
+        revision: m.revision_id,
+      },
+    }
+  }
+}
+
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct MarkersOutput {
   pub markers: Vec<MarkerOutput>,
+  pub resolved: Vec<ResolvedMarkerOutput>,
 }
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
@@ -239,11 +289,24 @@ pub async fn tasks(
 ) -> Result<Json<TasksOutput>, ApiError> {
   let caller = principal.caller;
   let target = address(&org, &project);
-  let parsed = state
-    .blocking(move |store| store.list_tasks(&caller, &target, number, false))
+  let SpecTasks {
+    parsed,
+    mut completions,
+  } = state
+    .blocking(move |store| store.spec_tasks(&caller, &target, number))
     .await?;
   Ok(Json(TasksOutput {
-    tasks: parsed.tasks.into_iter().map(TaskOutput::from).collect(),
+    tasks: parsed
+      .tasks
+      .into_iter()
+      .map(|task| {
+        let completed_by = completions.remove(&task.id).map(AttributionOutput::from);
+        TaskOutput {
+          completed_by,
+          ..TaskOutput::from(task)
+        }
+      })
+      .collect(),
     malformed: parsed
       .malformed
       .into_iter()
@@ -268,9 +331,14 @@ pub async fn markers(
   let caller = principal.caller;
   let target = address(&org, &project);
   let markers = state
-    .blocking(move |store| store.list_markers(&caller, &target, number))
+    .blocking(move |store| store.spec_markers(&caller, &target, number))
     .await?;
   Ok(Json(MarkersOutput {
-    markers: markers.into_iter().map(MarkerOutput::from).collect(),
+    markers: markers.open.into_iter().map(MarkerOutput::from).collect(),
+    resolved: markers
+      .resolved
+      .into_iter()
+      .map(ResolvedMarkerOutput::from)
+      .collect(),
   }))
 }

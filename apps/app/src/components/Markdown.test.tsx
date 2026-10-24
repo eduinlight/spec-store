@@ -5,9 +5,10 @@ function html(body: string): HTMLElement {
   return render(<Markdown body={body} />).container;
 }
 
-test("renders headings, lists and tables", () => {
+test("renders headings one level down, lists and tables", () => {
   const view = html("# Title\n\n- one\n- two\n\n| a | b |\n|---|---|\n| 1 | 2 |\n");
-  expect(view.querySelector("h1")?.textContent).toBe("Title");
+  expect(view.querySelector("h1")).toBeNull();
+  expect(view.querySelector("h2")?.textContent).toBe("Title");
   expect(view.querySelectorAll("li")).toHaveLength(2);
   expect(view.querySelector("table td:last-child")?.textContent).toBe("2");
 });
@@ -42,7 +43,7 @@ test("unsafe link schemes are dropped and safe ones kept", () => {
 
 test("handles CRLF and code blocks", () => {
   const view = html("# T\r\n\r\npara\r\n\r\n```sh\r\nls -la\r\n```\r\n");
-  expect(view.querySelector("h1")?.textContent).toBe("T");
+  expect(view.querySelector("h2")?.textContent).toBe("T");
   expect(view.querySelector("p")?.textContent).toBe("para");
   expect(view.querySelector("code.language-sh")?.textContent).toContain("ls -la");
 });

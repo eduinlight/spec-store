@@ -2796,6 +2796,61 @@
         }
       }
     },
+    "/api/v1/projects/{org}/{project}/specs/cards": {
+      "get": {
+        "tags": [
+          "specs"
+        ],
+        "operationId": "specs_cards",
+        "parameters": [
+          {
+            "name": "org",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpecCardsOutput"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/projects/{org}/{project}/specs/{number}": {
       "get": {
         "tags": [
@@ -3005,6 +3060,70 @@
         }
       }
     },
+    "/api/v1/projects/{org}/{project}/specs/{number}/readiness": {
+      "get": {
+        "tags": [
+          "specs"
+        ],
+        "operationId": "specs_readiness",
+        "parameters": [
+          {
+            "name": "org",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessOutput"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/projects/{org}/{project}/specs/{number}/tasks": {
       "get": {
         "tags": [
@@ -3044,6 +3163,70 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/TasksOutput"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{org}/{project}/specs/{number}/traceability": {
+      "get": {
+        "tags": [
+          "specs"
+        ],
+        "operationId": "specs_traceability",
+        "parameters": [
+          {
+            "name": "org",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraceabilityOutput"
                 }
               }
             }
@@ -3246,6 +3429,32 @@
           "tasks_total": {
             "type": "integer",
             "minimum": 0
+          }
+        }
+      },
+      "AttributionOutput": {
+        "type": "object",
+        "required": [
+          "author",
+          "at",
+          "revision"
+        ],
+        "properties": {
+          "at": {
+            "type": "string"
+          },
+          "author": {
+            "type": "string"
+          },
+          "client": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       },
@@ -3657,13 +3866,20 @@
       "MarkersOutput": {
         "type": "object",
         "required": [
-          "markers"
+          "markers",
+          "resolved"
         ],
         "properties": {
           "markers": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/MarkerOutput"
+            }
+          },
+          "resolved": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResolvedMarkerOutput"
             }
           }
         }
@@ -4057,6 +4273,53 @@
           }
         }
       },
+      "ReadinessItemOutput": {
+        "type": "object",
+        "required": [
+          "key",
+          "ok"
+        ],
+        "properties": {
+          "count": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "key": {
+            "type": "string"
+          },
+          "ok": {
+            "type": "boolean"
+          },
+          "total": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          }
+        }
+      },
+      "ReadinessOutput": {
+        "type": "object",
+        "required": [
+          "ready",
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReadinessItemOutput"
+            }
+          },
+          "ready": {
+            "type": "boolean"
+          }
+        }
+      },
       "RepositoryInput": {
         "type": "object",
         "required": [
@@ -4064,6 +4327,33 @@
         ],
         "properties": {
           "url": {
+            "type": "string"
+          }
+        }
+      },
+      "ResolvedMarkerOutput": {
+        "type": "object",
+        "required": [
+          "document_kind",
+          "kind",
+          "heading",
+          "text",
+          "resolved_by"
+        ],
+        "properties": {
+          "document_kind": {
+            "type": "string"
+          },
+          "heading": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "resolved_by": {
+            "$ref": "#/components/schemas/AttributionOutput"
+          },
+          "text": {
             "type": "string"
           }
         }
@@ -4164,6 +4454,94 @@
           }
         }
       },
+      "SpecCardOutput": {
+        "type": "object",
+        "required": [
+          "number",
+          "slug",
+          "title",
+          "summary",
+          "status",
+          "branch",
+          "created_at",
+          "updated_at",
+          "contributors",
+          "documents",
+          "requirement_count",
+          "tasks_done",
+          "tasks_total",
+          "open_markers"
+        ],
+        "properties": {
+          "branch": {
+            "type": "string"
+          },
+          "contributors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "documents": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "number": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "open_markers": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "requirement_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "slug": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "tasks_done": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tasks_total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "title": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        }
+      },
+      "SpecCardsOutput": {
+        "type": "object",
+        "required": [
+          "specs"
+        ],
+        "properties": {
+          "specs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SpecCardOutput"
+            }
+          }
+        }
+      },
       "SpecOutput": {
         "type": "object",
         "required": [
@@ -4258,6 +4636,16 @@
               "null"
             ]
           },
+          "completed_by": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AttributionOutput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "description": {
             "type": "string"
           },
@@ -4305,6 +4693,78 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/TaskOutput"
+            }
+          }
+        }
+      },
+      "TraceRequirementOutput": {
+        "type": "object",
+        "required": [
+          "id",
+          "text",
+          "status",
+          "tasks"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "tasks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TraceTaskOutput"
+            }
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      },
+      "TraceTaskOutput": {
+        "type": "object",
+        "required": [
+          "id",
+          "description",
+          "done"
+        ],
+        "properties": {
+          "commit": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "description": {
+            "type": "string"
+          },
+          "done": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          }
+        }
+      },
+      "TraceabilityOutput": {
+        "type": "object",
+        "required": [
+          "requirements",
+          "tasks_without_requirements"
+        ],
+        "properties": {
+          "requirements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TraceRequirementOutput"
+            }
+          },
+          "tasks_without_requirements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TraceTaskOutput"
             }
           }
         }

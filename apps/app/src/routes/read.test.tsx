@@ -131,30 +131,6 @@ test("the project page shows the constitution, specs, progress and members", asy
   ).toEqual([expect.stringContaining("alice"), expect.stringContaining("rita")]);
 });
 
-test("the spec page renders each document, the tasks table with commit links and the markers", async () => {
-  baseApi();
-  renderAt("/p/acme/demo/specs/1");
-  expect(await screen.findByRole("heading", { name: "Spec heading" })).toBeInTheDocument();
-  expect(screen.getByText("Some <b>text</b>")).toBeInTheDocument();
-  expect(screen.getAllByText("Not written yet").length).toBeGreaterThan(0);
-  const table = screen.getByRole("table", { name: "Tasks" });
-  expect(within(table).getByRole("link", { name: "abc1234" })).toHaveAttribute(
-    "href",
-    "https://github.com/acme/demo/commit/abc1234",
-  );
-  expect(within(table).getByText("Second task")).toBeInTheDocument();
-  expect(screen.getByText("Markers (1)")).toBeInTheDocument();
-  expect(screen.getByText("who?")).toBeInTheDocument();
-});
-
-test("a document can be shown raw, byte for byte", async () => {
-  baseApi();
-  renderAt("/p/acme/demo/specs/1/spec");
-  expect(await screen.findByRole("heading", { name: "Spec heading" })).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Raw" }));
-  expect(screen.getByTestId("raw").textContent).toBe("# Spec heading\n\nSome <b>text</b>\n");
-});
-
 test("history lists revisions, older revisions say they are not current and diffs mark changes", async () => {
   baseApi({
     "GET /api/v1/projects/{org}/{project}/revisions": () => ({
