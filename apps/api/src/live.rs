@@ -94,6 +94,10 @@ impl LiveHub {
     self.sender.subscribe()
   }
 
+  pub fn readiness(&self) -> watch::Receiver<bool> {
+    self.ready.clone()
+  }
+
   /// Waits until the hub receives events; true when it does within the timeout.
   pub async fn wait_ready(&self, timeout: Duration) -> bool {
     let mut ready = self.ready.clone();
@@ -312,6 +316,9 @@ async fn session(state: AppState, caller: Caller, credential: Credential, socket
   let settings = state.live_settings;
   let (mut sink, mut incoming) = socket.split();
   let mut events = state.live.subscribe();
+  let mut readiness = state.live.readiness();
+  let mut connected = *readiness.borrow_and_update();
+  let mut watching = true;
   let mut subscriptions = Subscriptions::new();
   let mut ping = tokio::time::interval_at(
     tokio::time::Instant::now() + settings.ping_interval,
@@ -362,6 +369,17 @@ async fn session(state: AppState, caller: Caller, credential: Credential, socket
         }
         Err(broadcast::error::RecvError::Closed) => break,
       },
+      changed = readiness.changed(), if watching => {
+        if changed.is_err() {
+          watching = false;
+          continue;
+        }
+        let now = *readiness.borrow_and_update();
+        if now && !connected && !reply(&mut sink, json!({"resync": true})).await {
+          return;
+        }
+        connected = now;
+      }
       _ = ping.tick() => {
         if !alive {
           break;
