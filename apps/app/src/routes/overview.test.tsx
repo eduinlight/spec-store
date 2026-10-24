@@ -123,9 +123,8 @@ test("choosing a period asks for it and keeps it in the address", async () => {
   await userEvent.click(within(group).getByRole("button", { name: "30 days" }));
   await waitFor(() => expect(periods).toContain("30"));
   expect(router.state.location.search).toBe("?days=30");
-  expect(await screen.findByRole("button", { name: "30 days" })).toHaveAttribute(
-    "aria-pressed",
-    "true",
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: "30 days" })).toHaveAttribute("aria-pressed", "true"),
   );
 });
 
