@@ -16,6 +16,7 @@ import * as projectSettings from "~/routes/project-settings";
 import * as revision from "~/routes/revision";
 import * as root from "~/routes/root";
 import * as spec from "~/routes/spec";
+import * as specs from "~/routes/specs";
 
 export const routes: RouteObject[] = [
   {
@@ -67,7 +68,7 @@ export const routes: RouteObject[] = [
             Component: profile.Profile,
           },
           { path: "p/:org/:project/active", Component: placeholders.ActiveSpecsPlaceholder },
-          { path: "p/:org/:project/specs", Component: placeholders.SpecsPlaceholder },
+          { path: "p/:org/:project/specs", loader: specs.loader, Component: specs.Specs },
           { path: "p/:org/:project/activity", Component: placeholders.ActivityPlaceholder },
           { path: "p/:org/:project/members", Component: placeholders.MembersPlaceholder },
           { path: "account/tokens", Component: placeholders.TokensPlaceholder },

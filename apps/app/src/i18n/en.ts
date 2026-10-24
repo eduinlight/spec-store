@@ -101,10 +101,6 @@ export const en = {
       title: "Active specs",
       body: "This screen will show the specs your team is working on right now, with their progress and next tasks.",
     },
-    specs: {
-      title: "Specs",
-      body: "The full list of specs of the project, with filters by status, is coming.",
-    },
     activity: {
       title: "Activity",
       body: "A live feed of what people and agents change in this project is coming.",
@@ -354,6 +350,32 @@ export const en = {
     confirmBody: "Nobody can write to it until an owner restores it. Its history stays readable.",
     restoreTitle: "Restore {{name}}?",
     restoreBody: "Members will be able to write to it again.",
+  },
+  specs: {
+    title: "Specs",
+    total_one: "{{count}} spec",
+    total_other: "{{count}} specs",
+    search: "Search by title, slug or number",
+    sortLabel: "Sort specs",
+    sorts: {
+      newest: "Number, newest first",
+      oldest: "Number, oldest first",
+      updated: "Recently updated",
+    },
+    filters: {
+      all: "All",
+      active: "Active",
+      draft: "Draft",
+      clarified: "Clarified",
+      approved: "Approved",
+      archived: "Archived",
+    },
+    list: "Specs",
+    noMatch: "No specs match these filters.",
+    none: "No specs yet",
+    showing: "Showing {{shown}} of {{total}}",
+    more: "Load {{count}} more",
+    questionsTip: "Answer these before the spec can be clarified",
   },
   spec: {
     status: "Status",

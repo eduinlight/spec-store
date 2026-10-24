@@ -1,24 +1,11 @@
-import {
-  Avatar,
-  LockDocument,
-  StatusTag,
-  type StatusTagStatus,
-  Tag,
-  Tooltip,
-} from "@workspace/ui/taptap";
+import { Avatar, LockDocument, StatusTag, Tag, Tooltip } from "@workspace/ui/taptap";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import type { components } from "~/api/schema";
 import { useDate } from "~/lib/format";
+import { specTag } from "~/lib/spec-status";
 
 export type ProjectSummary = components["schemas"]["ProjectSummaryOutput"];
-
-const SPEC_STATUS_TAGS: Record<string, StatusTagStatus> = {
-  draft: "underReview",
-  clarified: "currentVersion",
-  approved: "approved",
-  archived: "cancel",
-};
 
 const percent = (done: number, total: number) => (total > 0 ? Math.round((done / total) * 100) : 0);
 
@@ -63,7 +50,7 @@ export function ProjectCard({ project }: { project: ProjectSummary }) {
               <span className="min-w-0 flex-1 truncate font-mono text-sm font-medium text-[var(--neutral-700)]">
                 {spec.slug}
               </span>
-              <StatusTag status={SPEC_STATUS_TAGS[spec.status] ?? "underReview"}>
+              <StatusTag status={specTag(spec.status)}>
                 {t(`spec.statuses.${spec.status as "draft"}`)}
               </StatusTag>
             </span>

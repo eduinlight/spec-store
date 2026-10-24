@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 
 export type PlaceholderKey =
   | "active"
-  | "specs"
   | "activity"
   | "members"
   | "tokens"
@@ -34,7 +33,6 @@ export function Placeholder({ name }: PlaceholderProps) {
 }
 
 export const ActiveSpecsPlaceholder = () => <Placeholder name="active" />;
-export const SpecsPlaceholder = () => <Placeholder name="specs" />;
 export const ActivityPlaceholder = () => <Placeholder name="activity" />;
 export const MembersPlaceholder = () => <Placeholder name="members" />;
 export const TokensPlaceholder = () => <Placeholder name="tokens" />;

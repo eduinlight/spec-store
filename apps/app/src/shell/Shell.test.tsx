@@ -71,7 +71,6 @@ test("every upcoming screen shows an empty state naming what is coming", async (
   shellApi();
   const screens: [string, string, RegExp][] = [
     ["/p/acme/demo/active", "Active specs", /specs your team is working on/],
-    ["/p/acme/demo/specs", "Specs", /full list of specs/],
     ["/p/acme/demo/activity", "Activity", /feed of what people and agents change/],
     ["/p/acme/demo/members", "Project members", /project settings/],
     ["/account/tokens", "My tokens", /tokens your agents use/],

@@ -103,10 +103,6 @@ export const es: Translation = {
       title: "Specs activas",
       body: "Esta pantalla mostrará las specs en las que trabaja tu equipo ahora mismo, con su avance y sus próximas tareas.",
     },
-    specs: {
-      title: "Specs",
-      body: "Pronto verás la lista completa de specs del proyecto, con filtros por estado.",
-    },
     activity: {
       title: "Actividad",
       body: "Pronto verás en vivo lo que personas y agentes cambian en este proyecto.",
@@ -361,6 +357,32 @@ export const es: Translation = {
       "Nadie podrá escribir en él hasta que un propietario lo restaure. Su historial sigue siendo legible.",
     restoreTitle: "¿Restaurar {{name}}?",
     restoreBody: "Los miembros podrán volver a escribir en él.",
+  },
+  specs: {
+    title: "Specs",
+    total_one: "{{count}} spec",
+    total_other: "{{count}} specs",
+    search: "Buscar por título, slug o número",
+    sortLabel: "Ordenar specs",
+    sorts: {
+      newest: "Número, más nuevas primero",
+      oldest: "Número, más antiguas primero",
+      updated: "Actualizadas recientemente",
+    },
+    filters: {
+      all: "Todas",
+      active: "Activas",
+      draft: "Borrador",
+      clarified: "Aclaradas",
+      approved: "Aprobadas",
+      archived: "Archivadas",
+    },
+    list: "Specs",
+    noMatch: "Ninguna spec coincide con estos filtros.",
+    none: "Todavía no hay specs",
+    showing: "Mostrando {{shown}} de {{total}}",
+    more: "Cargar {{count}} más",
+    questionsTip: "Respóndelas antes de que la spec pueda aclararse",
   },
   spec: {
     status: "Estado",
