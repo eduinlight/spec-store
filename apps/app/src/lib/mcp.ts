@@ -1,10 +1,8 @@
-export function mcpBaseUrl(): string {
-  const configured = import.meta.env.VITE_MCP_URL;
-  return (configured ? String(configured) : window.location.origin).replace(/\/+$/, "");
-}
+export const connectCommand = (mcpUrl: string): string =>
+  `claude mcp add --transport http sdd-vault ${mcpUrl}`;
 
-export const connectCommand = (baseUrl: string): string =>
-  `claude mcp add --transport http sdd-vault ${baseUrl}/mcp`;
+export const mcpUrlOf = (me: { mcp_url?: string | null } | null | undefined): string =>
+  me?.mcp_url ?? `${window.location.origin}/mcp`;
 
 export const NON_AGENT_CLIENTS = ["Web app", "sddvault CLI"];
 

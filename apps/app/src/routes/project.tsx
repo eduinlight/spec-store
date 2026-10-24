@@ -1,11 +1,12 @@
 import { Card } from "@workspace/ui/components/card";
 import { Alert, Tag } from "@workspace/ui/taptap";
 import { useTranslation } from "react-i18next";
-import { Link, type LoaderFunctionArgs, useLoaderData } from "react-router";
+import { Link, type LoaderFunctionArgs, useLoaderData, useRouteLoaderData } from "react-router";
 import { ApiFailure, api, unwrap } from "~/api/client";
 import { GetStarted } from "~/components/get-started";
-import { connectCommand, isAgentClient, mcpBaseUrl } from "~/lib/mcp";
+import { connectCommand, isAgentClient, mcpUrlOf } from "~/lib/mcp";
 import { guard } from "~/lib/session";
+import type { RootData } from "~/routes/root";
 
 export function projectParams(params: Record<string, string | undefined>) {
   return { org: params.org ?? "", project: params.project ?? "" };
@@ -40,6 +41,7 @@ export function Project() {
   const { project, status, members, summary } = useLoaderData() as Awaited<
     ReturnType<typeof loader>
   >;
+  const root = useRouteLoaderData("root") as RootData | undefined;
   const { t } = useTranslation();
   const base = `/p/${project.address}`;
   const owner = project.role === "owner";
@@ -79,7 +81,7 @@ export function Project() {
       )}
       {gettingStarted && (
         <GetStarted
-          command={connectCommand(mcpBaseUrl())}
+          command={connectCommand(mcpUrlOf(root?.me))}
           agentCalled={agentCalled}
           specWritten={specWritten}
         />

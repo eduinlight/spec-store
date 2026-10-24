@@ -19,6 +19,7 @@ pub struct ApiConfig {
   pub app_client_secret: String,
   pub session_key: String,
   pub trusted_proxy_hops: usize,
+  pub mcp_url: Option<String>,
 }
 
 impl ApiConfig {

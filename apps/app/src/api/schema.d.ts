@@ -791,6 +791,7 @@ export interface components {
             email: string;
             handle: string;
             is_operator: boolean;
+            mcp_url?: string | null;
             name: string;
         };
         MemberOutput: {

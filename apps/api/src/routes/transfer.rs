@@ -40,9 +40,6 @@ pub async fn import(
   Path((org, project)): Path<(String, String)>,
   Json(body): Json<ImportInput>,
 ) -> Result<Json<ImportReport>, ApiError> {
-  if principal.via_session {
-    return Err(ApiError::Store(StoreError::Forbidden));
-  }
   let caller = principal.caller;
   let target = address(&org, &project);
   let report = state

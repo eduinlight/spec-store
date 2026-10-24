@@ -3686,6 +3686,12 @@
           "is_operator": {
             "type": "boolean"
           },
+          "mcp_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "name": {
             "type": "string"
           }

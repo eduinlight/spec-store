@@ -29,9 +29,8 @@ function setup({
   specs = [] as (typeof spec)[],
   activity = null as { actor: string; client: string | null; at: string } | null,
 } = {}) {
-  vi.stubEnv("VITE_MCP_URL", "https://mcp.example.test");
   return mockApi({
-    "GET /api/v1/me": () => me,
+    "GET /api/v1/me": () => ({ ...me, mcp_url: "https://mcp.example.test/mcp" }),
     "GET /api/v1/orgs": () => ({ organizations: [acme] }),
     "GET /api/v1/orgs/{org}/projects": () => ({
       projects: [summary({ role, archived, last_activity: activity })],
