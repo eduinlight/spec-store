@@ -37,7 +37,7 @@ fn reopening_applies_nothing_new() {
   let pool = db::open(&test_db.url).expect("second open");
   assert_eq!(
     common::diesel_versions(&mut pool.get().unwrap()),
-    vec!["0001", "0002", "0003", "0004"]
+    vec!["0001", "0002", "0003", "0004", "0005"]
   );
 }
 
@@ -70,4 +70,24 @@ fn unreachable_database_is_a_pool_error() {
     matches!(error, sdd_vault_core::model::StoreError::Pool(_)),
     "{error:?}"
   );
+}
+
+#[test]
+fn audit_indexes_exist_after_migration() {
+  let test_db = sdd_vault_testkit::TestDb::empty();
+  let store = Store::open(&test_db.url).expect("open");
+  let names = common::texts(
+    &store,
+    "SELECT indexname::text AS value FROM pg_indexes WHERE tablename = 'audit_log' ORDER BY indexname",
+  );
+  for expected in [
+    "audit_log_by_organization_time",
+    "audit_log_by_project_action",
+    "audit_log_by_project_time",
+  ] {
+    assert!(
+      names.iter().any(|n| n == expected),
+      "{expected} in {names:?}"
+    );
+  }
 }

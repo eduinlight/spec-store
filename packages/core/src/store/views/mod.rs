@@ -1,5 +1,6 @@
 pub mod active;
 pub mod activity;
+pub mod audit_table;
 pub mod markers;
 pub mod overview;
 pub mod readiness;

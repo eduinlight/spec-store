@@ -132,7 +132,7 @@ impl Store {
   }
 }
 
-type AuditRow = (
+pub(crate) type AuditRow = (
   i64,
   String,
   Option<String>,
@@ -192,41 +192,39 @@ pub(crate) fn filtered_audit_entries(
     query = query.filter(schema::audit_log::id.lt(before));
   }
   let rows: Vec<AuditRow> = query.load(conn)?;
-  rows
-    .into_iter()
-    .map(
-      |(
-        id,
-        actor,
-        organization,
-        project,
-        action,
-        target,
-        created_at,
-        client,
-        origin,
-        result,
-        detail,
-      )| {
-        Ok(AuditEntry {
-          id,
-          project: match (&organization, project) {
-            (Some(org), Some(project)) => Some(format!("{org}/{project}")),
-            _ => None,
-          },
-          organization,
-          actor,
-          action,
-          target,
-          created_at,
-          client,
-          origin,
-          result: result.parse()?,
-          detail,
-        })
-      },
-    )
-    .collect()
+  rows.into_iter().map(audit_entry).collect()
+}
+
+pub(crate) fn audit_entry(row: AuditRow) -> StoreResult<AuditEntry> {
+  let (
+    id,
+    actor,
+    organization,
+    project,
+    action,
+    target,
+    created_at,
+    client,
+    origin,
+    result,
+    detail,
+  ) = row;
+  Ok(AuditEntry {
+    id,
+    project: match (&organization, project) {
+      (Some(org), Some(project)) => Some(format!("{org}/{project}")),
+      _ => None,
+    },
+    organization,
+    actor,
+    action,
+    target,
+    created_at,
+    client,
+    origin,
+    result: result.parse()?,
+    detail,
+  })
 }
 
 impl Store {
