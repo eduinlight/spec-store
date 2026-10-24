@@ -2,6 +2,7 @@ use axum::Json;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use sdd_vault_core::model::Role;
+use sdd_vault_core::store::summaries::ProjectSummary;
 use serde::{Deserialize, Serialize};
 
 use crate::auth::Principal;
@@ -14,12 +15,68 @@ pub struct NewProject {
   pub name: String,
 }
 
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+pub struct CopyProject {
+  pub slug: String,
+  pub name: String,
+  pub repository_url: Option<String>,
+}
+
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct ProjectSummaryOutput {
   pub address: String,
   pub slug: String,
   pub name: String,
   pub role: Option<String>,
+  pub archived: bool,
+  pub constitution_version: Option<String>,
+  pub constitution_updated_at: Option<String>,
+  pub active_spec: Option<ActiveSpecOutput>,
+  pub last_activity: Option<LastActivityOutput>,
+  pub open_markers: usize,
+}
+
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+pub struct ActiveSpecOutput {
+  pub number: i64,
+  pub slug: String,
+  pub status: String,
+  pub tasks_done: usize,
+  pub tasks_total: usize,
+}
+
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+pub struct LastActivityOutput {
+  pub actor: String,
+  pub client: Option<String>,
+  pub at: String,
+}
+
+impl From<ProjectSummary> for ProjectSummaryOutput {
+  fn from(summary: ProjectSummary) -> Self {
+    ProjectSummaryOutput {
+      address: summary.address.to_string(),
+      slug: summary.slug,
+      name: summary.name,
+      role: summary.role.map(|r| r.as_str().to_string()),
+      archived: summary.archived,
+      constitution_version: summary.constitution.as_ref().map(|c| c.version.clone()),
+      constitution_updated_at: summary.constitution.map(|c| c.updated_at),
+      active_spec: summary.active_spec.map(|spec| ActiveSpecOutput {
+        number: spec.number,
+        slug: spec.slug,
+        status: spec.status.as_str().to_string(),
+        tasks_done: spec.tasks_done,
+        tasks_total: spec.tasks_total,
+      }),
+      last_activity: summary.last_activity.map(|a| LastActivityOutput {
+        actor: a.actor,
+        client: a.client,
+        at: a.at,
+      }),
+      open_markers: summary.open_markers,
+    }
+  }
 }
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
@@ -36,6 +93,7 @@ pub struct ProjectOutput {
   pub repository_url: Option<String>,
   pub role: Option<String>,
   pub created_at: String,
+  pub archived: bool,
 }
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
@@ -78,18 +136,10 @@ pub async fn list(
 ) -> Result<Json<ProjectsOutput>, ApiError> {
   let caller = principal.caller;
   let projects = state
-    .blocking(move |store| store.list_organization_projects(&caller, &org))
+    .blocking(move |store| store.project_summaries(&caller, &org))
     .await?;
   Ok(Json(ProjectsOutput {
-    projects: projects
-      .into_iter()
-      .map(|p| ProjectSummaryOutput {
-        address: p.address.to_string(),
-        slug: p.address.project.clone(),
-        name: p.name,
-        role: p.role.map(|r| r.as_str().to_string()),
-      })
-      .collect(),
+    projects: projects.into_iter().map(Into::into).collect(),
   }))
 }
 
@@ -113,6 +163,7 @@ async fn read_project(
     repository_url: project.repository_url,
     role: role.map(|r| r.as_str().to_string()),
     created_at: project.created_at,
+    archived: project.archived,
   })
 }
 
@@ -277,6 +328,83 @@ pub async fn clear_repository(
   let target = address(&org, &project);
   state
     .blocking(move |store| store.set_repository_url(&caller, &target, None))
+    .await?;
+  Ok(StatusCode::NO_CONTENT)
+}
+
+#[utoipa::path(
+  post,
+  operation_id = "projects_copy",
+  path = "/api/v1/projects/{org}/{project}/copy",
+  tag = "projects",
+  params(("org" = String, Path), ("project" = String, Path)),
+  request_body = CopyProject,
+  responses((status = 201, body = ProjectOutput), (status = 401, body = ErrorBody), (status = 403, body = ErrorBody), (status = 404, body = ErrorBody), (status = 422, body = ErrorBody))
+)]
+pub async fn copy(
+  State(state): State<AppState>,
+  principal: Principal,
+  Path((org, project)): Path<(String, String)>,
+  Json(body): Json<CopyProject>,
+) -> Result<(StatusCode, Json<ProjectOutput>), ApiError> {
+  let caller = principal.caller.clone();
+  let source = address(&org, &project);
+  let created_address = address(&org, &body.slug);
+  state
+    .blocking(move |store| {
+      store.copy_project(
+        &caller,
+        &source,
+        &body.slug,
+        &body.name,
+        body.repository_url.as_deref(),
+      )
+    })
+    .await?;
+  Ok((
+    StatusCode::CREATED,
+    Json(read_project(&state, principal, created_address).await?),
+  ))
+}
+
+#[utoipa::path(
+  post,
+  operation_id = "projects_archive",
+  path = "/api/v1/projects/{org}/{project}/archive",
+  tag = "projects",
+  params(("org" = String, Path), ("project" = String, Path)),
+  responses((status = 204), (status = 401, body = ErrorBody), (status = 403, body = ErrorBody), (status = 404, body = ErrorBody), (status = 422, body = ErrorBody))
+)]
+pub async fn archive(
+  State(state): State<AppState>,
+  principal: Principal,
+  Path((org, project)): Path<(String, String)>,
+) -> Result<StatusCode, ApiError> {
+  let caller = principal.caller;
+  let target = address(&org, &project);
+  state
+    .blocking(move |store| store.archive_project(&caller, &target))
+    .await?;
+  Ok(StatusCode::NO_CONTENT)
+}
+
+#[utoipa::path(
+  post,
+  operation_id = "projects_restore",
+  path = "/api/v1/projects/{org}/{project}/restore",
+  tag = "projects",
+  params(("org" = String, Path), ("project" = String, Path)),
+  responses((status = 204), (status = 401, body = ErrorBody), (status = 403, body = ErrorBody), (status = 404, body = ErrorBody), (status = 422, body = ErrorBody))
+)]
+pub async fn restore(
+  State(state): State<AppState>,
+  principal: Principal,
+  Path((org, project)): Path<(String, String)>,
+) -> Result<StatusCode, ApiError> {
+  let caller = principal.caller;
+  let target = address(&org, &project);
+  state
+    .blocking(move |store| store.restore_project(&caller, &target))
     .await?;
   Ok(StatusCode::NO_CONTENT)
 }

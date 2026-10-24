@@ -228,7 +228,7 @@ impl Store {
       let access = access_in(tx, caller, project)?;
       let role = access
         .role
-        .filter(|r| r.can_write())
+        .filter(|r| r.can_write() && !access.archived)
         .ok_or(StoreError::Forbidden)?;
       let spec = spec_by_number(tx, access.project_id, project, number)?;
       if !transition_allowed(spec.status, to, role) {

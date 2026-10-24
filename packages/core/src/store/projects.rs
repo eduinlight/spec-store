@@ -1,12 +1,18 @@
+use diesel::dsl::sql;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
+use diesel::sql_types::{Nullable, Timestamptz};
 use diesel::upsert::excluded;
 
 use crate::address::ProjectRef;
-use crate::model::{Caller, OrgRole, Role, StoreError, StoreResult, validate_slug};
-use crate::schema::{iso_utc, memberships, organization_members, organizations, projects, users};
-use crate::store::organizations::{org_role, organization_id_by_slug};
+use crate::model::{Caller, DocumentKind, OrgRole, Role, StoreError, StoreResult, validate_slug};
+use crate::schema::{
+  iso_utc, memberships, organization_members, organizations, projects, specs, users,
+};
+use crate::store::documents::{append_revision, current_revision, document_id, ensure_document};
+use crate::store::organizations::{org_role, organization_id_by_slug, owned_organization};
 use crate::store::refusals::Attempt;
+use crate::store::specs::spec_rows_in;
 use crate::store::users::user_id_by_handle;
 use crate::store::{Store, audit};
 
@@ -18,6 +24,7 @@ pub struct Project {
   pub name: String,
   pub repository_url: Option<String>,
   pub created_at: String,
+  pub archived: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -40,7 +47,7 @@ pub fn validate_repository_url(url: &str) -> StoreResult<()> {
 }
 
 pub fn project_in(conn: &mut PgConnection, project_id: i64) -> StoreResult<Project> {
-  let (id, organization, slug, name, repository_url, created_at) = projects::table
+  let (id, organization, slug, name, repository_url, created_at, archived) = projects::table
     .inner_join(organizations::table)
     .filter(projects::id.eq(project_id))
     .select((
@@ -50,8 +57,9 @@ pub fn project_in(conn: &mut PgConnection, project_id: i64) -> StoreResult<Proje
       projects::name,
       projects::repository_url,
       iso_utc(projects::created_at),
+      projects::archived_at.is_not_null(),
     ))
-    .first::<(i64, String, String, String, Option<String>, String)>(conn)?;
+    .first::<(i64, String, String, String, Option<String>, String, bool)>(conn)?;
   Ok(Project {
     id,
     address: ProjectRef::new(&organization, &slug),
@@ -59,6 +67,7 @@ pub fn project_in(conn: &mut PgConnection, project_id: i64) -> StoreResult<Proje
     name,
     repository_url,
     created_at,
+    archived,
   })
 }
 
@@ -75,19 +84,24 @@ pub struct Access {
   pub organization_id: i64,
   pub role: Option<Role>,
   pub is_operator: bool,
+  pub archived: bool,
 }
 
 impl Access {
   pub fn can_write(&self) -> bool {
-    self.role.is_some_and(Role::can_write)
+    !self.archived && self.role.is_some_and(Role::can_write)
   }
 
   pub fn is_owner(&self) -> bool {
     self.role == Some(Role::Owner)
   }
 
+  pub fn can_administer(&self) -> bool {
+    !self.archived && self.is_owner()
+  }
+
   pub fn can_manage_members(&self) -> bool {
-    self.is_owner()
+    self.can_administer()
   }
 }
 
@@ -108,14 +122,18 @@ pub fn role_of(
 pub fn access_in(conn: &mut PgConnection, caller: &Caller, project: &str) -> StoreResult<Access> {
   let address = ProjectRef::parse(project)?;
   let not_found = || StoreError::NotFound(format!("project {project:?}"));
-  let found: Option<(i64, i64)> = projects::table
+  let found: Option<(i64, i64, bool)> = projects::table
     .inner_join(organizations::table)
     .filter(organizations::slug.eq(&address.organization))
     .filter(projects::slug.eq(&address.project))
-    .select((projects::id, projects::organization_id))
+    .select((
+      projects::id,
+      projects::organization_id,
+      projects::archived_at.is_not_null(),
+    ))
     .first(conn)
     .optional()?;
-  let (project_id, organization_id) = found.ok_or_else(not_found)?;
+  let (project_id, organization_id, archived) = found.ok_or_else(not_found)?;
   let role = match org_role(conn, organization_id, caller.user_id)? {
     Some(OrgRole::Owner) => Some(Role::Owner),
     _ => role_of(conn, project_id, caller.user_id)?,
@@ -128,6 +146,7 @@ pub fn access_in(conn: &mut PgConnection, caller: &Caller, project: &str) -> Sto
     organization_id,
     role,
     is_operator: caller.is_operator,
+    archived,
   })
 }
 
@@ -178,6 +197,7 @@ impl Store {
         name: name.to_string(),
         repository_url: None,
         created_at,
+        archived: false,
       })
     })
   }
@@ -244,6 +264,102 @@ impl Store {
     })
   }
 
+  pub fn copy_project(
+    &self,
+    actor: &Caller,
+    source: &str,
+    slug: &str,
+    name: &str,
+    repository_url: Option<&str>,
+  ) -> StoreResult<Project> {
+    let source_address = ProjectRef::parse(source)?;
+    validate_slug(slug)?;
+    if let Some(url) = repository_url {
+      validate_repository_url(url)?;
+    }
+    let address = ProjectRef::new(&source_address.organization, slug);
+    let target = format!("{source}→{address}");
+    let attempt =
+      Attempt::organization("project.copy", &source_address.organization, target.clone());
+    self.audited(actor, attempt, |tx| {
+      let organization_id = owned_organization(tx, actor, &source_address.organization)?;
+      let origin = access_in(tx, actor, source)?;
+      let duplicate: i64 = projects::table
+        .filter(projects::organization_id.eq(organization_id))
+        .filter(projects::slug.eq(slug))
+        .count()
+        .get_result(tx)?;
+      if duplicate > 0 {
+        return Err(StoreError::Validation(format!(
+          "project slug {slug:?} already exists in organization {:?}",
+          source_address.organization
+        )));
+      }
+      let (id, created_at): (i64, String) = diesel::insert_into(projects::table)
+        .values((
+          projects::organization_id.eq(organization_id),
+          projects::slug.eq(slug),
+          projects::name.eq(name),
+          projects::repository_url.eq(repository_url),
+        ))
+        .returning((projects::id, iso_utc(projects::created_at)))
+        .get_result(tx)?;
+      let message = format!("Copied from {source}");
+      copy_documents(tx, actor, origin.project_id, id, &message)?;
+      audit(tx, actor, Some(id), "project.copy", &target)?;
+      Ok(Project {
+        id,
+        slug: slug.to_string(),
+        address,
+        name: name.to_string(),
+        repository_url: repository_url.map(str::to_string),
+        created_at,
+        archived: false,
+      })
+    })
+  }
+
+  pub fn archive_project(&self, actor: &Caller, project: &str) -> StoreResult<()> {
+    self.set_archived(actor, project, true)
+  }
+
+  pub fn restore_project(&self, actor: &Caller, project: &str) -> StoreResult<()> {
+    self.set_archived(actor, project, false)
+  }
+
+  fn set_archived(&self, actor: &Caller, project: &str, archive: bool) -> StoreResult<()> {
+    let action = if archive {
+      "project.archive"
+    } else {
+      "project.restore"
+    };
+    let attempt = Attempt::project(action, project, project);
+    self.audited(actor, attempt, |tx| {
+      let access = access_in(tx, actor, project)?;
+      if !access.is_owner() {
+        return Err(StoreError::Forbidden);
+      }
+      if access.archived == archive {
+        return Err(StoreError::Validation(if archive {
+          format!("project {project:?} is already archived")
+        } else {
+          format!("project {project:?} is not archived")
+        }));
+      }
+      let target = projects::table.filter(projects::id.eq(access.project_id));
+      if archive {
+        diesel::update(target)
+          .set(projects::archived_at.eq(diesel::dsl::now))
+          .execute(tx)?;
+      } else {
+        diesel::update(target)
+          .set(projects::archived_at.eq(sql::<Nullable<Timestamptz>>("NULL")))
+          .execute(tx)?;
+      }
+      audit(tx, actor, Some(access.project_id), action, project)
+    })
+  }
+
   pub fn list_projects(&self, caller: &Caller) -> StoreResult<Vec<ProjectSummary>> {
     self.with_conn(|conn| {
       Ok(
@@ -257,22 +373,6 @@ impl Store {
               .map(|r| r.as_str().to_string())
               .unwrap_or_else(|| "operator".to_string()),
           })
-          .collect(),
-      )
-    })
-  }
-
-  pub fn list_organization_projects(
-    &self,
-    caller: &Caller,
-    organization: &str,
-  ) -> StoreResult<Vec<VisibleProject>> {
-    self.with_conn(|conn| {
-      crate::store::organizations::readable_organization(conn, caller, organization)?;
-      Ok(
-        visible_projects(conn, caller)?
-          .into_iter()
-          .filter(|p| p.address.organization == organization)
           .collect(),
       )
     })
@@ -348,15 +448,32 @@ pub struct VisibleProject {
   pub address: ProjectRef,
   pub name: String,
   pub role: Option<Role>,
+  pub archived: bool,
 }
 
-type VisibleRow = (i64, String, String, String, Option<String>, Option<String>);
+type VisibleRow = (
+  i64,
+  String,
+  String,
+  String,
+  Option<String>,
+  Option<String>,
+  bool,
+);
 
 pub fn visible_projects(
   conn: &mut PgConnection,
   caller: &Caller,
 ) -> StoreResult<Vec<VisibleProject>> {
-  let rows: Vec<VisibleRow> = projects::table
+  visible_projects_in(conn, caller, None)
+}
+
+pub fn visible_projects_in(
+  conn: &mut PgConnection,
+  caller: &Caller,
+  organization: Option<&str>,
+) -> StoreResult<Vec<VisibleProject>> {
+  let mut query = projects::table
     .inner_join(organizations::table)
     .left_join(
       memberships::table.on(
@@ -379,11 +496,16 @@ pub fn visible_projects(
       projects::name,
       memberships::role.nullable(),
       organization_members::role.nullable(),
+      projects::archived_at.is_not_null(),
     ))
     .order((organizations::slug, projects::slug))
-    .load(conn)?;
+    .into_boxed();
+  if let Some(organization) = organization {
+    query = query.filter(organizations::slug.eq(organization));
+  }
+  let rows: Vec<VisibleRow> = query.load(conn)?;
   let mut visible = Vec::new();
-  for (id, organization, slug, name, project_role, org_role) in rows {
+  for (id, organization, slug, name, project_role, org_role, archived) in rows {
     let role = if org_role.as_deref() == Some(OrgRole::Owner.as_str()) {
       Some(Role::Owner)
     } else {
@@ -397,6 +519,7 @@ pub fn visible_projects(
       address: ProjectRef::new(&organization, &slug),
       name,
       role,
+      archived,
     });
   }
   Ok(visible)
@@ -408,4 +531,70 @@ fn role_rank(role: Role) -> u8 {
     Role::Editor => 1,
     Role::Reader => 2,
   }
+}
+
+fn copy_document(
+  conn: &mut PgConnection,
+  actor: &Caller,
+  from: (i64, Option<i64>),
+  to: (i64, Option<i64>),
+  kind: DocumentKind,
+  message: &str,
+) -> StoreResult<()> {
+  let Some(source_id) = document_id(conn, from.0, from.1, kind)? else {
+    return Ok(());
+  };
+  let Some((body, meta)) = current_revision(conn, source_id)? else {
+    return Ok(());
+  };
+  let target_id = ensure_document(conn, to.0, to.1, kind)?;
+  append_revision(
+    conn,
+    target_id,
+    &body,
+    meta.version.as_deref(),
+    actor,
+    message,
+  )?;
+  Ok(())
+}
+
+fn copy_documents(
+  conn: &mut PgConnection,
+  actor: &Caller,
+  from_project: i64,
+  to_project: i64,
+  message: &str,
+) -> StoreResult<()> {
+  copy_document(
+    conn,
+    actor,
+    (from_project, None),
+    (to_project, None),
+    DocumentKind::Constitution,
+    message,
+  )?;
+  for spec in spec_rows_in(conn, from_project)? {
+    let new_spec_id: i64 = diesel::insert_into(specs::table)
+      .values((
+        specs::project_id.eq(to_project),
+        specs::number.eq(spec.number),
+        specs::slug.eq(&spec.slug),
+        specs::status.eq(spec.status.as_str()),
+        specs::branch.eq(&spec.branch),
+      ))
+      .returning(specs::id)
+      .get_result(conn)?;
+    for kind in DocumentKind::SPEC_KINDS {
+      copy_document(
+        conn,
+        actor,
+        (from_project, Some(spec.id)),
+        (to_project, Some(new_spec_id)),
+        kind,
+        message,
+      )?;
+    }
+  }
+  Ok(())
 }

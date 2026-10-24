@@ -7,7 +7,13 @@ import type {
 } from "./types";
 
 export interface RawShellData {
-  me: { handle: string; name: string; email: string; is_operator: boolean };
+  me: {
+    handle: string;
+    name: string;
+    email: string;
+    is_operator: boolean;
+    mcp_url?: string | null;
+  };
   organizations: { slug: string; name: string; role?: string | null }[];
   projects: { slug: string; name: string; role?: string | null }[];
   status: {

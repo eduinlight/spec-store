@@ -25,5 +25,8 @@ fn concurrent_start_applies_once() {
   }
   let pool = db::open_with_size(&url, 1).unwrap();
   let mut conn = pool.get().unwrap();
-  assert_eq!(common::diesel_versions(&mut conn), vec!["0001", "0002"]);
+  assert_eq!(
+    common::diesel_versions(&mut conn),
+    vec!["0001", "0002", "0003"]
+  );
 }

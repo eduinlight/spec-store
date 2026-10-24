@@ -66,6 +66,7 @@ pub async fn start(label: &str) -> TestEnv {
       app_client_secret: "app-secret".into(),
       session_key: sdd_vault_core::crypto::Sealer::generate_key(),
       trusted_proxy_hops: 0,
+      mcp_url: None,
     },
   );
   let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();

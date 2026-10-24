@@ -37,6 +37,7 @@ async fn main() -> anyhow::Result<()> {
     app_client_secret: env.required("KEYCLOAK_APP_CLIENT_SECRET")?,
     session_key: env.required("SESSION_SEALING_KEY")?,
     trusted_proxy_hops: env.parsed("TRUSTED_PROXY_HOPS", 0)?,
+    mcp_url: env.optional("MCP_RESOURCE"),
   };
   let smtp = SmtpSettings::from_env(&env)?;
   let bind = env

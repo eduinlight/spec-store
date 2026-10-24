@@ -144,6 +144,11 @@ export const es: Translation = {
       "El agente deja de actuar por ti de inmediato y habrá que autorizarlo de nuevo.",
   },
   toast: {
+    projectCreated: "Proyecto creado.",
+    projectImported: "Proyecto creado y árbol SDD importado.",
+    projectCopied: "Proyecto copiado.",
+    projectArchived: "Proyecto archivado.",
+    projectRestored: "Proyecto restaurado.",
     roleChanged: "Rol actualizado.",
     memberRemoved: "Miembro quitado.",
     invitationResent: "Invitación enviada de nuevo.",
@@ -241,6 +246,121 @@ export const es: Translation = {
     markers: "Marcadores abiertos",
     repository: "Repositorio",
     members: "Miembros",
+  },
+  home: {
+    title: "Proyectos",
+    list: "Proyectos",
+    filters: { mine: "Mis proyectos", all: "Todos", archived: "Archivados" },
+    importTree: "Importar árbol SDD",
+    createProject: "Crear proyecto",
+    empty: {
+      mine: {
+        title: "Todavía no eres miembro de ningún proyecto",
+        body: "Crea un proyecto o pide a un propietario que te añada a uno.",
+      },
+      all: {
+        title: "Esta organización todavía no tiene proyectos",
+        body: "Crea el primero para dar a tus agentes un lugar donde trabajar.",
+      },
+      archived: {
+        title: "No hay proyectos archivados",
+        body: "Los proyectos archivados son de solo lectura y conservan todo su historial.",
+      },
+    },
+  },
+  card: {
+    constitution: "Constitución v{{version}}",
+    constitutionUpdated: "actualizada {{when}}",
+    noConstitution: "Todavía no hay constitución",
+    noSpecs: "Todavía no hay specs",
+    progress: "{{done}}/{{total}}",
+    progressLabel: "Progreso de las tareas",
+    noActivity: "Sin actividad todavía",
+    markers: "? {{count}} abiertas",
+    markersTip: "Preguntas abiertas en la spec activa: {{count}}",
+    archived: "Archivado",
+    archivedNote: "Solo lectura. Se conserva su historial.",
+  },
+  newProject: {
+    title: "Nuevo proyecto",
+    name: "Nombre",
+    namePlaceholder: "Servicio de pagos",
+    slug: "Slug",
+    slugPreview: "Los agentes se refieren al proyecto por su slug:",
+    slugInvalid:
+      "Usa de una a cuatro palabras en minúsculas, letras y dígitos, unidas por guiones.",
+    repository: "Repositorio",
+    optional: "(opcional)",
+    repositoryHint: "Sirve para enlazar los commits de las tareas.",
+    startFrom: "Empezar desde",
+    start: {
+      empty: { label: "Vacío", description: "Un proyecto en blanco" },
+      import: { label: "Importar árbol SDD", description: "Desde una carpeta de tu disco" },
+      copy: { label: "Copiar proyecto", description: "Desde otro proyecto de esta organización" },
+    },
+    dryRunHint: "Una simulación lista todos los problemas antes de importar nada.",
+    chooseFolder: "Elegir carpeta",
+    changeFolder: "Elegir otra carpeta",
+    folderHelp: "Elige la carpeta que contiene docs/constitution.md y specs/.",
+    folderRead: "{{folder}} — specs: {{specs}}, documentos: {{documents}}.",
+    folderSkipped: "Fuera de un árbol SDD y omitidos: {{count}}.",
+    problems: "Problemas encontrados",
+    createdWithProblems:
+      "El proyecto {{address}} se creó, pero la importación encontró problemas y no se importó nada. Corrige la carpeta y vuelve a elegirla, o cierra esta ventana para quedarte con el proyecto vacío.",
+    copyFrom: "Proyecto a copiar",
+    copyPlaceholder: "Elige un proyecto",
+    copyNone: "No hay otros proyectos que puedas copiar.",
+    inherit: "Heredar la constitución de {{organization}}",
+    inheritNote: "Las constituciones de organización llegarán en una versión posterior.",
+    owner: "Serás el propietario del proyecto. Añade miembros después de crearlo.",
+    create: "Crear proyecto",
+    createAndImport: "Crear e importar",
+    import: "Importar",
+    copy: "Copiar proyecto",
+    working: "Trabajando…",
+    cancel: "Cancelar",
+    close: "Cerrar",
+  },
+  getStarted: {
+    title: "Primeros pasos",
+    progress: "{{done}} de {{total}} hechos",
+    done: "Hecho",
+    create: {
+      title: "Crear el proyecto",
+      description: "El proyecto existe y eres su propietario.",
+    },
+    connect: {
+      title: "Conecta tu agente",
+      description:
+        "Ejecuta este comando donde se ejecuta tu agente. Se abre el navegador para autorizarlo.",
+      copy: "Copiar comando",
+      copied: "Comando copiado.",
+    },
+    call: {
+      title: "Primera llamada del agente",
+      description:
+        "Pide a tu agente que lea el proyecto o escriba en él. La primera escritura de un cliente MCP completa este paso.",
+    },
+    spec: {
+      title: "Escribe la spec 001",
+      description: "Tu agente crea la spec 001 con create_spec.",
+    },
+  },
+  archive: {
+    title: "Archivar",
+    archiveDescription:
+      "Un proyecto archivado es de solo lectura para todos y sale de la lista principal. Se conserva su historial.",
+    restoreDescription:
+      "Este proyecto está archivado. Al restaurarlo, los miembros vuelven a poder escribir en él.",
+    archive: "Archivar proyecto",
+    restore: "Restaurar proyecto",
+    banner:
+      "Este proyecto está archivado y es de solo lectura. Un propietario puede restaurarlo desde sus ajustes.",
+    confirmTitle: "¿Archivar {{name}}?",
+    confirmBody:
+      "Nadie podrá escribir en él hasta que un propietario lo restaure. Su historial sigue siendo legible.",
+    restoreTitle: "¿Restaurar {{name}}?",
+    restoreBody: "Los miembros podrán volver a escribir en él.",
   },
   spec: {
     status: "Estado",

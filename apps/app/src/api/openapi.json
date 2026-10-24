@@ -1627,6 +1627,71 @@
         }
       }
     },
+    "/api/v1/projects/{org}/{project}/archive": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "operationId": "projects_archive",
+        "parameters": [
+          {
+            "name": "org",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {},
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/projects/{org}/{project}/audit": {
       "get": {
         "tags": [
@@ -1778,6 +1843,89 @@
             }
           },
           "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{org}/{project}/copy": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "operationId": "projects_copy",
+        "parameters": [
+          {
+            "name": "org",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CopyProject"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectOutput"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
             "content": {
               "application/json": {
                 "schema": {
@@ -2260,6 +2408,71 @@
           "projects"
         ],
         "operationId": "projects_clear_repository",
+        "parameters": [
+          {
+            "name": "org",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {},
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{org}/{project}/restore": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "operationId": "projects_restore",
         "parameters": [
           {
             "name": "org",
@@ -3006,6 +3219,36 @@
           }
         }
       },
+      "ActiveSpecOutput": {
+        "type": "object",
+        "required": [
+          "number",
+          "slug",
+          "status",
+          "tasks_done",
+          "tasks_total"
+        ],
+        "properties": {
+          "number": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "tasks_done": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tasks_total": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
       "AuthorizedClient": {
         "type": "object",
         "required": [
@@ -3065,6 +3308,27 @@
             "$ref": "#/components/schemas/RevisionOutput"
           },
           "version": {
+            "type": "string"
+          }
+        }
+      },
+      "CopyProject": {
+        "type": "object",
+        "required": [
+          "slug",
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "repository_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "slug": {
             "type": "string"
           }
         }
@@ -3314,6 +3578,27 @@
           }
         }
       },
+      "LastActivityOutput": {
+        "type": "object",
+        "required": [
+          "actor",
+          "at"
+        ],
+        "properties": {
+          "actor": {
+            "type": "string"
+          },
+          "at": {
+            "type": "string"
+          },
+          "client": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
       "LogoutOutput": {
         "type": "object",
         "required": [
@@ -3400,6 +3685,12 @@
           },
           "is_operator": {
             "type": "boolean"
+          },
+          "mcp_url": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "name": {
             "type": "string"
@@ -3650,11 +3941,15 @@
           "organization",
           "slug",
           "name",
-          "created_at"
+          "created_at",
+          "archived"
         ],
         "properties": {
           "address": {
             "type": "string"
+          },
+          "archived": {
+            "type": "boolean"
           },
           "created_at": {
             "type": "string"
@@ -3687,14 +3982,55 @@
         "required": [
           "address",
           "slug",
-          "name"
+          "name",
+          "archived",
+          "open_markers"
         ],
         "properties": {
+          "active_spec": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ActiveSpecOutput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "address": {
             "type": "string"
           },
+          "archived": {
+            "type": "boolean"
+          },
+          "constitution_updated_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "constitution_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "last_activity": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/LastActivityOutput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "name": {
             "type": "string"
+          },
+          "open_markers": {
+            "type": "integer",
+            "minimum": 0
           },
           "role": {
             "type": [

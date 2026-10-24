@@ -340,6 +340,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{org}/{project}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["projects_archive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{org}/{project}/audit": {
         parameters: {
             query?: never;
@@ -366,6 +382,22 @@ export interface paths {
         get: operations["documents_constitution"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{org}/{project}/copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["projects_copy"];
         delete?: never;
         options?: never;
         head?: never;
@@ -447,6 +479,22 @@ export interface paths {
         put: operations["projects_set_repository"];
         post?: never;
         delete: operations["projects_clear_repository"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{org}/{project}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["projects_restore"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -628,6 +676,14 @@ export interface components {
             tasks_done: number;
             tasks_total: number;
         };
+        ActiveSpecOutput: {
+            /** Format: int64 */
+            number: number;
+            slug: string;
+            status: string;
+            tasks_done: number;
+            tasks_total: number;
+        };
         AuthorizedClient: {
             client_id: string;
             granted_at: string;
@@ -642,6 +698,11 @@ export interface components {
             body: string;
             revision: components["schemas"]["RevisionOutput"];
             version: string;
+        };
+        CopyProject: {
+            name: string;
+            repository_url?: string | null;
+            slug: string;
         };
         CreatedInvitationOutput: {
             email: string;
@@ -704,6 +765,11 @@ export interface components {
         LanguageInput: {
             language: string;
         };
+        LastActivityOutput: {
+            actor: string;
+            at: string;
+            client?: string | null;
+        };
         LogoutOutput: {
             logout_url: string;
         };
@@ -725,6 +791,7 @@ export interface components {
             email: string;
             handle: string;
             is_operator: boolean;
+            mcp_url?: string | null;
             name: string;
         };
         MemberOutput: {
@@ -787,6 +854,7 @@ export interface components {
         };
         ProjectOutput: {
             address: string;
+            archived: boolean;
             created_at: string;
             name: string;
             organization: string;
@@ -795,8 +863,14 @@ export interface components {
             slug: string;
         };
         ProjectSummaryOutput: {
+            active_spec?: components["schemas"]["ActiveSpecOutput"] | null;
             address: string;
+            archived: boolean;
+            constitution_updated_at?: string | null;
+            constitution_version?: string | null;
+            last_activity?: components["schemas"]["LastActivityOutput"] | null;
             name: string;
+            open_markers: number;
             role?: string | null;
             slug: string;
         };
@@ -2181,6 +2255,58 @@ export interface operations {
             };
         };
     };
+    projects_archive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: string;
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
     audit_project: {
         parameters: {
             query?: {
@@ -2269,6 +2395,64 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    projects_copy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: string;
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CopyProject"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectOutput"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2613,6 +2797,58 @@ export interface operations {
         };
     };
     projects_clear_repository: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: string;
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    projects_restore: {
         parameters: {
             query?: never;
             header?: never;

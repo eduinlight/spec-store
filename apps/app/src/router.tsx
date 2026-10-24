@@ -12,7 +12,6 @@ import * as organization from "~/routes/organization";
 import * as placeholders from "~/routes/placeholder";
 import * as profile from "~/routes/profile";
 import * as project from "~/routes/project";
-import * as projectNew from "~/routes/project-new";
 import * as projectSettings from "~/routes/project-settings";
 import * as revision from "~/routes/revision";
 import * as root from "~/routes/root";
@@ -36,7 +35,12 @@ export const routes: RouteObject[] = [
             action: onboarding.action,
             Component: onboarding.Onboarding,
           },
-          { path: "o/:org", loader: organization.loader, Component: organization.Organization },
+          {
+            path: "o/:org",
+            loader: organization.loader,
+            Component: organization.Organization,
+            children: [{ path: "projects/new", Component: organization.NewProject }],
+          },
           { path: "o/:org/audit", loader: audit.loader, Component: audit.Audit },
           {
             path: "o/:org/members",
@@ -49,11 +53,6 @@ export const routes: RouteObject[] = [
             loader: invitations.loader,
             action: invitations.action,
             Component: invitations.Invitations,
-          },
-          {
-            path: "o/:org/projects/new",
-            action: projectNew.action,
-            Component: projectNew.ProjectNew,
           },
           {
             path: "invitations/:token",

@@ -20,10 +20,11 @@ async function createWorkspace(page: Page, slug: string) {
   await page.getByRole("button", { name: "Create organization" }).click();
   await expect(page).toHaveURL(`${app}/o/${slug}`);
   await page.goto(`${app}/o/${slug}/projects/new`);
-  await page.fill("#slug", "payments");
-  await page.fill("#name", "Payments");
-  await page.getByRole("button", { name: "Create project" }).click();
-  await expect(page).toHaveURL(`${app}/p/${slug}/payments/settings`);
+  const dialog = page.getByRole("dialog", { name: "New project" });
+  await dialog.getByLabel("Name").fill("Payments");
+  await dialog.getByRole("button", { name: "Create project" }).click();
+  await expect(page).toHaveURL(`${app}/p/${slug}/payments`);
+  await page.goto(`${app}/p/${slug}/payments/settings`);
 }
 
 test("the shell wraps the app with the header, sidebar, palette, shortcuts and user menu", async ({
@@ -37,7 +38,9 @@ test("the shell wraps the app with the header, sidebar, palette, shortcuts and u
   await expect(header).toBeVisible();
   await expect(header.locator('img[alt="SDD Vault"]')).toBeVisible();
   await expect(page.getByRole("button", { name: "Organization" })).toContainText(`Shell ${slug}`);
-  await expect(page.getByRole("button", { name: "Project" })).toContainText("payments");
+  await expect(page.getByRole("button", { name: "Project", exact: true })).toContainText(
+    "payments",
+  );
   expect(await header.evaluate((element) => getComputedStyle(element).backgroundColor)).not.toBe(
     "rgba(0, 0, 0, 0)",
   );
@@ -70,7 +73,7 @@ test("the shell wraps the app with the header, sidebar, palette, shortcuts and u
   await page.screenshot({ path: `${evidence}/shell-notifications.png` });
   await page.keyboard.press("Escape");
 
-  await page.getByRole("button", { name: "Project" }).click();
+  await page.getByRole("button", { name: "Project", exact: true }).click();
   await expect(page.getByRole("option", { name: /payments/ })).toHaveAttribute(
     "aria-selected",
     "true",

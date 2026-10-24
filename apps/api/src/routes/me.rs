@@ -19,6 +19,7 @@ pub struct Me {
   pub email: String,
   pub name: String,
   pub is_operator: bool,
+  pub mcp_url: Option<String>,
 }
 
 #[utoipa::path(
@@ -28,12 +29,13 @@ pub struct Me {
   tag = "me",
   responses((status = 200, body = Me), (status = 401, body = ErrorBody), (status = 403, body = ErrorBody), (status = 404, body = ErrorBody), (status = 422, body = ErrorBody))
 )]
-pub async fn me(principal: Principal) -> Json<Me> {
+pub async fn me(State(state): State<AppState>, principal: Principal) -> Json<Me> {
   Json(Me {
     handle: principal.caller.handle,
     email: principal.identity.email,
     name: principal.identity.name,
     is_operator: principal.caller.is_operator,
+    mcp_url: state.config.mcp_url.clone(),
   })
 }
 
