@@ -92,7 +92,8 @@ test("a member lands on an organization, sees its projects and can switch organi
   const { router } = renderAt("/");
   expect(await screen.findByRole("heading", { name: "Acme Labs" })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Demo" })).toHaveAttribute("href", "/p/acme/demo");
-  await userEvent.selectOptions(screen.getByLabelText("Organization"), "beta");
+  await userEvent.click(screen.getByRole("button", { name: "Organization" }));
+  await userEvent.click(screen.getByRole("option", { name: /Beta Inc/ }));
   expect(await screen.findByRole("heading", { name: "Beta Inc" })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Site" })).toBeInTheDocument();
   expect(router.state.location.pathname).toBe("/o/beta");

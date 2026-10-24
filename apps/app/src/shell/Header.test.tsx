@@ -121,3 +121,12 @@ test("the notifications button shows a badge only when something is unread", () 
   expect(screen.getByText("3")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Notifications, 3 unread" })).toBeInTheDocument();
 });
+
+test("picking an organization reports the change before navigating", async () => {
+  const handlers = props({ onOrganizationChange: vi.fn() });
+  renderShell(<Header {...handlers} />, "/profile");
+  await userEvent.click(screen.getByRole("button", { name: "Organization" }));
+  await userEvent.click(screen.getByRole("option", { name: /Beta Inc/ }));
+  expect(handlers.onOrganizationChange).toHaveBeenCalledWith("beta");
+  expect(screen.getByTestId("location")).toHaveTextContent("/profile");
+});

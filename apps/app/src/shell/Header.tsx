@@ -17,6 +17,7 @@ export interface HeaderProps {
   onOpenShortcuts: () => void;
   onOpenNotifications: () => void;
   onOpenMenu: () => void;
+  onOrganizationChange?: (slug: string) => void;
 }
 
 function MenuIcon() {
@@ -43,6 +44,7 @@ export function Header({
   onOpenShortcuts,
   onOpenNotifications,
   onOpenMenu,
+  onOrganizationChange,
 }: HeaderProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -83,7 +85,10 @@ export function Header({
               searchPlaceholder={t("shell.searchOrganization")}
               emptyText={t("shell.noOrganization")}
               aria-label={t("shell.organization")}
-              onChange={(slug) => navigate(switchOrganizationPath(pathname, slug))}
+              onChange={(slug) => {
+                onOrganizationChange?.(slug);
+                navigate(switchOrganizationPath(pathname, slug));
+              }}
               actions={[
                 {
                   key: "create-organization",

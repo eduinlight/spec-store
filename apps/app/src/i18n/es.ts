@@ -36,6 +36,13 @@ export const es: Translation = {
     notifications: "Notificaciones",
     unread: "{{count}} sin leer",
     openMenu: "Abrir menú",
+    backTo: "Volver a",
+    sdd: "SDD",
+    account: "Cuenta",
+    userMenu: "Menú de usuario",
+    notificationsEmpty: "No tienes nada pendiente.",
+    mainNavigation: "Navegación principal",
+    operator: "Operador",
     nav: {
       overview: "Resumen",
       active: "Specs activas",
@@ -53,6 +60,41 @@ export const es: Translation = {
       orgAudit: "Auditoría",
       projects: "Proyectos",
       invitations: "Invitaciones",
+    },
+  },
+  placeholder: {
+    comingSoon: "Próximamente",
+    active: {
+      title: "Specs activas",
+      body: "Esta pantalla mostrará las specs en las que trabaja tu equipo ahora mismo, con su avance y sus próximas tareas.",
+    },
+    specs: {
+      title: "Specs",
+      body: "Pronto verás la lista completa de specs del proyecto, con filtros por estado.",
+    },
+    activity: {
+      title: "Actividad",
+      body: "Pronto verás en vivo lo que personas y agentes cambian en este proyecto.",
+    },
+    members: {
+      title: "Miembros del proyecto",
+      body: "Pronto podrás invitar personas y gestionar sus roles por proyecto. Por ahora, gestiónalos en los ajustes del proyecto.",
+    },
+    tokens: {
+      title: "Mis tokens",
+      body: "Pronto podrás crear y revocar los tokens que usan tus agentes para conectarse.",
+    },
+    preferences: {
+      title: "Preferencias",
+      body: "Pronto llegarán las preferencias de notificaciones, vista por defecto y zona horaria.",
+    },
+    security: {
+      title: "Seguridad",
+      body: "Pronto llegarán las políticas de inicio de sesión, la vida de los tokens y las reglas de red de la organización.",
+    },
+    billing: {
+      title: "Facturación y uso",
+      body: "Pronto verás el uso por proyecto y agente, y las facturas.",
     },
   },
   errors: {

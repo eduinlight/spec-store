@@ -34,6 +34,13 @@ export const en = {
     notifications: "Notifications",
     unread: "{{count}} unread",
     openMenu: "Open menu",
+    backTo: "Back to",
+    sdd: "SDD",
+    account: "Account",
+    userMenu: "User menu",
+    notificationsEmpty: "Nothing waiting for you.",
+    mainNavigation: "Main navigation",
+    operator: "Operator",
     nav: {
       overview: "Overview",
       active: "Active specs",
@@ -51,6 +58,41 @@ export const en = {
       orgAudit: "Audit",
       projects: "Projects",
       invitations: "Invitations",
+    },
+  },
+  placeholder: {
+    comingSoon: "Coming soon",
+    active: {
+      title: "Active specs",
+      body: "This screen will show the specs your team is working on right now, with their progress and next tasks.",
+    },
+    specs: {
+      title: "Specs",
+      body: "The full list of specs of the project, with filters by status, is coming.",
+    },
+    activity: {
+      title: "Activity",
+      body: "A live feed of what people and agents change in this project is coming.",
+    },
+    members: {
+      title: "Project members",
+      body: "Inviting people and managing their roles per project is coming. For now, manage them in the project settings.",
+    },
+    tokens: {
+      title: "My tokens",
+      body: "Creating and revoking the tokens your agents use to connect is coming.",
+    },
+    preferences: {
+      title: "Preferences",
+      body: "Notification, default view and time zone preferences are coming.",
+    },
+    security: {
+      title: "Security",
+      body: "Sign-in policies, token lifetime and network rules for the organization are coming.",
+    },
+    billing: {
+      title: "Billing & usage",
+      body: "Usage by project and agent, and invoices, are coming.",
     },
   },
   errors: {
